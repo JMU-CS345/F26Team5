@@ -1,0 +1,171 @@
+classDiagram
+    class Entity{
+        <<abstract>>
+        +x:float
+        +y:float
+        +z:float
+        +length:int
+        +width:int
+        +height:int
+        +velocity:float
+        +sprites:String
+        +update(dt)
+        +draw()
+    }
+    
+    class Player{
+        +startingClass:String
+        +heldWeapons[Slot1:Weapon, Slot2:Weapon]
+        -activeSlot:int
+        +equippedGear[Head:Gear, Body:Gear, Legs:Gear]
+        +gold:int
+        +inventory[]
+        +attackDef()
+        +swapActiveWeapon()
+        +openInventory()
+    }
+
+    class Enemy{
+        <<abstract>>
+        +name:String
+        +type:String
+        +element:String
+        -health:int
+        +movementDef()
+        +attackDef()
+        +onHit()
+        +onDeath()
+    }
+
+    class Friendly {
+        +talkable:Boolean
+        +talk()
+    }
+
+    class Merchant {
+        +inventory[]
+        +openShop()
+    }
+
+    class Item {
+        +name:String
+        +type:String
+        +onPickup()
+    }
+
+    class Gear {
+        +slot:String
+        +statModifiers
+    }
+
+    class Weapon {
+        +meleeOrMissile:String
+        +damage:int
+        +range:int
+        +chargeable:Boolean
+        -isCharging:Boolean
+        -chargeTime:float
+        +attackPattern:Object
+        +attackAnimation:String
+        +startCharge()
+        +releaseCharge()
+        +attackDef()
+    }
+
+    class Attack {
+        <<abstract>>
+        +source:Entity
+        +damage:int
+        -lifetime:float
+        +damageType:String
+        +onHit(target)
+    }
+
+    class Slash {
+        +slashDef()
+    }
+
+    class Projectile {
+        +pathDef()
+    }
+
+    class Gold {
+        +value:int
+    }
+
+    class Food {
+        +healingAmount:int
+    }
+
+    class DungeonGenerator{
+        +seed:int
+        +modifierPool[]
+        +generate()Dungeon
+    }
+
+    class Dungeon {
+        +rooms[]
+        +modifiers[]
+        -currentRoomIndex:int
+        +getCurrentRoom()Room
+        +advanceRoom(exitDirection)
+    }
+
+    class Room {
+        <<abstract>>
+        +width:int
+        +height:int
+        +enemies[]
+        +items[]
+        +exits[]
+        -cleared:Boolean
+        +generateLayout()
+        +onEnter()
+        +onClear()
+    }
+
+    class NormalRoom {
+        +tileGrid[]
+        +generateLayout()
+    }
+
+    class CaveRoom {
+        +generateLayout()
+    }
+
+    class TreasureRoom {
+        +generateLayout()
+    }
+
+    class BossRoom {
+        +boss:Enemy
+        +onClear()
+    }
+
+    Entity <|-- Player
+    Entity <|-- Enemy
+    Entity <|-- Friendly
+    Friendly <|-- Merchant
+    Entity <|-- Item
+    Item <|-- Weapon
+    Attack <|-- Projectile
+    Item <|-- Gold
+    Attack <|-- Slash
+    Item <|-- Food
+    Entity <|-- Attack
+    Item <|-- Gear
+    Player o-- Weapon : heldWeapons
+    Player o-- Item : inventory
+    Player o-- Gear : equippedGear
+    Merchant o-- Item : inventory
+    Attack <.. Weapon : spawns
+    Attack <.. Enemy : spawns
+
+    Dungeon <.. DungeonGenerator : creates
+    Dungeon "1" *-- "many" Room
+    Room <|-- NormalRoom
+    Room <|-- CaveRoom
+    Room <|-- TreasureRoom
+    Room <|-- BossRoom
+    Room o-- Enemy : enemies
+    Room o-- Item : items
