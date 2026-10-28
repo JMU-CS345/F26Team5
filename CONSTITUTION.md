@@ -340,3 +340,4 @@ spec/
 | nick-reis | Nicolas Reiser |10/28/26|
 |  PrabeshDhakal-commits56     | Prabesh Dhakal | 10/28/26  |
 | Vincent-Barr | Vincent Barr |10/28/26|
+| SketchyRock | Enzo Hins |10/28/26|
