@@ -16,7 +16,7 @@ _
 | Name | GitHub username | Preferred contact | Usual availability |
 | ------ | ----------------- | ------------------- | -------------------- |
 | Enzo Hins | SketchyRock | @rock75 | Whenever |
-| Nicolas Reiser | nick-reis | @ nickw1738 | whenever |
+| Nicolas Reiser | nick-reis | @nickw1738 | whenever |
 | Vincent Barr | Vincent-Barr | @Vincent Barr | whenever |
 | Minhhai Quach | minhhaiquach | @ minhhaiku | whenever |
 
