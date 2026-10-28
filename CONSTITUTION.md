@@ -93,15 +93,16 @@ _
 
 ### Estimation
 
-**Method:** *(story points, t-shirt sizes, hours)*
+**Method:** *(story points, t-shirt sizes, hours)* t-shirt sizes (xs -> XL)
 
-**Scale:** *(e.g., 1, 2, 3, 5, 8, 13)*
+**Scale:** *(e.g., 1, 2, 3, 5, 8, 13)* (xs -> XL)
 
 _
 
 ### Backlog and Board
 
 **Where the backlog lives:** *(e.g., GitHub Projects board, link here)*
+link: <https://github.com/orgs/JMU-CS345/projects/12/views/1>
 
 **Board columns:** *(e.g., To Do → In Progress → In Review → Done)*
 
@@ -113,25 +114,25 @@ _
 
 ### Primary Channel
 
-**Channel:** *(Discord, Slack, GroupMe, ...)*
+**Channel:** *(Discord, Slack, GroupMe, ...)* Discord
 
-**Expected response time:** *(e.g., within 12 hours on weekdays)*
+**Expected response time:** *(e.g., within 12 hours on weekdays)* within 12 hours weekdays
 
 ### What Goes Where
 
-*(What is discussed in the chat channel vs. in GitHub issues vs. in PR comments?)*
+*(What is discussed in the chat channel vs. in GitHub issues vs. in PR comments?)* comments are made are in issues and prs, however everything should be fully communicated in discord because everyone has notifications for it.
 
 _
 
 ### Reporting Blockers or Falling Behind
 
-*(How and how early does a member tell the team they are stuck or behind?)*
+*(How and how early does a member tell the team they are stuck or behind?)* @everyone on discord, explaining their roadblock
 
 _
 
 ### Absences
 
-*(How much notice is required? How is the absent member's work covered?)*
+*(How much notice is required? How is the absent member's work covered?)* within 4 hours of the meeting time the missing member must notify the group of their absence. the missing member will cover their own work before the next meeting unless brought up with the group to be handled otherwise.
 
 _
 
@@ -141,19 +142,25 @@ _
 
 ### Branch Naming
 
-**Format:** *(e.g., `type/issue-short-description`)*
+**Format:** *(e.g., `type/issue-short-description`)* "type/short-title-description"
 
-**Allowed types:** *(e.g., `feature`, `fix`, `docs`, `refactor`, `test`, `chore`)*
+**Allowed types:** *(e.g., `feature`, `fix`, `docs`, `refactor`, `test`, `chore`)*:
+
+- feature: Introduces a new feature to the codebase.
+- fix: Patches a bug in the codebase.
+- docs: Documentation change or addition. No codebase alteration.
+- refactor: Large codebase changes to existing infrastructure.
+- test: Add testing to ensure functionality.
 
 **Examples:**
 
--
--
+- test/test-suite-class-picker
+- feature/main-menu-settings-button
 
 ### Branch Protection on `main`
 
 - [ ] No direct pushes to `main`
-- [ ] Required approvals before merge: _
+- [ ] Required approvals before merge
 - [ ] CI must pass before merge
 - [ ] Same protection on `production`
 
@@ -161,33 +168,35 @@ _
 
 *(Format and style, e.g., imperative mood: "Add rune puzzle validation". Do we follow Conventional Commits?)*
 
+Use the format "type: imperative summary" for example, "fix: handle empty search results" with a concise subject that says what the change does, and add a body only when more context is needed
+
 _
 
 ### Pull Requests
 
-**Maximum size:** *(e.g., aim for under 300 changed lines)*
+**Maximum size:** *(e.g., aim for under 300 changed lines)* stay near ~300 line for a PR
 
-**Description template:** *(e.g., What / Why / How to test / Screenshot)*
+**Description template:** *(e.g., What / Why / How to test / Screenshot)* What / Why / How to test / Screenshot - discuss with the person revewing the PR
 
-**Linking issues:** *(e.g., every PR includes `Closes #N`)*
+**Linking issues:** *(e.g., every PR includes `Closes #N`)* every PR includes "Closes #N" <- issue number
 
 _
 
 ### Code Review
 
-**Review turnaround:** *(e.g., within 24 hours of being requested)*
+**Review turnaround:** *(e.g., within 24 hours of being requested)* within 24 hrs
 
-**Who reviews what:** *(e.g., any teammate; or a rotating assignment)*
+**Who reviews what:** *(e.g., any teammate; or a rotating assignment)* any teammate, however keep reviews spread out, so no one person has sole responsibility of too many.
 
 _
 
 ### Merging
 
-**Merge style:** *(merge commit, squash and merge, or rebase and merge)*
+**Merge style:** *(merge commit, squash and merge, or rebase and merge)* squash and merge
 
-**Who merges:** *(the author after approval, or the reviewer)*
+**Who merges:** *(the author after approval, or the reviewer)* the reviewer can approve a PR and the author merges
 
-**After merge:** *(e.g., delete the branch)*
+**After merge:** *(e.g., delete the branch)* after merge delete branch
 
 _
 
