@@ -1,0 +1,30 @@
+<!doctype html>
+<!--
+  SpecRunner.html: runs your Jasmine specs in the browser.
+
+  Keep this file at the TOP LEVEL of your repo. The GitHub workflow looks for it there.
+  Open it with VS Code Live Server to see the results.
+
+  Every time you add a source file or a spec file, add a <script> tag for it below,
+  or its tests will not run.
+-->
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Mage Quest specs</title>
+
+  <!-- Jasmine (loaded from a CDN, so nothing to install) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/jasmine-core@5.1.2/lib/jasmine-core/jasmine.css">
+  <script src="https://cdn.jsdelivr.net/npm/jasmine-core@5.1.2/lib/jasmine-core/jasmine.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jasmine-core@5.1.2/lib/jasmine-core/jasmine-html.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jasmine-core@5.1.2/lib/jasmine-core/boot0.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jasmine-core@5.1.2/lib/jasmine-core/boot1.js"></script>
+
+  <!-- Code under test: the same order as index.html, but WITHOUT p5.js and sketch.js -->
+  <!-- e.g. <script src="src/model/player.js"></script> -->
+
+  <!-- Specs: change "test/" if your team's test folder has a different name -->
+  <script src="spec/example.spec.js"></script>
+</head>
+<body></body>
+</html>
