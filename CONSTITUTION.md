@@ -20,28 +20,30 @@ _
 | Vincent Barr | Vincent-Barr | @Vincent Barr | whenever |
 | Minhhai Quach | minhhaiquach | @ minhhaiku | whenever |
 
+_
+
 ### Scrum Master
 
-**Sprint 1 Scrum Master:** _ Enzo Hins
+**Sprint 1 Scrum Master:** Enzo Hins
 
 **Does the role rotate?** The Scrum master will rotate every sprint, however if the first scrum master proves to be compitent, then they will stay.
 _
 
 ### Product Owner
 
-*Choose one team member who will interact with the instructor (stakeholder) to clarify and prioritize stories, and to collect new ones.*
+*Choose one team member who will interact with the instructor (stakeholder) to clarify and prioritize stories, and to collect new ones.* Vincent
 
 _
 
 ### Other Responsibilities
 
-Who is responsible for maintaining the project board / backlog in good order? *(Scrum Master?)*
+Who is responsible for maintaining the project board / backlog in good order? *(Scrum Master?)* Enzo (SM)
 
-Who is responsible for deploying the main branch to production to update GitHub pages?
+Who is responsible for deploying the main branch to production to update GitHub pages? Minhhai
 
 ### Decision Making
 
-*(How do we decide things: consensus, majority vote, Scrum Master decides? What happens if we are deadlocked?)*
+*(How do we decide things: consensus, majority vote, Scrum Master decides? What happens if we are deadlocked?)* Majority vote in discord
 
 _
 
