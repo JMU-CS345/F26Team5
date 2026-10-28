@@ -1,32 +1,30 @@
 # Team Constitution
 
 *This document records how our team works together on Mage Quest. Fill in every field. Replace the italic guidance with your team's decisions. Changes to this document go through a pull request like any other change.*
-
 ---
 
 ## 1. Team and Roles
 
-### Team Number
+### Team Number: 5
 
-### Team Name
+### Team Name: Team Fortress 3
 
 _
 
 ### Members
 
 | Name | GitHub username | Preferred contact | Usual availability |
-|------|-----------------|-------------------|--------------------|
-|      |                 |                   |                    |
-|      |                 |                   |                    |
-|      |                 |                   |                    |
-|      |                 |                   |                    |
+| ------ | ----------------- | ------------------- | -------------------- |
+| Enzo Hins | SketchyRock | @rock75 | Whenever |
+| Nicolas Reiser | nick-reis | @ nickw1738 | whenever |
+| Vincent Barr | Vincent-Barr | @Vincent Barr | whenever |
+| Minhhai Quach | minhhaiquach | @ minhhaiku | whenever |
 
 ### Scrum Master
 
-**Sprint 1 Scrum Master:** _
+**Sprint 1 Scrum Master:** _ Enzo Hins
 
-**Does the role rotate?** *(e.g., rotates each sprint in the order listed above; or one person for the whole project)*
-
+**Does the role rotate?** The Scrum master will rotate every sprint, however if the first scrum master proves to be compitent, then they will stay.
 _
 
 ### Product Owner
@@ -54,22 +52,21 @@ _
 ### Sprint Length and Dates
 
 | Sprint | Start | End | Review / Retro date |
-|--------|-------|-----|---------------------|
+| -------- | ------- | ----- | --------------------- |
 | 1 | 11/2 | 11/8 | 11/9 |
 | 2 | 11/9 | 11/15 | 11/16 |
 | 3 | 11/16 | 11/29 | 11/30 |
 | 4 | 11/30 | 12/6 | 12/7 |
-| 5 | 12/7 | presentation day | presentation day | 
+| 5 | 12/7 | presentation day | presentation day |
 
 ### Meetings
 
 | Meeting | When |
-|---------|------|
+| --------- | ------ |
 | Daily standup | Wed/Fri |
 | Sprint planning | Mon |
 | Sprint review | Mon |
 | Sprint retrospective | Mon |
-
 
 _
 
@@ -199,7 +196,7 @@ _
 ### Naming
 
 | Kind | Convention | Example |
-|------|------------|---------|
+| ------ | ------------ | --------- |
 | Variables and functions | | |
 | Classes | | |
 | Constants | | |
