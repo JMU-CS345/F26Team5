@@ -90,7 +90,7 @@ _
 - [ ] merged to `main`
 - [ ] works in the deployed build
 - [ ] the issue is closed
-- [ ]
+- [ ] acceptance criteria are met
 
 ### Estimation
 
@@ -105,7 +105,7 @@ _
 **Where the backlog lives:** *(e.g., GitHub Projects board, link here)*
 link: <https://github.com/orgs/JMU-CS345/projects/12/views/1>
 
-**Board columns:** *(e.g., To Do → In Progress → In Review → Done)*
+**Board columns:** *(e.g., To Do → In Progress → In Review → Done)* To Do → In Progress → In Review → Done
 
 _
 
@@ -160,10 +160,10 @@ _
 
 ### Branch Protection on `main`
 
-- [ ] No direct pushes to `main`
-- [ ] Required approvals before merge
-- [ ] CI must pass before merge
-- [ ] Same protection on `production`
+- [x] No direct pushes to `main`
+- [x] Required approvals before merge (1)
+- [x] CI must pass before merge
+- [x] Same protection on `production`
 
 ### Commit Messages
 
@@ -209,25 +209,23 @@ _
 
 | Kind | Convention | Example |
 | ------ | ------------ | --------- |
-| Variables and functions | | |
-| Classes | | |
-| Constants | | |
-| Files | | |
-| Test files | | |
+| Variables and functions | camelCase | `playerHealth`, `castSpell()` |
+| Classes | PascalCase | `SpellBook` |
+| Constants | UPPER_SNAKE_CASE | `MAX_MANA` |
+| Files | kebab-case | `spell-book.js` |
+| Test files | `<name>.spec.js` | `spell-book.spec.js` |
 
 ### Formatting
 
-**Indentation:** *(2 spaces, 4 spaces, tabs)*
+**Indentation:** *(2 spaces, 4 spaces, tabs)* 2 spaces
 
-**Semicolons:** *(always / never)*
+**Semicolons:** *(always / never)* always
 
-**Quotes:** *(single / double)*
+**Quotes:** *(single / double)* double
 
-**Maximum line length:** _
+**Maximum line length:** 100
 
-**Tools:** *(e.g., Prettier and ESLint, with config files committed to the repo)*
-
-_
+**Tools:** *(e.g., Prettier and ESLint, with config files committed to the repo)* Prettier and ESLint, with config files committed to the repo
 
 ### Project Structure
 
@@ -246,22 +244,18 @@ spec/
 
 *(e.g., game logic never calls p5 drawing functions directly, so it can be unit tested)*
 
--
--
+- Game logic (model) never calls p5 drawing functions directly, so it can be unit tested.
+- Drawing code (view) never changes game state; input handling (controller) is the only thing that updates the model.
 
 ### Comments and Documentation
 
-*(When are comments or JSDoc required?)*
-
-_
+*(When are comments or JSDoc required?)* JSDoc on every exported function and class. Inline comments only to explain why, not what.
 
 ### Assets
 
-**File naming:** *(e.g., all lowercase, hyphens, no spaces)*
+**File naming:** *(e.g., all lowercase, hyphens, no spaces)* all lowercase, hyphens, no spaces
 
-**Licensing and attribution:** *(Where do we record the source and license of art, sound, and fonts we did not make?)*
-
-_
+**Licensing and attribution:** *(Where do we record the source and license of art, sound, and fonts we did not make?)* In `assets/CREDITS.md`, one line per asset with source URL and license.
 
 ---
 
@@ -269,55 +263,41 @@ _
 
 **Test framework:** Jasmine
 
-**Where tests live:** _
+**Where tests live:** `spec/`
 
-**What must have tests:** *(e.g., all model code; every bug fix gets a test that reproduces it; combat and puzzle rules)*
-
-_
+**What must have tests:** *(e.g., all model code; every bug fix gets a test that reproduces it; combat and puzzle rules)* All model code; every bug fix gets a test that reproduces it.
 
 **Coverage expectations:** 90+%
 
-**Continuous integration:** *(What does GitHub Actions run on each PR?)*
+**Continuous integration:** *(What does GitHub Actions run on each PR?)* Lint, Jasmine tests, and a coverage check.
 
-_
+**Rule for failing CI:** *(e.g., nothing merges while CI is red)* Nothing merges while CI is red.
 
-**Rule for failing CI:** *(e.g., nothing merges while CI is red)*
-
-_
-
-**Manual playtesting:** *(Who plays the build before each sprint review, and how are bugs reported?)*
-
-_
+**Manual playtesting:** *(Who plays the build before each sprint review, and how are bugs reported?)* The whole team plays the build before each sprint review. Bugs are reported as GitHub issues.
 
 ---
 
 ## 7. Deployment
 
-**Where the game is deployed:** GitHub Pages, URL here
+**Where the game is deployed:** GitHub Pages, https://jmu-cs345.github.io/F26Team5/
 
-**What triggers a deploy:** *(e.g., a release PR from `main` into `production`, opened by the Scrum Master after each sprint review)*
+**What triggers a deploy:** *(e.g., a release PR from `main` into `production`, opened by the Scrum Master after each sprint review)* A release PR from `main` into `production`, opened by the Scrum Master after each sprint review.
 
-**Who checks the deployed build, and when:** _
+**Who checks the deployed build, and when:** Minhhai, right after each deploy.
 
 ---
 
 ## 8. AI Tool Usage
 
-**Allowed tools:** _
+**Allowed tools:** Claude, ChatGPT, GitHub Copilot
 
-**Allowed uses:** *(e.g., code generation, tests, documentation, review)*
+**Allowed uses:** *(e.g., code generation, tests, documentation, review)* Code generation, tests, documentation, and review.
 
-_
+**Not allowed:** Submitting AI output the author does not understand, or pasting secrets or private data into AI tools.
 
-**Not allowed:** _
+**Disclosure:** *(e.g., note AI assistance in the PR description)* Note AI assistance in the PR description.
 
-**Disclosure:** *(e.g., note AI assistance in the PR description)*
-
-_
-
-**Responsibility:** *(e.g., whoever submits AI-generated code must understand it and is accountable for it)*
-
-_
+**Responsibility:** *(e.g., whoever submits AI-generated code must understand it and is accountable for it)* Whoever submits AI-generated code must understand it and is accountable for it.
 
 ---
 
@@ -325,36 +305,28 @@ _
 
 ### Expected Effort
 
-*(Hours per person per week.)*
-
-_
+*(Hours per person per week.)* About 6 hours per person per week.
 
 ### Fair Contribution
 
-*(What counts as contributing, and how is it tracked? e.g., PRs merged, reviews done, story points completed.)*
-
-_
+*(What counts as contributing, and how is it tracked? e.g., PRs merged, reviews done, story points completed.)* PRs merged, reviews done, and story points completed, tracked on the project board and in git history.
 
 ### Conflict Resolution
 
 *(What steps do we follow when there is a disagreement or a problem with a teammate?)*
 
-1. *(e.g., talk to the person directly)*
-2. *(e.g., raise it at the retrospective)*
-3. *(e.g., Scrum Master mediates)*
-4. *(e.g., escalate to the instructor)*
+1. Talk to the person directly
+2. Raise it at the retrospective
+3. Scrum Master mediates
+4. Escalate to the instructor
 
 ### Missed Commitments
 
-*(What happens when a member repeatedly misses commitments?)*
-
-_
+*(What happens when a member repeatedly misses commitments?)* The Scrum Master talks to them first, then the conflict resolution steps above apply.
 
 ### Amending This Constitution
 
-*(How can this document be changed? e.g., proposed by PR, approved by team vote at a retrospective.)*
-
-_
+*(How can this document be changed? e.g., proposed by PR, approved by team vote at a retrospective.)* Proposed by PR and approved by majority vote in Discord.
 
 ---
 
