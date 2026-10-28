@@ -1,0 +1,32 @@
+# .github/workflows/tests.yml
+name: Tests
+
+on:
+  pull_request:
+    branches: [main, production]   # check every PR before it merges
+  push:
+    branches: [production]         # and again after a release merges
+
+jobs:
+  jasmine:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Jasmine specs in headless Chrome
+        run: |
+          google-chrome --headless=new --no-sandbox --disable-gpu \
+            --virtual-time-budget=15000 \
+            --dump-dom "file://$PWD/SpecRunner.html" > results.html
+
+          # Summary line, e.g. "52 specs, 0 failures"
+          summary=$(grep -o 'jasmine-overall-result[^>]*>[^<]*' results.html | sed 's/.*>//')
+          echo "Jasmine: ${summary:-no result found}"
+
+          # Name and message of each failing spec
+          perl -0ne 'while (/<div class="jasmine-spec-detail jasmine-failed">.*?<div class="jasmine-description">(.*?)<\/div>.*?<div class="jasmine-result-message">(.*?)<\/div>/gs) {
+            my ($d, $m) = ($1, $2); $d =~ s/<[^>]+>//g; $d =~ s/&gt;/>/g;
+            print "FAILED: $d\n  $m\n" }' results.html
+
+          # Pass only if Jasmine marked the whole run as passed
+          grep -q 'jasmine-overall-result[^"]*jasmine-passed' results.html
