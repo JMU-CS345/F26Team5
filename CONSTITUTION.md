@@ -337,6 +337,6 @@ spec/
 | GitHub name | Signature (type your name) | Date |
 |------|----------------------------|------|
 |minhhaiquach | Minhhai |10/28/26|
-|      |                            |      |
+| nick-reis | Nicolas Reiser |10/28/26|
 |      |                            |      |
 |      |                            |      |
