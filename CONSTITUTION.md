@@ -249,13 +249,13 @@ spec/
 
 ### Comments and Documentation
 
-*(When are comments or JSDoc required?)* JSDoc on every exported function and class. Inline comments only to explain why, not what.
+*(When are comments or JSDoc required?)* Inline comments only to explain why. more in depth docs explain what.
 
 ### Assets
 
 **File naming:** *(e.g., all lowercase, hyphens, no spaces)* all lowercase, hyphens, no spaces
 
-**Licensing and attribution:** *(Where do we record the source and license of art, sound, and fonts we did not make?)* In `assets/CREDITS.md`, one line per asset with source URL and license.
+**Licensing and attribution:** *(Where do we record the source and license of art, sound, and fonts we did not make?)* In a place like`assets/CREDITS.md`, one line per asset with source URL and license.
 
 ---
 
@@ -263,11 +263,11 @@ spec/
 
 **Test framework:** Jasmine
 
-**Where tests live:** `spec/`
+**Where tests live:** `tests/`
 
-**What must have tests:** *(e.g., all model code; every bug fix gets a test that reproduces it; combat and puzzle rules)* All model code; every bug fix gets a test that reproduces it.
+**What must have tests:** *(e.g., all model code; every bug fix gets a test that reproduces it; combat and puzzle rules)* model code, every bug fix has a test that reproduces it.
 
-**Coverage expectations:** 90+%
+**Coverage expectations:** 90%
 
 **Continuous integration:** *(What does GitHub Actions run on each PR?)* Lint, Jasmine tests, and a coverage check.
 
@@ -283,17 +283,17 @@ spec/
 
 **What triggers a deploy:** *(e.g., a release PR from `main` into `production`, opened by the Scrum Master after each sprint review)* A release PR from `main` into `production`, opened by the Scrum Master after each sprint review.
 
-**Who checks the deployed build, and when:** Minhhai, right after each deploy.
+**Who checks the deployed build, and when:** product manager, right after each deploy.
 
 ---
 
 ## 8. AI Tool Usage
 
-**Allowed tools:** Claude, ChatGPT, GitHub Copilot
+**Allowed tools:** Any AI tools
 
 **Allowed uses:** *(e.g., code generation, tests, documentation, review)* Code generation, tests, documentation, and review.
 
-**Not allowed:** Submitting AI output the author does not understand, or pasting secrets or private data into AI tools.
+**Not allowed:** Submitting AI output the author does not understand, or private data into AI tools.
 
 **Disclosure:** *(e.g., note AI assistance in the PR description)* Note AI assistance in the PR description.
 
@@ -305,7 +305,7 @@ spec/
 
 ### Expected Effort
 
-*(Hours per person per week.)* About 6 hours per person per week.
+*(Hours per person per week.)* About 5 hours per person per week.
 
 ### Fair Contribution
 
