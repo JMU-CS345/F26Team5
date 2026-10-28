@@ -19,6 +19,7 @@ _
 | Nicolas Reiser | nick-reis | @nickw1738 | whenever |
 | Vincent Barr | Vincent-Barr | @Vincent Barr | whenever |
 | Minhhai Quach | minhhaiquach | @ minhhaiku | whenever |
+| Prabesh Dhakal | PrabeshDhakal-commits56 | 4344358638 | Whenever|
 
 ### Scrum Master
 
