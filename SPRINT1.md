@@ -6,19 +6,19 @@
 
 ## 1. Meeting Details
 
-**Date:** _
+**Date:** 11/2/2026
 
-**Scrum Master:** _
+**Scrum Master:** Enzo Hins
 
-**Attendees:** _
+**Attendees:** Minhhai, nick, brabess, vincent
 
-**Absent:** _
+**Absent:** N/A
 
 ---
 
 ## 2. Sprint Goal
 
-*One or two sentences describing a playable outcome, not a list of tickets. e.g., "A player can create a character and enter the first dungeon."*
+*Player is introduced to the game menu screen. Player can then create a character and select a class and move around on a blank screen and attack an enemy.*
 
 _
 
@@ -26,17 +26,17 @@ _
 
 ## 3. Capacity and Velocity
 
-**Sprint dates:** _ to _
+**Sprint dates:** 11/2/2026 to 11/9/2026
 
-**Velocity last sprint (points completed):** _ *(Sprint 1: write "n/a")*
+**Velocity last sprint (points completed):** N/A
 
-**Average velocity so far:** _
+**Average velocity so far:** N/A
 
-**Known absences or reduced availability this sprint:** _
+**Known absences or reduced availability this sprint:** N/A
 
-**Points committed this sprint:** _
+**Points committed this sprint:** 1 + 2 + 3 + 3 + 1 + 3 = 13
 
-**Why this commitment is realistic:** *(Compare it to your velocity and capacity. If you are committing more than last sprint's velocity, explain why.)*
+**Why this commitment is realistic:** starting off fairly ambitious to gauge how we should plan our next sprint.
 
 _
 
@@ -54,9 +54,9 @@ _
 |         |            |          |       | [ ]    |
 |         |            |          |       | [ ]    |
 
-**Total points:** _
+**Total points:** 13
 
-**Notes:** _
+**Notes:** N/A
 
 ---
 
