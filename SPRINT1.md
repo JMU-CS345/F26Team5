@@ -1,6 +1,4 @@
-# Sprint Planning Report: Sprint _
-
-*Copy this file into `scrum/planning/` using your team's naming format. Fill in every field. Replace the italic guidance with your team's information.*
+# Sprint Planning Report: Sprint 1
 
 ---
 
@@ -10,73 +8,115 @@
 
 **Scrum Master:** Enzo Hins
 
-**Attendees:** Minhhai, nick, brabess, vincent
+**Attendees:** Enzo Hins, Minhhai Quach, Nicolas Reiser, Prabesh Dhakal, Vincent Barr
 
-**Absent:** N/A
+**Absent:** None
 
 ---
 
 ## 2. Sprint Goal
 
-*Player is introduced to the game menu screen. Player can then create a character and select a class and move around on a blank screen and attack an enemy.*
-
-_
+A player starts at a menu, picks a Fire, Ice or Mind mage, then moves around a walled room and casts spells at an enemy that chases them. If the enemy kills them, they see a death screen.
 
 ---
 
 ## 3. Capacity and Velocity
 
-**Sprint dates:** 11/2/2026 to 11/9/2026
+**Sprint dates:** 11/2/2026 to 11/8/2026
 
-**Velocity last sprint (points completed):** N/A
+**Velocity last sprint (points completed):** n/a
 
-**Average velocity so far:** N/A
+**Average velocity so far:** n/a
 
-**Known absences or reduced availability this sprint:** N/A
+**Known absences or reduced availability this sprint:** None
 
-**Points committed this sprint:** 1 + 2 + 3 + 3 + 1 + 3 = 13
+**Points committed this sprint:** 13 (1 + 2 + 2 + 3 + 2 + 3)
 
-**Why this commitment is realistic:** starting off fairly ambitious to gauge how we should plan our next sprint.
-
-_
+**Why this commitment is realistic:** for the first sprint we are just gauging how much we can tackle.
 
 ---
 
 ## 4. Committed Backlog Items
 
-*Every item listed here must meet the Definition of Ready in your constitution. Items should be taken from the top of the product backlog in priority order. If you skipped a higher-priority item, explain why under "Notes".*
+All six have acceptance criteria in the issue and an estimate (Fibonacci points).
 
 | Issue # | User story | Estimate | Owner | Ready? |
 |---------|------------|----------|-------|--------|
-|         |            |          |       | [ ]    |
-|         |            |          |       | [ ]    |
-|         |            |          |       | [ ]    |
-|         |            |          |       | [ ]    |
-|         |            |          |       | [ ]    |
+| #1 | Movable Player | 1 | Enzo | [x] |
+| #2 | Single Room with Walls and Collision | 2 | Minhhai | [x] |
+| #5 | Class Selection Menu at Start of Run | 2 | Prabesh | [x] |
+| #3 | Basic Enemy that Chases the Player | 3 | Nicolas | [x] |
+| #6 | Health Indicator and Death Screen | 2 | Enzo | [x] |
+| #4 | Spell Casting/Projectile Shooting | 3 | Vincent | [x] |
 
 **Total points:** 13
 
-**Notes:** N/A
+**Notes:** These are the top six items on the board, so nothing higher was skipped. We pulled #5 ahead of #3, #4 and #6 because the goal starts at the menu. For #5 we only pick a class this sprint. Class weapons and stats are #7, which comes later, so all three classes play the same for now. The board's Sprint 1 runs to 11/10, but our constitution says it ends 11/8, so we're going with that.
 
 ---
 
 ## 5. Task Breakdown
 
-*Break each story into tasks. Include tasks for writing tests and reviewing PRs, not only coding.*
+Task sizes are Fibonacci points, not hours. Every story has a test task and a review task, and the reviewer is never the author.
 
-### Issue #_: *(story title)*
+### Issue #1: Movable Player (Enzo)
 
-- [ ]
-- [ ]
-- [ ]
+- [ ] Set up the p5 sketch with a black canvas and the src folders (2)
+- [ ] Player model plus WASD and arrow key input (2)
+- [ ] Draw the player and stop at the screen edges (1)
+- [ ] Jasmine specs for movement and edges (1)
+- [ ] Review PR (Minhhai) (1)
 
-### Issue #_: *(story title)*
+### Issue #2: Single Room with Walls and Collision (Minhhai)
 
-- [ ]
-- [ ]
-- [ ]
+- [ ] Room model with 16x16 wall tiles around the edge (2)
+- [ ] Draw the white wall tiles (1)
+- [ ] Player stops at walls (3)
+- [ ] Wall hit check that projectiles can reuse (1)
+- [ ] Jasmine specs for the room and collision (2)
+- [ ] Review PR (Nicolas) (1)
 
-*(Repeat for each committed story.)*
+### Issue #5: Class Selection Menu at Start of Run (Prabesh)
+
+- [ ] Game state model (menu, playing, dead) (2)
+- [ ] Menu screen with Fire, Ice and Mind (3)
+- [ ] Save the chosen class and start the run (1)
+- [ ] Show the menu again on each new run (1)
+- [ ] Jasmine specs for state changes and class choice (2)
+- [ ] Review PR (Vincent) (1)
+
+### Issue #3: Basic Enemy that Chases the Player (Nicolas)
+
+- [ ] Enemy model with speed, low health and detection range (2)
+- [ ] Move toward the player when in range (3)
+- [ ] Contact hurts the player and the enemy pauses briefly (2)
+- [ ] Remove the enemy when a projectile kills it (2)
+- [ ] Draw the colored square (1)
+- [ ] Jasmine specs for chase, contact damage and death (3)
+- [ ] Review PR (Enzo) (1)
+
+### Issue #6: Health Indicator and Death Screen (Enzo)
+
+- [ ] Max health and current health on the player (1)
+- [ ] Draw the health bar or number (1)
+- [ ] "You died" screen with a restart button (2)
+- [ ] Simple death animation (2)
+- [ ] Jasmine specs for damage, death and restart (2)
+- [ ] Review PR (Prabesh) (1)
+
+### Issue #4: Spell Casting/Projectile Shooting (Vincent)
+
+- [ ] Projectile model with direction and speed (2)
+- [ ] Fire with a key (facing direction) or left click (toward cursor) (3)
+- [ ] Draw the projectile (1)
+- [ ] Spark and remove on wall hit or leaving the screen (2)
+- [ ] Jasmine specs for firing and removal (2)
+- [ ] Review PR (Minhhai) (1)
+
+### Everyone
+
+- [ ] Playtest the deployed build before the review and file bugs as issues (2)
+- [ ] Minhhai deploys main to production after the review (2)
 
 ---
 
@@ -84,49 +124,45 @@ _
 
 | Member | Stories owned | Points |
 |--------|---------------|--------|
-|        |               |        |
-|        |               |        |
-|        |               |        |
-|        |               |        |
+| Enzo | #1, #6 | 3 |
+| Minhhai | #2 | 2 |
+| Prabesh | #5 | 2 |
+| Nicolas | #3 | 3 |
+| Vincent | #4 | 3 |
 
 *If the work is not balanced, explain why:*
 
-_
+It's 2 or 3 points each. Minhhai also does the production deploy, and everyone reviews someone else's PR.
 
 ---
 
 ## 7. Stories Split or Deferred
 
-*Did you split any stories that were too large for one sprint, or move stories back to the backlog? List them and say why.*
-
-_
+Nothing needed splitting. For #3, moving along ground tiles in straight lines is optional in the issue, so the enemy just moves straight at the player for now. Everything from #7 on stays in the backlog, since it builds on the room, combat and class menu from this sprint.
 
 ---
 
 ## 8. Retrospective Follow-Through
 
-*Which action items from last sprint's retrospective are part of this sprint's plan, and how? (Sprint 1: write "n/a")*
+n/a, this is Sprint 1.
 
 | Action item | How it shows up in this sprint |
 |-------------|--------------------------------|
-|             |                                |
-|             |                                |
+| n/a | n/a |
 
 ---
 
 ## 9. Risks and Dependencies
 
-*What might stop the team from meeting the sprint goal? Which stories depend on others being finished first?*
-
-_
+#1 has to merge first because everything else builds on the player and sketch setup. #4 needs the wall hit check from #2, and #3 needs the health from #6 and the projectiles from #4, so those authors should talk early and use stubs in their tests until the real code merges. #5 touches the main sketch and will conflict if it merges late. Main is protected, so a slow review or failing CI can hold things up. This is also our first sprint, so the estimates are guesses.
 
 ---
 
 ## 10. Checklist
 
-- [ ] Sprint goal written
-- [ ] Every committed story meets the Definition of Ready
-- [ ] Every story has an owner
+- [x] Sprint goal written
+- [x] Every committed story meets the Definition of Ready
+- [x] Every story has an owner
 - [ ] Board updated: committed stories in the sprint, tasks created
-- [ ] Commitment compared to velocity
+- [x] Commitment compared to velocity
 - [ ] Report committed to `scrum/planning/` via pull request
