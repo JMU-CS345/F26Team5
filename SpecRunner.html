@@ -20,11 +20,16 @@
   <script src="https://cdn.jsdelivr.net/npm/jasmine-core@5.1.2/lib/jasmine-core/boot0.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/jasmine-core@5.1.2/lib/jasmine-core/boot1.js"></script>
 
-  <!-- Code under test: the same order as index.html, but WITHOUT p5.js and sketch.js -->
-  <!-- e.g. <script src="src/model/player.js"></script> -->
+  <!-- p5.js is loaded so specs can use p5.Vector. No sketch runs, so p5 globals like constrain() do not exist here. -->
+  <script src="p5.js"></script>
+
+  <!-- Code under test: the same order as index.html, but WITHOUT sketch.js -->
+  <script src="src/model/player.js"></script>
+  <script src="src/controller/input.js"></script>
 
   <!-- Specs: change "test/" if your team's test folder has a different name -->
   <script src="spec/example.spec.js"></script>
+  <script src="spec/player.spec.js"></script>
 </head>
 <body></body>
 </html>
