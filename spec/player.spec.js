@@ -76,3 +76,61 @@ describe("getMoveDirection", function () {
     expect(getMoveDirection(held()).magSq()).toBe(0);
   });
 });
+
+describe("Player health and death", function () {
+  let player;
+
+  beforeEach(function () {
+    player = new Player(50, 50);
+  });
+
+  function playDeathAnimation() {
+    for (let i = 0; i < DEATH_FRAMES; i++) player.update();
+  }
+
+  it("starts at full health, alive", function () {
+    expect(player.health).toBe(player.maxHealth);
+    expect(player.isDead()).toBe(false);
+  });
+
+  it("loses health when damaged", function () {
+    player.takeDamage(2);
+    expect(player.health).toBe(player.maxHealth - 2);
+    expect(player.isDead()).toBe(false);
+  });
+
+  it("dies at exactly 0 health and never goes negative", function () {
+    player.takeDamage(player.maxHealth + 10);
+    expect(player.health).toBe(0);
+    expect(player.isDead()).toBe(true);
+  });
+
+  it("does not show the death screen while alive", function () {
+    playDeathAnimation();
+    expect(player.deathFrames).toBe(0);
+    expect(player.showDeathScreen()).toBe(false);
+  });
+
+  it("plays the death animation before showing the death screen", function () {
+    player.takeDamage(player.maxHealth);
+    expect(player.showDeathScreen()).toBe(false);
+    player.update();
+    expect(player.showDeathScreen()).toBe(false);
+    playDeathAnimation();
+    expect(player.showDeathScreen()).toBe(true);
+  });
+
+  it("cannot move once dead", function () {
+    player.takeDamage(player.maxHealth);
+    player.move(new p5.Vector(1, 0), { width: 100, height: 100 });
+    expect(player.pos.x).toBe(50);
+  });
+
+  it("a new Player (restart) has full health and no death state", function () {
+    player.takeDamage(player.maxHealth);
+    playDeathAnimation();
+    const fresh = new Player(50, 50);
+    expect(fresh.isDead()).toBe(false);
+    expect(fresh.showDeathScreen()).toBe(false);
+  });
+});
