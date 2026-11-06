@@ -43,37 +43,137 @@ describe("Player movement", function () {
     for (let i = 0; i < 100; i++) player.move(new p5.Vector(0, -1), bounds);
     expect(player.pos.y).toBe(0);
     for (let i = 0; i < 100; i++) player.move(new p5.Vector(1, 0), bounds);
-    expect(player.pos.x).toBe(100 - player.size);
+    expect(player.pos.x).toBe(100 - player.length);
     for (let i = 0; i < 100; i++) player.move(new p5.Vector(0, 1), bounds);
-    expect(player.pos.y).toBe(100 - player.size);
+    expect(player.pos.y).toBe(100 - player.width);
   });
 
   it("pulls a player that starts outside back inside", function () {
     const outside = new Player(500, -20);
     outside.move(new p5.Vector(1, -1), bounds);
-    expect(outside.pos.x).toBe(100 - outside.size);
+    expect(outside.pos.x).toBe(100 - outside.length);
     expect(outside.pos.y).toBe(0);
+  });
+
+  it("reports its bounds as position plus length and width", function () {
+    expect(player.getBounds()).toEqual({
+      x: 50,
+      y: 50,
+      w: player.length,
+      h: player.width
+    });
   });
 });
 
 describe("getMoveDirection", function () {
-  // 87 W, 65 A, 68 D, 40 down arrow, 39 right arrow
+  // 87 W, 65 A, 83 S, 68 D, 40 down arrow, 39 right arrow
   const held = (...codes) => (code) => codes.includes(code);
 
-  it("maps WASD and arrow keys", function () {
+  it("maps WASD", function () {
     expect(getMoveDirection(held(87))).toEqual(new p5.Vector(0, -1));
-    expect(getMoveDirection(held(40))).toEqual(new p5.Vector(0, 1));
+    expect(getMoveDirection(held(83))).toEqual(new p5.Vector(0, 1));
     expect(getMoveDirection(held(65))).toEqual(new p5.Vector(-1, 0));
-    expect(getMoveDirection(held(39))).toEqual(new p5.Vector(1, 0));
+    expect(getMoveDirection(held(68))).toEqual(new p5.Vector(1, 0));
+  });
+
+  it("ignores the arrow keys, which fire instead", function () {
+    expect(getMoveDirection(held(37)).magSq()).toBe(0);
+    expect(getMoveDirection(held(38)).magSq()).toBe(0);
+    expect(getMoveDirection(held(39)).magSq()).toBe(0);
+    expect(getMoveDirection(held(40)).magSq()).toBe(0);
   });
 
   it("cancels opposite keys and combines diagonals", function () {
     expect(getMoveDirection(held(65, 68)).magSq()).toBe(0);
-    expect(getMoveDirection(held(87, 39))).toEqual(new p5.Vector(1, -1));
+    expect(getMoveDirection(held(87, 68))).toEqual(new p5.Vector(1, -1));
   });
 
   it("returns no movement when nothing is held", function () {
     expect(getMoveDirection(held()).magSq()).toBe(0);
+  });
+});
+
+describe("getFireDirection", function () {
+  // 38 up, 40 down, 37 left, 39 right; 87 W, 65 A, 83 S, 68 D
+  const held = (...codes) => (code) => codes.includes(code);
+
+  it("maps each arrow key to a cardinal direction", function () {
+    expect(getFireDirection(held(38))).toEqual(new p5.Vector(0, -1));
+    expect(getFireDirection(held(40))).toEqual(new p5.Vector(0, 1));
+    expect(getFireDirection(held(37))).toEqual(new p5.Vector(-1, 0));
+    expect(getFireDirection(held(39))).toEqual(new p5.Vector(1, 0));
+  });
+
+  it("returns no direction when no arrow is held", function () {
+    expect(getFireDirection(held()).magSq()).toBe(0);
+  });
+
+  it("ignores WASD, which move instead", function () {
+    expect(getFireDirection(held(87, 65, 83, 68)).magSq()).toBe(0);
+  });
+
+  it("never fires diagonally, even with several arrows held", function () {
+    const combos = [[38, 39], [38, 37], [40, 39], [40, 37], [38, 40], [37, 39], [37, 38, 39, 40]];
+    for (const combo of combos) {
+      const dir = getFireDirection(held(...combo));
+      expect(dir.x * dir.y).toBe(0);
+      expect(dir.magSq()).toBe(1);
+    }
+  });
+});
+
+describe("Player firing", function () {
+  const up = new p5.Vector(0, -1);
+  let player;
+
+  beforeEach(function () {
+    player = new Player(50, 50);
+  });
+
+  it("fires a projectile from the center of the player", function () {
+    const proj = player.fire(up);
+    expect(proj).toBeInstanceOf(Projectile);
+    const centerX = proj.pos.x + proj.length / 2;
+    const centerY = proj.pos.y + proj.width / 2;
+    expect(centerX).toBe(50 + player.length / 2);
+    expect(centerY).toBe(50 + player.width / 2);
+  });
+
+  it("fires in the direction it is given", function () {
+    const proj = player.fire(new p5.Vector(1, 0));
+    expect(proj.vel.x).toBeGreaterThan(0);
+    expect(proj.vel.y).toBeCloseTo(0, 5);
+  });
+
+  it("does not fire with no direction", function () {
+    expect(player.fire(new p5.Vector(0, 0))).toBeNull();
+    expect(player.fireCooldown).toBe(0);
+  });
+
+  it("cannot fire again until the cooldown is over", function () {
+    expect(player.fire(up)).not.toBeNull();
+    expect(player.fire(up)).toBeNull();
+    for (let i = 0; i < FIRE_COOLDOWN - 1; i++) player.update();
+    expect(player.fire(up)).toBeNull();
+    player.update();
+    expect(player.fire(up)).not.toBeNull();
+  });
+
+  it("does not let the cooldown go below zero", function () {
+    for (let i = 0; i < 5; i++) player.update();
+    expect(player.fireCooldown).toBe(0);
+  });
+
+  it("cannot fire once dead", function () {
+    player.takeDamage(player.maxHealth);
+    expect(player.fire(up)).toBeNull();
+  });
+
+  it("does not change the direction vector it is given", function () {
+    const dir = new p5.Vector(0, -1);
+    player.fire(dir);
+    expect(dir.x).toBe(0);
+    expect(dir.y).toBe(-1);
   });
 });
 
