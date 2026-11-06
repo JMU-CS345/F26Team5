@@ -15,8 +15,8 @@ const ROOM_Y = 64;
 // When the class menu (#5) lands, apply the chosen class here.
 function startRun() {
   player = new Player(
-    CANVAS_WIDTH / 2 - PLAYER_LENGTH / 2,
-    CANVAS_HEIGHT / 2 - PLAYER_WIDTH / 2
+    ROOM_X + ROOM_WIDTH / 2 - PLAYER_LENGTH / 2,
+    ROOM_Y + ROOM_HEIGHT / 2 - PLAYER_WIDTH / 2
   );
   projectiles = [];
   restartButton.hide();
@@ -40,7 +40,7 @@ function draw() {
     width: width,
     height: height
   };
-  player.move(getMoveDirection(keyIsDown), area);
+  player.move(getMoveDirection(keyIsDown), area, room, ROOM_X, ROOM_Y);
   const proj = player.fire(getFireDirection(keyIsDown));
   if (proj) {
     projectiles.push(proj);
