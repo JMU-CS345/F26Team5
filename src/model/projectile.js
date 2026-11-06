@@ -9,6 +9,7 @@ class Projectile {
   constructor(x, y, dir) {
     this.length = PROJECTILE_LENGTH;
     this.width = PROJECTILE_WIDTH;
+    this.damage = PROJECTILE_DAMAGE;
     this.pos = new p5.Vector(x - this.length / 2, y - this.width / 2);
     this.vel = dir.copy().setMag(PROJECTILE_SPEED);
     this.alive = true;

@@ -2,6 +2,7 @@
 const CANVAS_WIDTH = 640;
 const CANVAS_HEIGHT = 480;
 let player;
+let enemy;
 let projectiles = [];
 let restartButton;
 let room;
@@ -18,6 +19,7 @@ function startRun() {
     ROOM_X + ROOM_WIDTH / 2 - PLAYER_LENGTH / 2,
     ROOM_Y + ROOM_HEIGHT / 2 - PLAYER_WIDTH / 2
   );
+  enemy = new Enemy(80, 80);
   projectiles = [];
   restartButton.hide();
 }
@@ -41,6 +43,8 @@ function draw() {
     height: height
   };
   player.move(getMoveDirection(keyIsDown), area, room, ROOM_X, ROOM_Y);
+  enemy.update(player, area, room, ROOM_X, ROOM_Y);
+  enemy.damagePlayer(player);
   const proj = player.fire(getFireDirection(keyIsDown));
   if (proj) {
     projectiles.push(proj);
@@ -48,12 +52,14 @@ function draw() {
   player.update();
   for (const p of projectiles) {
     p.update(area, room, ROOM_X, ROOM_Y);
+    enemy.damageFromProjectile(p);
   }
   projectiles = projectiles.filter((p) => p.alive);
   for (const p of projectiles) {
     drawProjectile(p);
   }
   drawPlayer(player);
+  drawEnemy(enemy);
   drawHealthBar(player);
   if (player.showDeathScreen()) {
     drawDeathScreen();
@@ -62,7 +68,7 @@ function draw() {
 }
 
 function keyPressed() {
-  // TEMPORARY: no enemy yet, so H hurts the player for testing. Remove once #3 merges.
+  // Temporary damage key for testing the death screen.
   if (key === "h") {
     player.takeDamage(1);
   }
