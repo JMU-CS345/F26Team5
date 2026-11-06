@@ -2,12 +2,14 @@
 const CANVAS_WIDTH = 640;
 const CANVAS_HEIGHT = 480;
 let player;
+let enemy;
 let restartButton;
 
 // Makes a fresh player. Called at launch and on restart.
 // When the class menu (#5) lands, apply the chosen class here.
 function startRun() {
   player = new Player(CANVAS_WIDTH / 2 - PLAYER_SIZE / 2, CANVAS_HEIGHT / 2 - PLAYER_SIZE / 2);
+  enemy = new Enemy(80, 80);
   restartButton.hide();
 }
 
@@ -24,8 +26,11 @@ function setup() {
 function draw() {
   background(0);
   player.move(getMoveDirection(keyIsDown), { width: width, height: height });
+  enemy.update(player, { width: width, height: height });
+  enemy.damagePlayer(player);
   player.update();
   drawPlayer(player);
+  drawEnemy(enemy);
   drawHealthBar(player);
   if (player.showDeathScreen()) {
     drawDeathScreen();
@@ -34,7 +39,7 @@ function draw() {
 }
 
 function keyPressed() {
-  // TEMPORARY: no enemy yet, so H hurts the player for testing. Remove once #3 merges.
+  // Temporary damage key for testing the death screen.
   if (key === "h") {
     player.takeDamage(1);
   }
