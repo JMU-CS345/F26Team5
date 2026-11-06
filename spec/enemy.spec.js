@@ -37,6 +37,16 @@ describe("Enemy movement", function () {
     expect(enemy.pos.x).toBe(bounds.width - enemy.size);
     expect(enemy.pos.y).toBe(bounds.height - enemy.size);
   });
+
+  it("stops at the room walls", function () {
+    const room = new NormalRoom(576, 400);
+    enemy.pos.set(48, 100);
+    player.pos.set(0, 100);
+
+    enemy.moveToward(player, bounds, room, 32, 64);
+
+    expect(enemy.pos.x).toBe(48);
+  });
 });
 
 describe("Enemy health and contact damage", function () {

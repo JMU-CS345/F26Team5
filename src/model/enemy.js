@@ -29,18 +29,18 @@ class Enemy {
   }
 
   // Call once per frame. Counts down cooldown and moves toward the player.
-  update(player, bounds) {
+  update(player, bounds, room = null, offsetX = 0, offsetY = 0) {
     if (this.isDead()) {
       return;
     }
     this.damageCooldown = Math.max(0, this.damageCooldown - 1);
     if (this.damageCooldown === 0) {
-      this.moveToward(player, bounds);
+      this.moveToward(player, bounds, room, offsetX, offsetY);
     }
   }
 
   // Moves toward a player only when they are within detection range.
-  moveToward(player, bounds) {
+  moveToward(player, bounds, room = null, offsetX = 0, offsetY = 0) {
     if (this.isDead()) {
       return;
     }
@@ -49,8 +49,18 @@ class Enemy {
       return;
     }
     this.pos.add(target.setMag(this.speed));
-    this.pos.x = Math.min(Math.max(this.pos.x, 0), bounds.width - this.size);
-    this.pos.y = Math.min(Math.max(this.pos.y, 0), bounds.height - this.size);
+
+    const minX = room ? offsetX + room.tileSize : 0;
+    const minY = room ? offsetY + room.tileSize : 0;
+    const maxX = room
+      ? offsetX + room.width - room.tileSize - this.size
+      : bounds.width - this.size;
+    const maxY = room
+      ? offsetY + room.height - room.tileSize - this.size
+      : bounds.height - this.size;
+
+    this.pos.x = Math.min(Math.max(this.pos.x, minX), maxX);
+    this.pos.y = Math.min(Math.max(this.pos.y, minY), maxY);
   }
 
   isTouching(player) {

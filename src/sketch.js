@@ -43,7 +43,7 @@ function draw() {
     height: height
   };
   player.move(getMoveDirection(keyIsDown), area, room, ROOM_X, ROOM_Y);
-  enemy.update(player, area);
+  enemy.update(player, area, room, ROOM_X, ROOM_Y);
   enemy.damagePlayer(player);
   const proj = player.fire(getFireDirection(keyIsDown));
   if (proj) {
