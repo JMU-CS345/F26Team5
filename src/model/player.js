@@ -55,16 +55,51 @@ class Player {
     return this.deathFrames >= DEATH_FRAMES;
   }
 
-  // dir is a p5.Vector. setMag keeps diagonals from being faster.
-  move(dir, bounds) {
+
+  move(dir, bounds, room = null, offsetX = 0, offsetY = 0) {
+    // Do not move if the player is dead or no direction is pressed.
     if (this.isDead() || dir.magSq() === 0) {
       return;
     }
-    this.pos.add(dir.copy().setMag(this.speed));
-    // Math instead of constrain() because the specs run without a sketch.
-    this.pos.x = Math.min(Math.max(this.pos.x, 0), bounds.width - this.length);
-    this.pos.y = Math.min(Math.max(this.pos.y, 0), bounds.height - this.width);
+
+    // Normalize movement speed to prevent faster diagonal movement.
+    const movement = dir.copy().setMag(this.speed);
+
+    if (room) {
+      // Calculate the playable boundaries inside the room walls.
+      // Offsets account for the room's position on the canvas.
+      const minX = offsetX + room.tileSize;
+      const minY = offsetY + room.tileSize;
+      const maxX = offsetX + room.width - room.tileSize - this.length;
+      const maxY = offsetY + room.height - room.tileSize - this.width;
+
+      // Move the player while keeping them inside the room walls.
+      this.pos.x = Math.min(
+        Math.max(this.pos.x + movement.x, minX),
+        maxX
+      );
+
+      this.pos.y = Math.min(
+        Math.max(this.pos.y + movement.y, minY),
+        maxY
+      );
+    } else {
+      // Preserve the original canvas boundary behavior if no room is given.
+      this.pos.add(movement);
+
+      // Clamp the player to the canvas without requiring p5 constrain().
+      this.pos.x = Math.min(
+        Math.max(this.pos.x, 0),
+        bounds.width - this.length
+      );
+
+      this.pos.y = Math.min(
+        Math.max(this.pos.y, 0),
+        bounds.height - this.width
+      );
+    }
   }
+
 
   getBounds() {
     return { x: this.pos.x, y: this.pos.y, w: this.length, h: this.width };

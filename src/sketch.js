@@ -4,6 +4,12 @@ const CANVAS_HEIGHT = 480;
 let player;
 let projectiles = [];
 let restartButton;
+let room;
+//temp
+const ROOM_WIDTH = 576;
+const ROOM_HEIGHT = 400;
+const ROOM_X = 32;
+const ROOM_Y = 64;
 
 // Makes a fresh player. Called at launch and on restart.
 // When the class menu (#5) lands, apply the chosen class here.
@@ -19,6 +25,7 @@ function startRun() {
 function setup() {
   createCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);
   frameRate(60); // movement is pixels per frame, so keep the frame rate fixed
+  room = new NormalRoom(ROOM_WIDTH, ROOM_HEIGHT); // makes the room rather than being made after every frame
   restartButton = createButton("Restart");
   restartButton.size(140, 40);
   restartButton.position(CANVAS_WIDTH / 2 - 70, CANVAS_HEIGHT / 2 + 20);
@@ -28,6 +35,7 @@ function setup() {
 
 function draw() {
   background(0);
+  drawRoom(room); // draws room before eveyerhting
   const area = {
     width: width,
     height: height
@@ -39,7 +47,7 @@ function draw() {
   }
   player.update();
   for (const p of projectiles) {
-    p.update(area);
+    p.update(area, room, ROOM_X, ROOM_Y);
   }
   projectiles = projectiles.filter((p) => p.alive);
   for (const p of projectiles) {
