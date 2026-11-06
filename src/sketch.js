@@ -2,12 +2,17 @@
 const CANVAS_WIDTH = 640;
 const CANVAS_HEIGHT = 480;
 let player;
+let projectiles = [];
 let restartButton;
 
 // Makes a fresh player. Called at launch and on restart.
 // When the class menu (#5) lands, apply the chosen class here.
 function startRun() {
-  player = new Player(CANVAS_WIDTH / 2 - PLAYER_SIZE / 2, CANVAS_HEIGHT / 2 - PLAYER_SIZE / 2);
+  player = new Player(
+    CANVAS_WIDTH / 2 - PLAYER_LENGTH / 2,
+    CANVAS_HEIGHT / 2 - PLAYER_WIDTH / 2
+  );
+  projectiles = [];
   restartButton.hide();
 }
 
@@ -23,8 +28,23 @@ function setup() {
 
 function draw() {
   background(0);
-  player.move(getMoveDirection(keyIsDown), { width: width, height: height });
+  const area = {
+    width: width,
+    height: height
+  };
+  player.move(getMoveDirection(keyIsDown), area);
+  const proj = player.fire(getFireDirection(keyIsDown));
+  if (proj) {
+    projectiles.push(proj);
+  }
   player.update();
+  for (const p of projectiles) {
+    p.update(area);
+  }
+  projectiles = projectiles.filter((p) => p.alive);
+  for (const p of projectiles) {
+    drawProjectile(p);
+  }
   drawPlayer(player);
   drawHealthBar(player);
   if (player.showDeathScreen()) {
@@ -40,5 +60,11 @@ function keyPressed() {
   }
   if (player.showDeathScreen() && keyCode === ENTER) {
     startRun();
+  }
+  if (
+    keyCode === LEFT_ARROW || keyCode === RIGHT_ARROW ||
+    keyCode === UP_ARROW || keyCode === DOWN_ARROW
+  ) {
+    return false;
   }
 }

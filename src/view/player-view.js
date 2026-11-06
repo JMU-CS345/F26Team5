@@ -5,10 +5,12 @@ function drawPlayer(player) {
   noStroke();
   // Alive: t is 0, so full size and fully opaque. Dying: fade out and shrink.
   const t = player.deathFrames / DEATH_FRAMES;
-  const size = lerp(player.size, 0, t);
-  const offset = (player.size - size) / 2; // keeps the square centered while it shrinks
+  const l = lerp(player.length, 0, t);
+  const w = lerp(player.width, 0, t);
+  const offsetX = (player.length - l) / 2; // keeps the rectangle centered while it shrinks
+  const offsetY = (player.width - w) / 2;
   fill(80, 160, 255, lerp(255, 0, t));
-  rect(player.pos.x + offset, player.pos.y + offset, size, size);
+  rect(player.pos.x + offsetX, player.pos.y + offsetY, l, w);
 }
 
 function drawHealthBar(player) {
