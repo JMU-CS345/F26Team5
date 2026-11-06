@@ -44,6 +44,7 @@ function draw() {
   player.update();
   for (const p of projectiles) {
     p.update(area);
+    enemy.damageFromProjectile(p);
   }
   projectiles = projectiles.filter((p) => p.alive);
   for (const p of projectiles) {

@@ -16,6 +16,7 @@ class Enemy {
     this.health = ENEMY_MAX_HEALTH;
     this.detectionRange = ENEMY_DETECTION_RANGE;
     this.contactDamage = ENEMY_CONTACT_DAMAGE;
+    // Starts at zero so the enemy can damage the player on its first contact.
     this.damageCooldown = 0;
   }
 
@@ -27,16 +28,18 @@ class Enemy {
     this.health = Math.max(0, this.health - amount);
   }
 
-  // Call once per frame. Counts down the contact-damage cooldown.
+  // Call once per frame. Counts down cooldown and moves toward the player.
   update(player, bounds) {
     if (this.isDead()) {
       return;
     }
-    this.moveToward(player, bounds);
     this.damageCooldown = Math.max(0, this.damageCooldown - 1);
+    if (this.damageCooldown === 0) {
+      this.moveToward(player, bounds);
+    }
   }
 
-  // Moves toward a player only when the player is within detection range.
+  // Moves toward a player only when they are within detection range.
   moveToward(player, bounds) {
     if (this.isDead()) {
       return;
@@ -52,9 +55,9 @@ class Enemy {
 
   isTouching(player) {
     return (
-      this.pos.x < player.pos.x + player.size &&
+      this.pos.x < player.pos.x + player.length &&
       this.pos.x + this.size > player.pos.x &&
-      this.pos.y < player.pos.y + player.size &&
+      this.pos.y < player.pos.y + player.width &&
       this.pos.y + this.size > player.pos.y
     );
   }
@@ -65,6 +68,25 @@ class Enemy {
     }
     player.takeDamage(this.contactDamage);
     this.damageCooldown = ENEMY_DAMAGE_COOLDOWN;
+    return true;
+  }
+
+  // Returns whether this enemy overlaps a projectile.
+  isTouchingProjectile(projectile) {
+    return (
+      this.pos.x < projectile.pos.x + projectile.length &&
+      this.pos.x + this.size > projectile.pos.x &&
+      this.pos.y < projectile.pos.y + projectile.width &&
+      this.pos.y + this.size > projectile.pos.y
+    );
+  }
+
+  damageFromProjectile(projectile) {
+    if (this.isDead() || !projectile.alive || !this.isTouchingProjectile(projectile)) {
+      return false;
+    }
+    this.takeDamage(projectile.damage);
+    projectile.alive = false;
     return true;
   }
 }

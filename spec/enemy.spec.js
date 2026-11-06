@@ -76,3 +76,33 @@ describe("Enemy health and contact damage", function () {
     expect(player.health).toBe(player.maxHealth);
   });
 });
+
+describe("Enemy projectile damage", function () {
+  it("takes projectile damage and consumes the projectile on contact", function () {
+    const enemy = new Enemy(50, 50);
+    const projectile = new Projectile(50, 50, new p5.Vector(1, 0));
+
+    expect(enemy.damageFromProjectile(projectile)).toBe(true);
+    expect(enemy.health).toBe(enemy.maxHealth - projectile.damage);
+    expect(projectile.alive).toBe(false);
+  });
+
+  it("dies when projectile damage reaches its remaining health", function () {
+    const enemy = new Enemy(50, 50);
+    const projectile = new Projectile(50, 50, new p5.Vector(1, 0));
+    projectile.damage = enemy.maxHealth;
+
+    enemy.damageFromProjectile(projectile);
+
+    expect(enemy.isDead()).toBe(true);
+  });
+
+  it("does not damage an enemy when the projectile misses", function () {
+    const enemy = new Enemy(50, 50);
+    const projectile = new Projectile(10, 10, new p5.Vector(1, 0));
+
+    expect(enemy.damageFromProjectile(projectile)).toBe(false);
+    expect(enemy.health).toBe(enemy.maxHealth);
+    expect(projectile.alive).toBe(true);
+  });
+});
