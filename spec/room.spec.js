@@ -3,7 +3,7 @@ describe("NormalRoom", function () {
   let room;
 
   beforeEach(function () {
-    room = new NormalRoom(640, 480);
+    room = new NormalRoom(0, 0, 640, 480);
   });
 
   it("inherits from Room", function () {
@@ -12,6 +12,11 @@ describe("NormalRoom", function () {
 
   it("uses 16x16 tiles", function () {
     expect(room.tileSize).toBe(16);
+  });
+
+  it("throws if its size is not a multiple of the tile size", function () {
+    expect(() => new NormalRoom(0, 0, 100, 96)).toThrow();
+    expect(() => new NormalRoom(0, 0, 96, 100)).toThrow();
   });
 
   it("creates 30 rows and 40 columns", function () {
@@ -59,7 +64,7 @@ describe("Room wall collision", function () {
   let room;
 
   beforeEach(function () {
-    room = new NormalRoom(640, 480);
+    room = new NormalRoom(0, 0, 640, 480);
   });
 
   it("does not collide inside the room", function () {
@@ -103,51 +108,52 @@ describe("Room wall collision", function () {
   });
 });
 
-
-
-//2nd jasime
-
-describe("Room collision integration", function () {
-  const bounds = { width: 640, height: 480 };
+describe("Room position", function () {
   let room;
 
   beforeEach(function () {
-    room = new NormalRoom(576, 400);
+    room = new NormalRoom(32, 64, 576, 400);
+  });
+
+  it("finds walls relative to the room's own position", function () {
+    expect(room.isWallAt(32 + 4, 64 + 100)).toBe(true);    // left wall tile
+    expect(room.isWallAt(32 + 100, 64 + 100)).toBe(false); // floor
+  });
+
+  it("treats anything outside the room as wall", function () {
+    expect(room.isWallAt(4, 4)).toBe(true);
+    expect(room.isWallAt(32 + 576 + 1, 64 + 100)).toBe(true);
+  });
+});
+
+describe("Room collision integration", function () {
+  let room;
+
+  beforeEach(function () {
+    room = new NormalRoom(32, 64, 576, 400);
   });
 
   it("stops the player at the left wall", function () {
     const player = new Player(48, 100);
-
-    player.move(new p5.Vector(-1, 0), bounds, room, 32, 64);
-
+    player.move(new p5.Vector(-1, 0), room);
     expect(player.pos.x).toBe(48);
   });
 
   it("stops the player at the right wall", function () {
     const player = new Player(576, 100);
-
-    player.move(new p5.Vector(1, 0), bounds, room, 32, 64);
-
+    player.move(new p5.Vector(1, 0), room);
     expect(player.pos.x).toBe(576);
   });
 
   it("destroys projectiles when they hit a wall", function () {
-    const projectile = new Projectile(
-      55, 100, new p5.Vector(-1, 0)
-    );
-
-    projectile.update(bounds, room, 32, 64);
-
+    const projectile = new Projectile(55, 100, new p5.Vector(-1, 0));
+    projectile.update(room);
     expect(projectile.alive).toBe(false);
   });
 
   it("keeps projectiles alive inside the room", function () {
-    const projectile = new Projectile(
-      320, 240, new p5.Vector(1, 0)
-    );
-
-    projectile.update(bounds, room, 32, 64);
-
+    const projectile = new Projectile(320, 240, new p5.Vector(1, 0));
+    projectile.update(room);
     expect(projectile.alive).toBe(true);
   });
 });

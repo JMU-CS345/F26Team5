@@ -1,23 +1,24 @@
 describe("Enemy movement", function () {
-  const bounds = { width: 100, height: 100 };
+  let room;
   let enemy;
   let player;
 
   beforeEach(function () {
+    room = new NormalRoom(0, 0, 160, 160); // floor spans 16 to 144 on both axes
     enemy = new Enemy(20, 20);
     player = new Player(50, 20);
   });
 
   it("moves toward a player in detection range", function () {
-    enemy.moveToward(player, bounds);
-    expect(enemy.pos.x).toBe(20 + enemy.speed);
-    expect(enemy.pos.y).toBe(20);
+    enemy.moveToward(player, room);
+    expect(enemy.pos.x).toBeCloseTo(20 + enemy.speed, 5);
+    expect(enemy.pos.y).toBeCloseTo(20, 5);
   });
 
   it("does not move toward a player outside detection range", function () {
     player.pos.set(90, 90);
     enemy.detectionRange = 10;
-    enemy.moveToward(player, bounds);
+    enemy.moveToward(player, room);
     expect(enemy.pos.x).toBe(20);
     expect(enemy.pos.y).toBe(20);
   });
@@ -25,27 +26,33 @@ describe("Enemy movement", function () {
   it("moves diagonally at the same speed as straight lines", function () {
     player.pos.set(50, 50);
     const start = enemy.pos.copy();
-    enemy.moveToward(player, bounds);
-    const distance = p5.Vector.dist(start, enemy.pos);
-    expect(distance).toBeCloseTo(enemy.speed, 5);
+    enemy.moveToward(player, room);
+    expect(p5.Vector.dist(start, enemy.pos)).toBeCloseTo(enemy.speed, 5);
   });
 
-  it("stops at the room edges", function () {
-    enemy.pos.set(95, 95);
-    player.pos.set(100, 100);
-    enemy.moveToward(player, bounds);
-    expect(enemy.pos.x).toBe(bounds.width - enemy.size);
-    expect(enemy.pos.y).toBe(bounds.height - enemy.size);
+  it("stops flush against a wall", function () {
+    enemy.pos.set(128, 100); // already touching the right wall (160 - 16 - 16)
+    player.pos.set(150, 100);
+    enemy.moveToward(player, room);
+    expect(enemy.pos.x).toBe(128);
+    expect(room.collidesWithWall(enemy.getBounds())).toBe(false);
   });
 
-  it("stops at the room walls", function () {
-    const room = new NormalRoom(576, 400);
-    enemy.pos.set(48, 100);
-    player.pos.set(0, 100);
+  it("does not move when dead", function () {
+    enemy.takeDamage(enemy.maxHealth);
+    enemy.update(player, room);
+    expect(enemy.pos.x).toBe(20);
+  });
+});
 
-    enemy.moveToward(player, bounds, room, 32, 64);
-
-    expect(enemy.pos.x).toBe(48);
+describe("Enemy geometry", function () {
+  it("uses length and width for its bounds and center", function () {
+    const enemy = new Enemy(10, 20);
+    enemy.length = 32;
+    enemy.width = 16;
+    expect(enemy.getBounds()).toEqual({ x: 10, y: 20, w: 32, h: 16 });
+    expect(enemy.getCenter().x).toBe(26);
+    expect(enemy.getCenter().y).toBe(28);
   });
 });
 

@@ -1,58 +1,59 @@
 describe("Player movement", function () {
-  const bounds = { width: 100, height: 100 };
+  let room;
   let player;
 
   beforeEach(function () {
+    room = new NormalRoom(0, 0, 160, 160); // floor spans 16 to 144
     player = new Player(50, 50);
   });
 
   it("moves in the direction it is given", function () {
-    player.move(new p5.Vector(1, 0), bounds);
+    player.move(new p5.Vector(1, 0), room);
     expect(player.pos.x).toBe(50 + player.speed);
     expect(player.pos.y).toBe(50);
-    player.move(new p5.Vector(0, 1), bounds);
+    player.move(new p5.Vector(0, 1), room);
     expect(player.pos.y).toBe(50 + player.speed);
-    player.move(new p5.Vector(-1, 0), bounds);
+    player.move(new p5.Vector(-1, 0), room);
     expect(player.pos.x).toBe(50);
-    player.move(new p5.Vector(0, -1), bounds);
+    player.move(new p5.Vector(0, -1), room);
     expect(player.pos.y).toBe(50);
   });
 
   it("does not move with no direction", function () {
-    player.move(new p5.Vector(0, 0), bounds);
+    player.move(new p5.Vector(0, 0), room);
     expect(player.pos.x).toBe(50);
     expect(player.pos.y).toBe(50);
   });
 
   it("moves diagonals at the same speed as straight lines", function () {
-    player.move(new p5.Vector(1, 1), bounds);
+    player.move(new p5.Vector(1, 1), room);
     const distance = Math.hypot(player.pos.x - 50, player.pos.y - 50);
     expect(distance).toBeCloseTo(player.speed, 5);
   });
 
   it("does not change the direction vector it is given", function () {
     const dir = new p5.Vector(1, 1);
-    player.move(dir, bounds);
+    player.move(dir, room);
     expect(dir.x).toBe(1);
     expect(dir.y).toBe(1);
   });
 
-  it("stops at every edge when keys keep pushing", function () {
-    for (let i = 0; i < 100; i++) player.move(new p5.Vector(-1, 0), bounds);
-    expect(player.pos.x).toBe(0);
-    for (let i = 0; i < 100; i++) player.move(new p5.Vector(0, -1), bounds);
-    expect(player.pos.y).toBe(0);
-    for (let i = 0; i < 100; i++) player.move(new p5.Vector(1, 0), bounds);
-    expect(player.pos.x).toBe(100 - player.length);
-    for (let i = 0; i < 100; i++) player.move(new p5.Vector(0, 1), bounds);
-    expect(player.pos.y).toBe(100 - player.width);
+  it("stops flush against every wall when keys keep pushing", function () {
+    for (let i = 0; i < 100; i++) player.move(new p5.Vector(-1, 0), room);
+    expect(player.pos.x).toBe(room.x + room.tileSize);
+    for (let i = 0; i < 100; i++) player.move(new p5.Vector(0, -1), room);
+    expect(player.pos.y).toBe(room.y + room.tileSize);
+    for (let i = 0; i < 100; i++) player.move(new p5.Vector(1, 0), room);
+    expect(player.pos.x).toBe(room.x + room.width - room.tileSize - player.length);
+    for (let i = 0; i < 100; i++) player.move(new p5.Vector(0, 1), room);
+    expect(player.pos.y).toBe(room.y + room.height - room.tileSize - player.width);
   });
 
-  it("pulls a player that starts outside back inside", function () {
-    const outside = new Player(500, -20);
-    outside.move(new p5.Vector(1, -1), bounds);
-    expect(outside.pos.x).toBe(100 - outside.length);
-    expect(outside.pos.y).toBe(0);
+  it("slides along a wall when moving diagonally into it", function () {
+    player.pos.set(128, 50);          // already flush against the right wall
+    player.move(new p5.Vector(1, 1), room);
+    expect(player.pos.x).toBe(128);   // blocked on x
+    expect(player.pos.y).toBeGreaterThan(50); // still free on y
   });
 
   it("reports its bounds as position plus length and width", function () {
@@ -62,6 +63,12 @@ describe("Player movement", function () {
       w: player.length,
       h: player.width
     });
+  });
+
+  it("reports its center", function () {
+    const p = new Player(10, 20);
+    expect(p.getCenter().x).toBe(10 + p.length / 2);
+    expect(p.getCenter().y).toBe(20 + p.width / 2);
   });
 });
 
@@ -221,8 +228,9 @@ describe("Player health and death", function () {
   });
 
   it("cannot move once dead", function () {
+    const room = new NormalRoom(0, 0, 160, 160);
     player.takeDamage(player.maxHealth);
-    player.move(new p5.Vector(1, 0), { width: 100, height: 100 });
+    player.move(new p5.Vector(1, 0), room);
     expect(player.pos.x).toBe(50);
   });
 
