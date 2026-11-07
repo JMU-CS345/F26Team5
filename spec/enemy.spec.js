@@ -30,7 +30,7 @@ describe("Enemy movement", function () {
     expect(p5.Vector.dist(start, enemy.pos)).toBeCloseTo(enemy.speed, 5);
   });
 
-  it("stops flush against a wall", function () {
+  it("stops perfectly against a wall", function () {
     enemy.pos.set(128, 100); // already touching the right wall (160 - 16 - 16)
     player.pos.set(150, 100);
     enemy.moveToward(player, room);

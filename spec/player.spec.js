@@ -38,7 +38,7 @@ describe("Player movement", function () {
     expect(dir.y).toBe(1);
   });
 
-  it("stops flush against every wall when keys keep pushing", function () {
+  it("stops perfectly against every wall when keys keep pushing", function () {
     for (let i = 0; i < 100; i++) player.move(new p5.Vector(-1, 0), room);
     expect(player.pos.x).toBe(room.x + room.tileSize);
     for (let i = 0; i < 100; i++) player.move(new p5.Vector(0, -1), room);
@@ -50,7 +50,7 @@ describe("Player movement", function () {
   });
 
   it("slides along a wall when moving diagonally into it", function () {
-    player.pos.set(128, 50);          // already flush against the right wall
+    player.pos.set(128, 50);          // already squished against the right wall
     player.move(new p5.Vector(1, 1), room);
     expect(player.pos.x).toBe(128);   // blocked on x
     expect(player.pos.y).toBeGreaterThan(50); // still free on y

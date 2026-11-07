@@ -12,25 +12,25 @@ describe("moveWithCollision", function () {
     expect(p.pos.y).toBe(97);
   });
 
-  it("snaps flush against the right wall", function () {
+  it("snaps against the right wall", function () {
     const p = new Player(159, 100);
     moveWithCollision(p, 2, 0, room);
     expect(p.pos.x).toBe(160);
   });
 
-  it("snaps flush against the left wall", function () {
+  it("snaps against the left wall", function () {
     const p = new Player(49, 100);
     moveWithCollision(p, -2, 0, room);
     expect(p.pos.x).toBe(48);
   });
 
-  it("snaps flush against the top wall", function () {
+  it("snaps against the top wall", function () {
     const p = new Player(100, 81);
     moveWithCollision(p, 0, -2, room);
     expect(p.pos.y).toBe(80);
   });
 
-  it("snaps flush against the bottom wall", function () {
+  it("snaps against the bottom wall", function () {
     const p = new Player(100, 191);
     moveWithCollision(p, 0, 2, room);
     expect(p.pos.y).toBe(192);
