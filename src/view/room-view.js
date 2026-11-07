@@ -16,4 +16,3 @@ function buildRoomGraphic(room) {
 function drawRoom(room, graphic) {
   image(graphic, room.x, room.y);
 }
-
