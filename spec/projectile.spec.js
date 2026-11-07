@@ -1,6 +1,6 @@
 
 describe("Projectile", function () {
-  const bounds = { width: 100, height: 100 };
+  const room = new NormalRoom(0, 0, 160, 160); // floor spans 16 to 144
   const right = new p5.Vector(1, 0);
   const left = new p5.Vector(-1, 0);
   const up = new p5.Vector(0, -1);
@@ -23,7 +23,7 @@ describe("Projectile", function () {
     const p = new Projectile(50, 50, right);
     const startX = p.pos.x;
     const startY = p.pos.y;
-    p.update(bounds);
+    p.update(room);
     expect(p.pos.x).toBeCloseTo(startX + PROJECTILE_SPEED, 5);
     expect(p.pos.y).toBeCloseTo(startY, 5);
   });
@@ -35,39 +35,6 @@ describe("Projectile", function () {
     expect(dir.y).toBe(0);
   });
 
-  it("stays alive while it is inside the bounds", function () {
-    const p = new Projectile(50, 50, right);
-    p.update(bounds);
-    expect(p.alive).toBe(true);
-  });
-
-  it("stays alive while any part of it is still on screen", function () {
-    // Each starts with its edge at the bounds, then moves 5 pixels past, leaving 3 pixels visible.
-    const edges = [
-      new Projectile(4, 50, left),
-      new Projectile(96, 50, right),
-      new Projectile(50, 4, up),
-      new Projectile(50, 96, down)
-    ];
-    for (const p of edges) {
-      p.update(bounds);
-      expect(p.alive).toBe(true);
-    }
-  });
-
-  it("dies once it has fully left through any edge", function () {
-    const gone = [
-      new Projectile(-100, 50, left),
-      new Projectile(200, 50, right),
-      new Projectile(50, -100, up),
-      new Projectile(50, 200, down)
-    ];
-    for (const p of gone) {
-      p.update(bounds);
-      expect(p.alive).toBe(false);
-    }
-  });
-
   it("reports its bounds as position plus length and width", function () {
     const p = new Projectile(50, 50, right);
     expect(p.getBounds()).toEqual({
@@ -76,5 +43,43 @@ describe("Projectile", function () {
       w: p.length,
       h: p.width
     });
+  });
+
+  it("stays alive on open floor", function () {
+    const p = new Projectile(80, 80, right);
+    p.update(room);
+    expect(p.alive).toBe(true);
+  });
+
+  it("stays alive when it stops just short of a wall", function () {
+    const nearMisses = [
+      new Projectile(25, 80, left),
+      new Projectile(135, 80, right),
+      new Projectile(80, 25, up),
+      new Projectile(80, 135, down)
+    ];
+    for (const p of nearMisses) {
+      p.update(room);
+      expect(p.alive).toBe(true);
+    }
+  });
+
+  it("dies when it hits any of the four walls", function () {
+    const hits = [
+      new Projectile(24, 80, left),
+      new Projectile(136, 80, right),
+      new Projectile(80, 24, up),
+      new Projectile(80, 136, down)
+    ];
+    for (const p of hits) {
+      p.update(room);
+      expect(p.alive).toBe(false);
+    }
+  });
+
+  it("dies if it ends up outside the room", function () {
+    const p = new Projectile(-100, 80, left);
+    p.update(room);
+    expect(p.alive).toBe(false);
   });
 });

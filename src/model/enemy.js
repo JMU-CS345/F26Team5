@@ -1,6 +1,7 @@
 // Enemy model. No p5 drawing calls, so Jasmine can test it without a canvas.
 
-const ENEMY_SIZE = 16;
+const ENEMY_LENGTH = 16;
+const ENEMY_WIDTH = 16;
 const ENEMY_SPEED = 1;
 const ENEMY_MAX_HEALTH = 3;
 const ENEMY_DETECTION_RANGE = 200;
@@ -10,7 +11,8 @@ const ENEMY_DAMAGE_COOLDOWN = 30; // frames at 60 fps
 class Enemy {
   constructor(x, y) {
     this.pos = new p5.Vector(x, y);
-    this.size = ENEMY_SIZE;
+    this.length = ENEMY_LENGTH;
+    this.width = ENEMY_WIDTH;
     this.speed = ENEMY_SPEED;
     this.maxHealth = ENEMY_MAX_HEALTH;
     this.health = ENEMY_MAX_HEALTH;
@@ -28,48 +30,34 @@ class Enemy {
     this.health = Math.max(0, this.health - amount);
   }
 
+  getBounds() {
+    return { x: this.pos.x, y: this.pos.y, w: this.length, h: this.width };
+  }
+
+  getCenter() {
+    return new p5.Vector(this.pos.x + this.length / 2, this.pos.y + this.width / 2);
+  }
+
   // Call once per frame. Counts down cooldown and moves toward the player.
-  update(player, bounds, room = null, offsetX = 0, offsetY = 0) {
-    if (this.isDead()) {
-      return;
-    }
+  update(player, room) {
+    if (this.isDead()) return;
     this.damageCooldown = Math.max(0, this.damageCooldown - 1);
     if (this.damageCooldown === 0) {
-      this.moveToward(player, bounds, room, offsetX, offsetY);
+      this.moveToward(player, room);
     }
   }
 
   // Moves toward a player only when they are within detection range.
-  moveToward(player, bounds, room = null, offsetX = 0, offsetY = 0) {
-    if (this.isDead()) {
-      return;
-    }
-    const target = player.pos.copy().sub(this.pos);
-    if (target.magSq() > this.detectionRange * this.detectionRange) {
-      return;
-    }
-    this.pos.add(target.setMag(this.speed));
-
-    const minX = room ? offsetX + room.tileSize : 0;
-    const minY = room ? offsetY + room.tileSize : 0;
-    const maxX = room
-      ? offsetX + room.width - room.tileSize - this.size
-      : bounds.width - this.size;
-    const maxY = room
-      ? offsetY + room.height - room.tileSize - this.size
-      : bounds.height - this.size;
-
-    this.pos.x = Math.min(Math.max(this.pos.x, minX), maxX);
-    this.pos.y = Math.min(Math.max(this.pos.y, minY), maxY);
+  moveToward(player, room) {
+    if (this.isDead()) return;
+    const target = player.getCenter().sub(this.getCenter());
+    if (target.magSq() > this.detectionRange * this.detectionRange) return;
+    const step = target.setMag(this.speed);
+    moveWithCollision(this, step.x, step.y, room);
   }
 
   isTouching(player) {
-    return (
-      this.pos.x < player.pos.x + player.length &&
-      this.pos.x + this.size > player.pos.x &&
-      this.pos.y < player.pos.y + player.width &&
-      this.pos.y + this.size > player.pos.y
-    );
+    return rectsOverlap(this.getBounds(), player.getBounds());
   }
 
   damagePlayer(player) {
@@ -83,12 +71,7 @@ class Enemy {
 
   // Returns whether this enemy overlaps a projectile.
   isTouchingProjectile(projectile) {
-    return (
-      this.pos.x < projectile.pos.x + projectile.length &&
-      this.pos.x + this.size > projectile.pos.x &&
-      this.pos.y < projectile.pos.y + projectile.width &&
-      this.pos.y + this.size > projectile.pos.y
-    );
+    return rectsOverlap(this.getBounds(), projectile.getBounds());
   }
 
   damageFromProjectile(projectile) {

@@ -6,5 +6,5 @@ function drawEnemy(enemy) {
   }
   noStroke();
   fill(220, 80, 80);
-  rect(enemy.pos.x, enemy.pos.y, enemy.size, enemy.size);
+  rect(enemy.pos.x, enemy.pos.y, enemy.length, enemy.width);
 }

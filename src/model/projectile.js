@@ -14,17 +14,10 @@ class Projectile {
     this.vel = dir.copy().setMag(PROJECTILE_SPEED);
     this.alive = true;
   }
-  update(bounds, room = null, offsetX = 0, offsetY = 0) {
+  
+  update(room) {
     this.pos.add(this.vel);
-    // Remove projectile when it hits a room wall.
-    if (room && room.collidesWithWall(this.getBounds(), offsetX, offsetY)) {
-      this.alive = false;
-      return;
-    }
-    if (
-      this.pos.x + this.length < 0 || this.pos.x > bounds.width ||
-      this.pos.y + this.width < 0 || this.pos.y > bounds.height
-    ) {
+    if (room.collidesWithWall(this.getBounds())) {
       this.alive = false;
     }
   }

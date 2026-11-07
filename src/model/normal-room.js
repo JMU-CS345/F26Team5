@@ -1,7 +1,7 @@
 // creates a normal room that extends room to have all the properties   
 class NormalRoom extends Room {
-  constructor(width, height) {
-    super(width, height);
+  constructor(x, y, width, height) {
+    super(x, y, width, height);
     this.tileGrid = [];
     this.generateLayout();
   }
