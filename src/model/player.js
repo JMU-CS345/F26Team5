@@ -8,8 +8,10 @@ const FIRE_COOLDOWN = 15; // frames between shots
 const DEATH_FRAMES = 48; // death animation length (0.8 s at 60 fps)
 
 class Player {
-  constructor(x, y) {
+  // mageClass is "Fire", "Ice" or "Mind". It does not change stats yet (#7).
+  constructor(x, y, mageClass = null) {
     this.pos = new p5.Vector(x, y);
+    this.mageClass = mageClass;
     this.length = PLAYER_LENGTH;
     this.width = PLAYER_WIDTH;
     this.speed = PLAYER_SPEED;
