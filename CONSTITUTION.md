@@ -187,7 +187,7 @@ _
 
 **Review turnaround:** *(e.g., within 24 hours of being requested)* within 24 hrs
 
-**Who reviews what:** *(e.g., any teammate; or a rotating assignment)* any teammate, however keep reviews spread out, so no one person has sole responsibility of too many.
+**Who reviews what:** *(e.g., any teammate; or a rotating assignment)* The reviewer named in the sprint planning report reviews the PR. Each teammate reviews at least one PR per sprint, and no teammate reviews more than twice as many PRs as another.
 
 _
 
