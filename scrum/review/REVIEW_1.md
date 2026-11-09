@@ -61,8 +61,6 @@ Each story was reviewed and approved by a teammate other than its author before 
 | 4      |           |           |
 | 5      |           |           |
 
-**Burndown or board snapshot:** n/a
-
 ---
 
 ## 5. Demo

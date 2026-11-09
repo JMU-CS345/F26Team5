@@ -62,8 +62,6 @@ _
 | 4      |           |           |
 | 5      |           |           |
 
-**Burndown or board snapshot:** *(Attach a screenshot or link)*
-
 ---
 
 ## 5. Demo
