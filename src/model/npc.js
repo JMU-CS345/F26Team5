@@ -1,6 +1,8 @@
 // stores position of npcs
 const NPC_LENGTH = 16;
 const NPC_WIDTH = 16;
+const NPC_TALK_DISTANCE = 40;
+
 class NPC {
     constructor(x, y) {
         this.x = x;
