@@ -1,11 +1,18 @@
 describe("Game state", function () {
   let game;
 
+  // A game that has already picked a model, so it is on the class menu.
+  function gameAtClassMenu() {
+    const g = new Game();
+    g.selectModel("Tall");
+    return g;
+  }
+
   beforeEach(function () {
-    game = new Game();
+    game = gameAtClassMenu();
   });
 
-  it("starts on the menu with no class chosen", function () {
+  it("is on the class menu with no class chosen once a model is picked", function () {
     expect(game.state).toBe(GAME_STATES.MENU);
     expect(game.isMenu()).toBe(true);
     expect(game.selectedClass).toBeNull();
@@ -17,7 +24,7 @@ describe("Game state", function () {
 
   it("saves the chosen class and starts the run", function () {
     for (const mageClass of MAGE_CLASSES) {
-      const fresh = new Game();
+      const fresh = gameAtClassMenu();
       expect(fresh.selectClass(mageClass)).toBe(true);
       expect(fresh.selectedClass).toBe(mageClass);
       expect(fresh.isPlaying()).toBe(true);
@@ -48,11 +55,11 @@ describe("Game state", function () {
     expect(game.isMenu()).toBe(true);
   });
 
-  it("shows the class menu again when a new run starts", function () {
+  it("goes back to the model screen when a new run starts", function () {
     game.selectClass("Fire");
     game.playerDied();
     expect(game.newRun()).toBe(true);
-    expect(game.isMenu()).toBe(true);
+    expect(game.isModelSelect()).toBe(true);
     expect(game.selectedClass).toBeNull();
   });
 
@@ -67,6 +74,7 @@ describe("Game state", function () {
     game.selectClass("Fire");
     game.playerDied();
     game.newRun();
+    game.selectModel("Tall");
     expect(game.selectClass("Mind")).toBe(true);
     expect(game.selectedClass).toBe("Mind");
   });

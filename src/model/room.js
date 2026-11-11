@@ -34,13 +34,24 @@ class Room {
     this.cleared = true;
   }
 
-  isWallAt(px, py) {
+  // The tile type at a grid position. Outside the room counts as wall.
+  getTile(col, row) {
+    if (row < 0 || col < 0 || row >= this.tileGrid.length || col >= this.tileGrid[0].length) {
+      return TILE.WALL;
+    }
+    return this.tileGrid[row][col];
+  }
+
+  // The tile type at a pixel position.
+  tileAtPixel(px, py) {
     const col = Math.floor((px - this.x) / this.tileSize);
     const row = Math.floor((py - this.y) / this.tileSize);
-    if (row < 0 || col < 0 || row >= this.tileGrid.length || col >= this.tileGrid[0].length) {
-      return true;
-    }
-    return this.tileGrid[row][col] === 1;
+    return this.getTile(col, row);
+  }
+
+  // True when the pixel is on a solid tile (wall, pit, closed door, interior wall).
+  isWallAt(px, py) {
+    return TILE_PROPERTIES[this.tileAtPixel(px, py)].solid;
   }
 
   // returns a boolean value of whether or not it can collide based on

@@ -9,6 +9,7 @@ let classButtons = [];
 let room;
 let roomGraphic;
 let restartShown = false;
+let modelButtons = [];
 //temp
 const ROOM_WIDTH = 640;
 const ROOM_HEIGHT = 400;
@@ -17,10 +18,12 @@ const ROOM_Y = 80;
 
 // Makes a fresh player with the class picked on the menu.
 function startRun() {
+  roomGraphic = buildRoomGraphic(room);
   player = new Player(
     ROOM_X + ROOM_WIDTH / 2 - PLAYER_LENGTH / 2,
     ROOM_Y + ROOM_HEIGHT / 2 - PLAYER_WIDTH / 2,
-    game.selectedClass
+    game.selectedClass,
+    game.selectedModel
   );
   room.enemies = [new Enemy(112, 112), new Enemy(480, 416)];
   projectiles = [];
@@ -39,15 +42,40 @@ function chooseClass(mageClass) {
   }
 }
 
-// Ends the run and goes back to the menu to pick a class again.
+// Picks a playermodel in the character creator and moves on to the class menu.
+function chooseModel(modelName) {
+  if (game.selectModel(modelName)) {
+    for (const button of modelButtons) {
+      button.hide();
+    }
+    for (const button of classButtons) {
+      button.show();
+    }
+  }
+}
+
+// Ends the run and goes back to the start of the character creator.
 function showMenu() {
   if (!game.newRun()) {
     return;
   }
   restartButton.hide();
-  for (const button of classButtons) {
+  for (const button of modelButtons) {
     button.show();
   }
+}
+
+function makeModelButtons() {
+  PLAYER_MODEL_NAMES.forEach((name, i) => {
+    const button = createButton(i + 1 + ". " + name);
+    button.size(MODEL_BUTTON_W, 60);
+    button.position(modelSlotCenterX(i) - MODEL_BUTTON_W / 2, MODEL_BUTTON_Y);
+    button.style("background-color", "rgb(90, 90, 110)");
+    button.style("color", "white");
+    button.style("font-size", "18px");
+    button.mousePressed(() => chooseModel(name));
+    modelButtons.push(button);
+  });
 }
 
 function makeClassButtons() {
@@ -67,11 +95,22 @@ function makeClassButtons() {
   });
 }
 
-function setup() {
+async function setup() {
+  await loadPlayerSheets();
+  await loadTileImages();
   createCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);
+  noSmooth();
   frameRate(60); // movement is pixels per frame, so keep the frame rate fixed
-  room = new NormalRoom(ROOM_X, ROOM_Y, ROOM_WIDTH, ROOM_HEIGHT); // makes the room rather than being made after every frame
-  roomGraphic = buildRoomGraphic(room);
+  room = new NormalRoom(ROOM_X, ROOM_Y, ROOM_WIDTH, ROOM_HEIGHT);
+  // TEMPORARY: one of each new tile, to check the art. Delete once real rooms exist.
+  room.tileGrid[8][10] = TILE.PIT;
+  room.tileGrid[0][20] = TILE.DOOR_CLOSED;
+  room.tileGrid[12][8] = TILE.INTERIOR_WALL;
+  for (let r = 1; r <= 3; r++) {
+    for (let c = 24; c <= 26; c++) {
+      room.tileGrid[r][c] = TILE.WALL; // a bump on the north wall, to check the outside corners
+    }
+  }
   game = new Game();
   restartButton = createButton("Restart");
   restartButton.size(140, 40);
@@ -79,10 +118,18 @@ function setup() {
   restartButton.mousePressed(showMenu);
   restartButton.hide();
   makeClassButtons();
+  for (const button of classButtons) {
+    button.hide(); // the class menu comes after the model screen
+  }
+  makeModelButtons();
 }
 
 function draw() {
   background(0);
+  if (game.isModelSelect()) {
+    drawModelMenu();
+    return;
+  }
   if (game.isMenu()) {
     drawClassMenu();
     return;
@@ -137,6 +184,10 @@ function draw() {
 }
 
 function keyPressed() {
+  if (game.isModelSelect()) {
+    chooseModel(getModelForKey(key));
+    return;
+  }
   if (game.isMenu()) {
     chooseClass(getClassForKey(key));
     return;
