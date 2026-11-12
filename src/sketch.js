@@ -236,7 +236,7 @@ function keyPressed() {
     chooseClass(getClassForKey(key));
     return;
   }
-  if (game.isPlaying() && key === "e") {
+  if (game.isPlaying() && key.toLowerCase() === "e") {
     spawnNextEnemy();
   }
   // Temporary damage key for testing the death screen, commented out currently.

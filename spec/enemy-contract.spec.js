@@ -68,12 +68,14 @@ describe("Every enemy type", function () {
       it("acts like its move says when the player is in range", function () {
         placePlayer(type.detectionRange * 0.9);
         const before = enemy.pos.copy();
+        const distanceBefore = p5.Vector.dist(enemy.getCenter(), player.getCenter());
         enemy.update(player, room);
-        const moved = p5.Vector.dist(before, enemy.pos);
         if (type.move === "none") {
-          expect(moved).toBe(0);
+          expect(p5.Vector.dist(before, enemy.pos)).toBe(0);
         } else {
-          expect(moved).toBeGreaterThan(0);
+          // Far inside its range, every moving type closes in on the player.
+          const distanceAfter = p5.Vector.dist(enemy.getCenter(), player.getCenter());
+          expect(distanceAfter).toBeLessThan(distanceBefore);
         }
       });
 
@@ -117,6 +119,18 @@ describe("Every enemy type", function () {
           placePlayer(type.detectionRange / 2);
           expect(enemy.attackTimer).toBe(type.attack.cooldown);
           expect(enemy.tryAttack(player)).toEqual([]);
+        });
+
+        it("shoots toward the player", function () {
+          placePlayer(type.detectionRange / 2);
+          enemy.attackTimer = 0;
+          const centerOf = (shot) =>
+            new p5.Vector(shot.pos.x + shot.length / 2, shot.pos.y + shot.width / 2);
+          for (const shot of enemy.tryAttack(player)) {
+            const before = p5.Vector.dist(centerOf(shot), player.getCenter());
+            shot.update(room);
+            expect(p5.Vector.dist(centerOf(shot), player.getCenter())).toBeLessThan(before);
+          }
         });
 
         it("shoots projectiles that can hurt the player", function () {

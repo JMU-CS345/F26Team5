@@ -24,10 +24,14 @@ const ENEMY_MOVES = Object.freeze({
       enemy.wanderTimer = ENEMY_WANDER_FRAMES;
     }
     const before = enemy.pos.copy();
-    const speed = enemy.type.wanderSpeed;
-    moveWithCollision(enemy, enemy.wanderDir.x * speed, enemy.wanderDir.y * speed, room);
-    if (p5.Vector.dist(before, enemy.pos) === 0) {
-      enemy.wanderTimer = 0; // blocked by a wall, pick a new direction next frame
+    const dx = enemy.wanderDir.x * enemy.type.wanderSpeed;
+    const dy = enemy.wanderDir.y * enemy.type.wanderSpeed;
+    moveWithCollision(enemy, dx, dy, room);
+    // A wall clips one axis even when it only slides along it, so check both axes.
+    const clippedX = Math.abs(enemy.pos.x - before.x - dx) > 0.000001;
+    const clippedY = Math.abs(enemy.pos.y - before.y - dy) > 0.000001;
+    if (clippedX || clippedY) {
+      enemy.wanderTimer = 0; // hit a wall, pick a new direction next frame
     }
   },
 
@@ -86,7 +90,7 @@ const ENEMY_ATTACKS = Object.freeze({
       const dir = aim.copy();
       dir.rotate((i - (count - 1) / 2) * step);
       const shot = new Projectile(center.x, center.y, dir, attack.damage, attack.speed);
-      shot.color = attack.color;
+      shot.color = attack.color.slice(); // a copy, so the table is never shared
       shots.push(shot);
     }
     return shots;

@@ -53,7 +53,20 @@ describe("Zombie wandering (wanderChase)", function () {
     expect(zombie.pos.x).toBeCloseTo(16 + ENEMY_TYPES.Zombie.wanderSpeed, 5);
   });
 
+  it("picks a new direction when it only slides along a wall", function () {
+    zombie.pos.set(16, 160); // against the left wall, heading up and to the left
+    const rolls = [0.625, 0];
+    let next = 0;
+    zombie.rng = () => rolls[next++];
+    zombie.update(player, room);
+    expect(zombie.pos.x).toBe(16);
+    expect(zombie.pos.y).toBeLessThan(160); // slid up along the wall
+    zombie.update(player, room);
+    expect(zombie.pos.x).toBeGreaterThan(16); // new direction: right
+  });
+
   it("never leaves the room while wandering", function () {
+    zombie.detectionRange = 0; // never sees the player, so this is wandering only
     zombie.rng = makeRng(7);
     for (let frame = 0; frame < 3000; frame++) {
       zombie.update(player, room);
