@@ -4,6 +4,8 @@ const CANVAS_HEIGHT = 480;
 let game;
 let player;
 let projectiles = [];
+let enemyProjectiles = [];
+let nextSpawnIndex = 0;
 let restartButton;
 let classButtons = [];
 let room;
@@ -25,8 +27,17 @@ function startRun() {
     game.selectedClass,
     game.selectedModel
   );
-  room.enemies = [new Enemy(112, 112), new Enemy(480, 416)];
+  // TEMPORARY: a starter mix until room files (#13) place enemies. Press E for more.
+  room.enemies = [
+    createEnemy("Jelly", 112, 112),
+    createEnemy("Zombie", 480, 416),
+    createEnemy("Skeleton", 520, 160),
+    createEnemy("Bat", 256, 144),
+    createEnemy("Eyeball", 48, 336)
+  ];
+  nextSpawnIndex = ENEMY_TYPE_NAMES.indexOf("Demon");
   projectiles = [];
+  enemyProjectiles = [];
   room.cleared = false;
   restartShown = false;
   restartButton.hide();
@@ -98,6 +109,7 @@ function makeClassButtons() {
 async function setup() {
   await loadPlayerSheets();
   await loadTileImages();
+  await loadEnemySheets();
   createCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);
   noSmooth();
   frameRate(60); // movement is pixels per frame, so keep the frame rate fixed
@@ -142,6 +154,9 @@ function draw() {
     for (const e of room.enemies) {
       e.update(player, room);
       e.damagePlayer(player);
+      for (const shot of e.tryAttack(player)) {
+        enemyProjectiles.push(shot);
+      }
     }
   }
 
@@ -159,8 +174,18 @@ function draw() {
   }
   projectiles = projectiles.filter((p) => p.alive);
 
+  for (const p of enemyProjectiles) {
+    p.update(room);
+    projectileHitsPlayer(p, player);
+  }
+  enemyProjectiles = enemyProjectiles.filter((p) => p.alive);
+  removeDeadEnemies(room);
+
   for (const p of projectiles) {
     drawProjectile(p);
+  }
+  for (const p of enemyProjectiles) {
+    drawEnemyProjectile(p);
   }
   drawPlayer(player);
   for (const e of room.enemies) {
@@ -183,6 +208,25 @@ function draw() {
   }
 }
 
+// Testing aid, press E: spawns the next enemy type somewhere on the floor, away from the player.
+function spawnNextEnemy() {
+  const typeName = ENEMY_TYPE_NAMES[nextSpawnIndex % ENEMY_TYPE_NAMES.length];
+  nextSpawnIndex++;
+  for (let tries = 0; tries < 50; tries++) {
+    const enemy = createEnemy(
+      typeName,
+      random(room.x, room.x + room.width),
+      random(room.y, room.y + room.height)
+    );
+    const far = p5.Vector.dist(enemy.getCenter(), player.getCenter()) > 150;
+    if (far && !room.collidesWithWall(enemy.getBounds())) {
+      room.enemies.push(enemy);
+      room.cleared = false;
+      return;
+    }
+  }
+}
+
 function keyPressed() {
   if (game.isModelSelect()) {
     chooseModel(getModelForKey(key));
@@ -191,6 +235,9 @@ function keyPressed() {
   if (game.isMenu()) {
     chooseClass(getClassForKey(key));
     return;
+  }
+  if (game.isPlaying() && key === "e") {
+    spawnNextEnemy();
   }
   // Temporary damage key for testing the death screen, commented out currently.
   // if (key === "h") {
