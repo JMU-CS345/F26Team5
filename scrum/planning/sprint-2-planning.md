@@ -196,10 +196,10 @@ Prabesh also planned to work on a reusable Player stats object. We're coordinati
 
 **Acceptance criteria:** The player can walk up to an NPC, interact, read dialogue, advance longer dialogue, and close the text box to move again. We're using stationary NPCs for now. They can have simple dialogue choices, but buying and selling are part of #22.
 
-- [x] Add stationary NPCs like a shopkeeper, villagers, and an older character (0.5 hours)
-- [x] Add interaction range, a text box, and hardcoded dialogue choices (0.75 hours)
-- [x] Make dialogue advance and close, returning control to the player (0.5 hours)
-- [x] Write Jasmine tests for NPC interaction and dialogue state (0.5 hours)
+- [ ] Add stationary NPCs like a shopkeeper, villagers, and an older character (0.5 hours)
+- [ ] Add interaction range, a text box, and hardcoded dialogue choices (0.75 hours)
+- [ ] Make dialogue advance and close, returning control to the player (0.5 hours)
+- [ ] Write Jasmine tests for NPC interaction and dialogue state (0.5 hours)
 - [ ] Vincent reviews the PR and checks the dialogue in-game (0.25 hours)
 
 ### Issue #56: Basic Dungeon Tileset — Vincent (S, 2 points)
