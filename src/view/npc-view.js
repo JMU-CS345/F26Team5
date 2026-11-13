@@ -1,10 +1,32 @@
 // Drawing code for NPCs. Reads the model, never changes it.
 
+let npcSpriteImage = null;
+
+// Call once in setup(), with await.
+async function loadNPCAssets() {
+  try {
+    npcSpriteImage = await loadImage("assets/npc/npc.png");
+  } catch (e) {
+    console.warn("Could not load NPC sprite image:", e);
+  }
+}
+
 function drawNPC(npc) {
-  // Draw the NPC sprite (green square for now)
-  noStroke();
-  fill(80, 200, 120);
-  rect(npc.pos.x, npc.pos.y, npc.length, npc.width);
+  if (npcSpriteImage) {
+    // 16x32 sprite, bottom-aligned with 16x16 hitbox
+    image(
+      npcSpriteImage,
+      npc.pos.x,
+      npc.pos.y - (32 - npc.width),
+      npc.length,
+      32
+    );
+  } else {
+    // Fallback: green square
+    noStroke();
+    fill(80, 200, 120);
+    rect(npc.pos.x, npc.pos.y, npc.length, npc.width);
+  }
 }
 
 // Draws a dialogue box at the bottom of the screen with the current line.

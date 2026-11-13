@@ -112,6 +112,7 @@ async function setup() {
   await loadPlayerSheets();
   await loadTileImages();
   await loadEnemySheets();
+  await loadNPCAssets();
   createCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);
   noSmooth();
   frameRate(60); // movement is pixels per frame, so keep the frame rate fixed
@@ -233,6 +234,19 @@ function spawnNextEnemy() {
   }
 }
 
+// Testing aid, press N: spawns an NPC on open floor near the player.
+function spawnNPC() {
+  for (let tries = 0; tries < 50; tries++) {
+    const x = random(room.x + room.tileSize, room.x + room.width - room.tileSize - NPC_LENGTH);
+    const y = random(room.y + room.tileSize, room.y + room.height - room.tileSize - NPC_WIDTH);
+    const npc = new NPC(x, y);
+    if (!room.collidesWithWall({ x: npc.pos.x, y: npc.pos.y, w: npc.length, h: npc.width })) {
+      npcs.push(npc);
+      return;
+    }
+  }
+}
+
 function keyPressed() {
   if (game.isModelSelect()) {
     chooseModel(getModelForKey(key));
@@ -246,7 +260,7 @@ function keyPressed() {
     spawnNextEnemy();
   }
   if (game.isPlaying() && key.toLowerCase() === "n") {
-    npcs.push(new NPC(player.pos.x + 30, player.pos.y));
+    spawnNPC();
   }
   // Temporary damage key for testing the death screen, commented out currently.
   // if (key === "h") {
