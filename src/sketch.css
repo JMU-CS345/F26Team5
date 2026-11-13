@@ -1,5 +1,5 @@
 html {
-  background: rgb(28, 24, 48);
+  background-color: rgb(28, 24, 48);
   overflow: hidden;
 }
 /* Fixed game size. sketch.js scales it to fit the window with a transform. */

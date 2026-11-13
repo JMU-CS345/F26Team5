@@ -21,6 +21,9 @@ function buildBackground() {
       random(1.5, 3.5)
     );
   }
+  // The page behind the scaled canvas gets the same stars, so a wide or tall window has no
+  // flat bars. updateBackground() keeps it lined up with the canvas.
+  document.documentElement.style.backgroundImage = "url(" + backgroundTile.elt.toDataURL() + ")";
 }
 
 // Moves the offset along and wraps it, so it never grows.
@@ -28,6 +31,10 @@ function updateBackground() {
   backgroundOffset.add(BACKGROUND_SPEED);
   backgroundOffset.x = backgroundOffset.x % BACKGROUND_TILE_SIZE;
   backgroundOffset.y = backgroundOffset.y % BACKGROUND_TILE_SIZE;
+  const page = document.documentElement.style;
+  page.backgroundSize = BACKGROUND_TILE_SIZE * pageScale + "px";
+  page.backgroundPosition = (pageLeft + floor(backgroundOffset.x) * pageScale) + "px " +
+    (pageTop + floor(backgroundOffset.y) * pageScale) + "px";
 }
 
 // Tiles the image over the whole canvas, starting one tile early so there are no gaps.

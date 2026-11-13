@@ -19,6 +19,9 @@ const ROOM_WIDTH = 640;
 const ROOM_HEIGHT = 400;
 const ROOM_X = (CANVAS_WIDTH - ROOM_WIDTH) / 2;
 const ROOM_Y = (CANVAS_HEIGHT - ROOM_HEIGHT) / 2;
+let pageScale = 1; // set by fitToWindow(), also used to line up the page background
+let pageLeft = 0;
+let pageTop = 0;
 
 // Makes a fresh player with the class picked on the menu.
 function startRun() {
@@ -144,10 +147,11 @@ async function setup() {
 // Scales the whole page (canvas and buttons) to fit the window and centers it.
 // Runs on load and whenever the window changes size, which includes browser zoom.
 function fitToWindow() {
-  const scale = min(window.innerWidth / CANVAS_WIDTH, window.innerHeight / CANVAS_HEIGHT);
-  const left = (window.innerWidth - CANVAS_WIDTH * scale) / 2;
-  const top = (window.innerHeight - CANVAS_HEIGHT * scale) / 2;
-  document.body.style.transform = "translate(" + left + "px, " + top + "px) scale(" + scale + ")";
+  pageScale = min(window.innerWidth / CANVAS_WIDTH, window.innerHeight / CANVAS_HEIGHT);
+  pageLeft = (window.innerWidth - CANVAS_WIDTH * pageScale) / 2;
+  pageTop = (window.innerHeight - CANVAS_HEIGHT * pageScale) / 2;
+  document.body.style.transform =
+    "translate(" + pageLeft + "px, " + pageTop + "px) scale(" + pageScale + ")";
 }
 
 function windowResized() {
