@@ -24,11 +24,17 @@
   <script src="p5.js"></script>
 
   <!-- Code under test: the same order as index.html, but WITHOUT sketch.js -->
+  <script src="src/model/player-models.js"></script>
+  <script src="src/model/tile-types.js"></script>
+  <script src="src/model/tile-variants.js"></script>
   <script src="src/model/game.js"></script>
   <script src="src/model/projectile.js"></script>
   <script src="src/controller/movement.js"></script>
   <script src="src/controller/collision.js"></script>
+  <script src="src/model/player-stats.js"></script>
   <script src="src/model/player.js"></script>
+  <script src="src/model/enemy-behaviors.js"></script>
+  <script src="src/model/enemy-types.js"></script>
   <script src="src/model/enemy.js"></script>
   <script src="src/controller/input.js"></script>
   <script src="src/controller/menu-input.js"></script>
@@ -38,12 +44,17 @@
   <!-- Specs: change "test/" if your team's test folder has a different name -->
   <script src="spec/player.spec.js"></script>
   <script src="spec/enemy.spec.js"></script>
+  <script src="spec/enemy-types.spec.js"></script>
+  <script src="spec/enemy-behaviors.spec.js"></script>
+  <script src="spec/enemy-contract.spec.js"></script>
   <script src="spec/projectile.spec.js"></script>
   <script src="spec/room.spec.js"></script>
   <script src="spec/collision.spec.js"></script>
   <script src="spec/movement.spec.js"></script>
   <script src="spec/game.spec.js"></script>
   <script src="spec/flow.spec.js"></script>
+  <script src="spec/player-stats.spec.js"></script>
+  <script src="spec/tiles.spec.js"></script>
 </head>
 <body></body>
 </html>

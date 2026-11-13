@@ -83,3 +83,23 @@ describe("Projectile", function () {
     expect(p.alive).toBe(false);
   });
 });
+
+describe("Projectile speed", function () {
+  it("moves at PROJECTILE_SPEED by default", function () {
+    const p = new Projectile(50, 50, new p5.Vector(1, 0));
+    expect(p.vel.mag()).toBeCloseTo(PROJECTILE_SPEED, 5);
+  });
+
+  it("moves at a given speed", function () {
+    const p = new Projectile(50, 50, new p5.Vector(0, 1), 2, 3);
+    expect(p.vel.mag()).toBeCloseTo(3, 5);
+    expect(p.vel.y).toBeCloseTo(3, 5);
+    expect(p.damage).toBe(2);
+  });
+
+  it("keeps a given damage with the default speed", function () {
+    const p = new Projectile(50, 50, new p5.Vector(1, 0), 4);
+    expect(p.damage).toBe(4);
+    expect(p.vel.mag()).toBeCloseTo(PROJECTILE_SPEED, 5);
+  });
+});

@@ -100,6 +100,68 @@ describe("getMoveDirection", function () {
   });
 });
 
+describe("Player animation state", () => {
+  const room = new NormalRoom(0, 0, 640, 400);
+  const right = new p5.Vector(1, 0);
+  const none = new p5.Vector(0, 0);
+  let player;
+  beforeEach(() => {
+    player = new Player(100, 100, "Fire");
+  });
+
+  it("faces the direction it moves", () => {
+    player.move(right, room);
+    expect(player.facing).toBe("right");
+    player.move(new p5.Vector(0, -1), room);
+    expect(player.facing).toBe("up");
+  });
+
+  it("counts walk frames while moving and resets when standing still", () => {
+    player.move(right, room);
+    player.move(right, room);
+    expect(player.walkFrames).toBe(2);
+    player.move(none, room);
+    expect(player.walkFrames).toBe(0);
+  });
+
+  it("faces the fire direction and holds the weapon while a fire key is held", () => {
+    player.fire(right);
+    expect(player.holding).toBe(true);
+    expect(player.isArmUp()).toBe(true);
+    expect(player.facing).toBe("right");
+  });
+
+  it("keeps the arm up for the cooldown after a quick tap", () => {
+    player.fire(right); // tap
+    player.fire(none); // key released
+    expect(player.holding).toBe(false);
+    expect(player.isArmUp()).toBe(true);
+    for (let i = 0; i < FIRE_COOLDOWN; i++) {
+      player.update();
+    }
+    expect(player.isArmUp()).toBe(false);
+  });
+
+  it("keeps facing the shot direction while moving during the cooldown", () => {
+    player.fire(right);
+    player.fire(none);
+    player.move(new p5.Vector(0, 1), room);
+    expect(player.facing).toBe("right");
+  });
+
+  it("does not turn toward another fire key during the cooldown", () => {
+    const up = new p5.Vector(0, -1);
+    player.fire(right);
+    expect(player.fire(up)).toBeNull(); // still cooling down
+    expect(player.facing).toBe("right");
+    for (let i = 0; i < FIRE_COOLDOWN; i++) {
+      player.update();
+    }
+    expect(player.fire(up)).not.toBeNull();
+    expect(player.facing).toBe("up");
+  });
+});
+
 describe("getFireDirection", function () {
   // 38 up, 40 down, 37 left, 39 right; 87 W, 65 A, 83 S, 68 D
   const held = (...codes) => (code) => codes.includes(code);

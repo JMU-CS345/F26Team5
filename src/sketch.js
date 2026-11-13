@@ -4,11 +4,14 @@ const CANVAS_HEIGHT = 480;
 let game;
 let player;
 let projectiles = [];
+let enemyProjectiles = [];
+let nextSpawnIndex = 0;
 let restartButton;
 let classButtons = [];
 let room;
 let roomGraphic;
 let restartShown = false;
+let modelButtons = [];
 //temp
 const ROOM_WIDTH = 640;
 const ROOM_HEIGHT = 400;
@@ -17,13 +20,24 @@ const ROOM_Y = 80;
 
 // Makes a fresh player with the class picked on the menu.
 function startRun() {
+  roomGraphic = buildRoomGraphic(room);
   player = new Player(
     ROOM_X + ROOM_WIDTH / 2 - PLAYER_LENGTH / 2,
     ROOM_Y + ROOM_HEIGHT / 2 - PLAYER_WIDTH / 2,
-    game.selectedClass
+    game.selectedClass,
+    game.selectedModel
   );
-  room.enemies = [new Enemy(112, 112), new Enemy(480, 416)];
+  // TEMPORARY: a starter mix until room files (#13) place enemies. Press E for more.
+  room.enemies = [
+    createEnemy("Jelly", 112, 112),
+    createEnemy("Zombie", 480, 416),
+    createEnemy("Skeleton", 520, 160),
+    createEnemy("Bat", 256, 144),
+    createEnemy("Eyeball", 48, 336)
+  ];
+  nextSpawnIndex = ENEMY_TYPE_NAMES.indexOf("Demon");
   projectiles = [];
+  enemyProjectiles = [];
   room.cleared = false;
   restartShown = false;
   restartButton.hide();
@@ -39,15 +53,40 @@ function chooseClass(mageClass) {
   }
 }
 
-// Ends the run and goes back to the menu to pick a class again.
+// Picks a playermodel in the character creator and moves on to the class menu.
+function chooseModel(modelName) {
+  if (game.selectModel(modelName)) {
+    for (const button of modelButtons) {
+      button.hide();
+    }
+    for (const button of classButtons) {
+      button.show();
+    }
+  }
+}
+
+// Ends the run and goes back to the start of the character creator.
 function showMenu() {
   if (!game.newRun()) {
     return;
   }
   restartButton.hide();
-  for (const button of classButtons) {
+  for (const button of modelButtons) {
     button.show();
   }
+}
+
+function makeModelButtons() {
+  PLAYER_MODEL_NAMES.forEach((name, i) => {
+    const button = createButton(i + 1 + ". " + name);
+    button.size(MODEL_BUTTON_W, 60);
+    button.position(modelSlotCenterX(i) - MODEL_BUTTON_W / 2, MODEL_BUTTON_Y);
+    button.style("background-color", "rgb(90, 90, 110)");
+    button.style("color", "white");
+    button.style("font-size", "18px");
+    button.mousePressed(() => chooseModel(name));
+    modelButtons.push(button);
+  });
 }
 
 function makeClassButtons() {
@@ -67,11 +106,23 @@ function makeClassButtons() {
   });
 }
 
-function setup() {
+async function setup() {
+  await loadPlayerSheets();
+  await loadTileImages();
+  await loadEnemySheets();
   createCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);
+  noSmooth();
   frameRate(60); // movement is pixels per frame, so keep the frame rate fixed
-  room = new NormalRoom(ROOM_X, ROOM_Y, ROOM_WIDTH, ROOM_HEIGHT); // makes the room rather than being made after every frame
-  roomGraphic = buildRoomGraphic(room);
+  room = new NormalRoom(ROOM_X, ROOM_Y, ROOM_WIDTH, ROOM_HEIGHT);
+  // TEMPORARY: one of each new tile, to check the art. Delete once real rooms exist.
+  room.tileGrid[8][10] = TILE.PIT;
+  room.tileGrid[0][20] = TILE.DOOR_CLOSED;
+  room.tileGrid[12][8] = TILE.INTERIOR_WALL;
+  for (let r = 1; r <= 3; r++) {
+    for (let c = 24; c <= 26; c++) {
+      room.tileGrid[r][c] = TILE.WALL; // a bump on the north wall, to check the outside corners
+    }
+  }
   game = new Game();
   restartButton = createButton("Restart");
   restartButton.size(140, 40);
@@ -79,10 +130,18 @@ function setup() {
   restartButton.mousePressed(showMenu);
   restartButton.hide();
   makeClassButtons();
+  for (const button of classButtons) {
+    button.hide(); // the class menu comes after the model screen
+  }
+  makeModelButtons();
 }
 
 function draw() {
   background(0);
+  if (game.isModelSelect()) {
+    drawModelMenu();
+    return;
+  }
   if (game.isMenu()) {
     drawClassMenu();
     return;
@@ -95,6 +154,9 @@ function draw() {
     for (const e of room.enemies) {
       e.update(player, room);
       e.damagePlayer(player);
+      for (const shot of e.tryAttack(player)) {
+        enemyProjectiles.push(shot);
+      }
     }
   }
 
@@ -112,8 +174,18 @@ function draw() {
   }
   projectiles = projectiles.filter((p) => p.alive);
 
+  for (const p of enemyProjectiles) {
+    p.update(room);
+    projectileHitsPlayer(p, player);
+  }
+  enemyProjectiles = enemyProjectiles.filter((p) => p.alive);
+  removeDeadEnemies(room);
+
   for (const p of projectiles) {
     drawProjectile(p);
+  }
+  for (const p of enemyProjectiles) {
+    drawEnemyProjectile(p);
   }
   drawPlayer(player);
   for (const e of room.enemies) {
@@ -136,10 +208,36 @@ function draw() {
   }
 }
 
+// Testing aid, press E: spawns the next enemy type somewhere on the floor, away from the player.
+function spawnNextEnemy() {
+  const typeName = ENEMY_TYPE_NAMES[nextSpawnIndex % ENEMY_TYPE_NAMES.length];
+  nextSpawnIndex++;
+  for (let tries = 0; tries < 50; tries++) {
+    const enemy = createEnemy(
+      typeName,
+      random(room.x, room.x + room.width),
+      random(room.y, room.y + room.height)
+    );
+    const far = p5.Vector.dist(enemy.getCenter(), player.getCenter()) > 150;
+    if (far && !room.collidesWithWall(enemy.getBounds())) {
+      room.enemies.push(enemy);
+      room.cleared = false;
+      return;
+    }
+  }
+}
+
 function keyPressed() {
+  if (game.isModelSelect()) {
+    chooseModel(getModelForKey(key));
+    return;
+  }
   if (game.isMenu()) {
     chooseClass(getClassForKey(key));
     return;
+  }
+  if (game.isPlaying() && key.toLowerCase() === "e") {
+    spawnNextEnemy();
   }
   // Temporary damage key for testing the death screen, commented out currently.
   // if (key === "h") {
