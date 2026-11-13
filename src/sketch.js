@@ -39,7 +39,18 @@ function startRun() {
   nextSpawnIndex = ENEMY_TYPE_NAMES.indexOf("Demon");
   projectiles = [];
   enemyProjectiles = [];
-  npcs = [];
+  // Starter NPCs for interaction and testing
+  npcs = [
+    createNPC("Elder", 64, 112),
+    createNPC("Shopkeeper", 540, 112),
+    createNPC("Guard", 200, 360, {
+      path: [
+        { x: 200, y: 360 },
+        { x: 440, y: 360 }
+      ],
+      speed: 1
+    })
+  ];
   room.cleared = false;
   restartShown = false;
   restartButton.hide();
@@ -151,21 +162,36 @@ function draw() {
   }
   drawRoom(room, roomGraphic);
 
-  player.move(getMoveDirection(keyIsDown), room);
+  const talkingNPC = npcs.find((n) => n.isTalking);
+
+  if (!talkingNPC) {
+    player.move(getMoveDirection(keyIsDown), room);
+  } else {
+    player.walkFrames = 0; // stop walking animation during dialogue
+  }
+
+  // Update NPC movement
+  for (const npc of npcs) {
+    npc.update(room);
+  }
 
   if (!player.isDead()) {
     for (const e of room.enemies) {
-      e.update(player, room);
-      e.damagePlayer(player);
-      for (const shot of e.tryAttack(player)) {
-        enemyProjectiles.push(shot);
+      if (!talkingNPC) {
+        e.update(player, room);
+        e.damagePlayer(player);
+        for (const shot of e.tryAttack(player)) {
+          enemyProjectiles.push(shot);
+        }
       }
     }
   }
 
-  const proj = player.fire(getFireDirection(keyIsDown));
-  if (proj) {
-    projectiles.push(proj);
+  if (!talkingNPC) {
+    const proj = player.fire(getFireDirection(keyIsDown));
+    if (proj) {
+      projectiles.push(proj);
+    }
   }
   player.update();
 
@@ -193,7 +219,10 @@ function draw() {
   drawPlayer(player);
   for (const npc of npcs) {
     drawNPC(npc);
-    drawDialogueBox(npc);
+    drawInteractionPrompt(npc, player);
+  }
+  if (talkingNPC) {
+    drawDialogueBox(talkingNPC);
   }
   for (const e of room.enemies) {
     drawEnemy(e);
@@ -236,10 +265,12 @@ function spawnNextEnemy() {
 
 // Testing aid, press N: spawns an NPC on open floor near the player.
 function spawnNPC() {
+  const presetNames = Object.keys(NPC_PRESETS);
+  const pickedType = presetNames[Math.floor(random(presetNames.length))];
   for (let tries = 0; tries < 50; tries++) {
     const x = random(room.x + room.tileSize, room.x + room.width - room.tileSize - NPC_LENGTH);
     const y = random(room.y + room.tileSize, room.y + room.height - room.tileSize - NPC_WIDTH);
-    const npc = new NPC(x, y);
+    const npc = createNPC(pickedType, x, y);
     if (!room.collidesWithWall({ x: npc.pos.x, y: npc.pos.y, w: npc.length, h: npc.width })) {
       npcs.push(npc);
       return;
@@ -256,12 +287,37 @@ function keyPressed() {
     chooseClass(getClassForKey(key));
     return;
   }
-  if (game.isPlaying() && key.toLowerCase() === "e") {
-    spawnNextEnemy();
+
+  if (game.isPlaying()) {
+    const talkingNPC = npcs.find((n) => n.isTalking);
+    if (talkingNPC) {
+      if ((key === "1" || key === "2" || key === "3") && talkingNPC.hasChoices()) {
+        talkingNPC.choose(Number(key) - 1);
+        return;
+      }
+      if (key.toLowerCase() === "e" || key === " " || keyCode === ENTER) {
+        talkingNPC.interact();
+        return;
+      }
+      return;
+    }
+
+    if (key.toLowerCase() === "e" || key === " ") {
+      const interactable = npcs.find((n) => n.canInteract(player));
+      if (interactable) {
+        interactable.interact();
+        return;
+      }
+    }
+
+    if (key.toLowerCase() === "e") {
+      spawnNextEnemy();
+    }
+    if (key.toLowerCase() === "n") {
+      spawnNPC();
+    }
   }
-  if (game.isPlaying() && key.toLowerCase() === "n") {
-    spawnNPC();
-  }
+
   // Temporary damage key for testing the death screen, commented out currently.
   // if (key === "h") {
     //player.takeDamage(1);
