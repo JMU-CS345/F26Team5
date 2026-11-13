@@ -1,6 +1,8 @@
-// 640x480 is a multiple of 16, so the room can use 16x16 wall tiles.
-const CANVAS_WIDTH = 640;
-const CANVAS_HEIGHT = 480;
+// The game screen is always 1280x720. fitToWindow() scales the whole page to fit the browser
+// window, so zooming or resizing never changes how much of the game you can see.
+// The room stays 640x400 (a multiple of 16 for the wall tiles) in the middle of it.
+const CANVAS_WIDTH = 1280;
+const CANVAS_HEIGHT = 720;
 let game;
 let player;
 let projectiles = [];
@@ -15,8 +17,11 @@ let modelButtons = [];
 //temp
 const ROOM_WIDTH = 640;
 const ROOM_HEIGHT = 400;
-const ROOM_X = 0;
-const ROOM_Y = 80;
+const ROOM_X = (CANVAS_WIDTH - ROOM_WIDTH) / 2;
+const ROOM_Y = (CANVAS_HEIGHT - ROOM_HEIGHT) / 2;
+let pageScale = 1; // set by fitToWindow(), also used to line up the page background
+let pageLeft = 0;
+let pageTop = 0;
 
 // Makes a fresh player with the class picked on the menu.
 function startRun() {
@@ -29,11 +34,11 @@ function startRun() {
   );
   // TEMPORARY: a starter mix until room files (#13) place enemies. Press E for more.
   room.enemies = [
-    createEnemy("Jelly", 112, 112),
-    createEnemy("Zombie", 480, 416),
-    createEnemy("Skeleton", 520, 160),
-    createEnemy("Bat", 256, 144),
-    createEnemy("Eyeball", 48, 336)
+    createEnemy("Jelly", ROOM_X + 112, ROOM_Y + 32),
+    createEnemy("Zombie", ROOM_X + 480, ROOM_Y + 336),
+    createEnemy("Skeleton", ROOM_X + 520, ROOM_Y + 80),
+    createEnemy("Bat", ROOM_X + 256, ROOM_Y + 64),
+    createEnemy("Eyeball", ROOM_X + 48, ROOM_Y + 256)
   ];
   nextSpawnIndex = ENEMY_TYPE_NAMES.indexOf("Demon");
   projectiles = [];
@@ -79,28 +84,28 @@ function showMenu() {
 function makeModelButtons() {
   PLAYER_MODEL_NAMES.forEach((name, i) => {
     const button = createButton(i + 1 + ". " + name);
-    button.size(MODEL_BUTTON_W, 60);
-    button.position(modelSlotCenterX(i) - MODEL_BUTTON_W / 2, MODEL_BUTTON_Y);
+    button.size(MODEL_BUTTON_W, MENU_BUTTON_H);
+    button.position(modelSlotCenterX(i) - MODEL_BUTTON_W / 2, modelButtonY());
     button.style("background-color", "rgb(90, 90, 110)");
     button.style("color", "white");
-    button.style("font-size", "18px");
+    button.style("font-size", "24px");
     button.mousePressed(() => chooseModel(name));
     modelButtons.push(button);
   });
 }
 
 function makeClassButtons() {
-  const buttonWidth = 140;
-  const gap = 20;
+  const buttonWidth = MODEL_BUTTON_W;
+  const gap = MODEL_BUTTON_GAP;
   const totalWidth = MAGE_CLASSES.length * buttonWidth + (MAGE_CLASSES.length - 1) * gap;
   const left = CANVAS_WIDTH / 2 - totalWidth / 2;
   MAGE_CLASSES.forEach((mageClass, i) => {
     const button = createButton(i + 1 + ". " + mageClass);
-    button.size(buttonWidth, 60);
+    button.size(buttonWidth, MENU_BUTTON_H);
     button.position(left + i * (buttonWidth + gap), CANVAS_HEIGHT / 2 - 10);
     button.style("background-color", "rgb(" + CLASS_COLORS[mageClass].join(",") + ")");
     button.style("color", "white");
-    button.style("font-size", "18px");
+    button.style("font-size", "24px");
     button.mousePressed(() => chooseClass(mageClass));
     classButtons.push(button);
   });
@@ -111,7 +116,9 @@ async function setup() {
   await loadTileImages();
   await loadEnemySheets();
   createCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);
+  fitToWindow();
   noSmooth();
+  buildBackground();
   frameRate(60); // movement is pixels per frame, so keep the frame rate fixed
   room = new NormalRoom(ROOM_X, ROOM_Y, ROOM_WIDTH, ROOM_HEIGHT);
   // TEMPORARY: one of each new tile, to check the art. Delete once real rooms exist.
@@ -125,8 +132,9 @@ async function setup() {
   }
   game = new Game();
   restartButton = createButton("Restart");
-  restartButton.size(140, 40);
-  restartButton.position(CANVAS_WIDTH / 2 - 70, CANVAS_HEIGHT / 2 + 20);
+  restartButton.size(220, 64);
+  restartButton.style("font-size", "24px");
+  restartButton.position(CANVAS_WIDTH / 2 - 110, CANVAS_HEIGHT / 2 + 30);
   restartButton.mousePressed(showMenu);
   restartButton.hide();
   makeClassButtons();
@@ -136,8 +144,24 @@ async function setup() {
   makeModelButtons();
 }
 
+// Scales the whole page (canvas and buttons) to fit the window and centers it.
+// Runs on load and whenever the window changes size, which includes browser zoom.
+function fitToWindow() {
+  pageScale = min(window.innerWidth / CANVAS_WIDTH, window.innerHeight / CANVAS_HEIGHT);
+  pageLeft = (window.innerWidth - CANVAS_WIDTH * pageScale) / 2;
+  pageTop = (window.innerHeight - CANVAS_HEIGHT * pageScale) / 2;
+  document.body.style.transform =
+    "translate(" + pageLeft + "px, " + pageTop + "px) scale(" + pageScale + ")";
+}
+
+function windowResized() {
+  fitToWindow();
+}
+
 function draw() {
   background(0);
+  updateBackground();
+  drawBackground();
   if (game.isModelSelect()) {
     drawModelMenu();
     return;
