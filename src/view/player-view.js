@@ -56,13 +56,13 @@ function drawPlayer(player) {
 function drawHealthBar(player) {
   noStroke();
   fill(60);
-  rect(10, 10, 120, 14);
+  rect(20, 20, 240, 28);
   fill(220, 50, 50);
-  rect(10, 10, map(player.health, 0, player.maxHealth, 0, 120), 14);
+  rect(20, 20, map(player.health, 0, player.maxHealth, 0, 240), 28);
   fill(255);
-  textSize(12);
+  textSize(24);
   textAlign(LEFT, CENTER);
-  text(player.health + " / " + player.maxHealth, 138, 17);
+  text(player.health + " / " + player.maxHealth, 276, 34);
 }
 
 // The Restart button is a p5 DOM button, made in sketch.js.
@@ -72,6 +72,6 @@ function drawDeathScreen() {
   rect(0, 0, width, height);
   fill(220, 50, 50);
   textAlign(CENTER, CENTER);
-  textSize(40);
-  text("You died", width / 2, height / 2 - 30);
+  textSize(72);
+  text("You died", width / 2, height / 2 - 60);
 }

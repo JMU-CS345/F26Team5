@@ -1,6 +1,15 @@
-html, body {
+html {
+  background: rgb(28, 24, 48);
+  overflow: hidden;
+}
+/* Fixed game size. sketch.js scales it to fit the window with a transform. */
+body {
   margin: 0;
   padding: 0;
+  width: 1280px;
+  height: 720px;
+  position: relative;
+  transform-origin: 0 0;
 }
 canvas {
   display: block;
