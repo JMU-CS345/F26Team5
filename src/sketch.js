@@ -9,6 +9,7 @@ let nextSpawnIndex = 0;
 let restartButton;
 let classButtons = [];
 let room;
+let npcs = [];
 let roomGraphic;
 let restartShown = false;
 let modelButtons = [];
@@ -38,6 +39,7 @@ function startRun() {
   nextSpawnIndex = ENEMY_TYPE_NAMES.indexOf("Demon");
   projectiles = [];
   enemyProjectiles = [];
+  npcs = [];
   room.cleared = false;
   restartShown = false;
   restartButton.hide();
@@ -188,6 +190,10 @@ function draw() {
     drawEnemyProjectile(p);
   }
   drawPlayer(player);
+  for (const npc of npcs) {
+    drawNPC(npc);
+    drawDialogueBox(npc);
+  }
   for (const e of room.enemies) {
     drawEnemy(e);
   }
@@ -238,6 +244,9 @@ function keyPressed() {
   }
   if (game.isPlaying() && key.toLowerCase() === "e") {
     spawnNextEnemy();
+  }
+  if (game.isPlaying() && key.toLowerCase() === "n") {
+    npcs.push(new NPC(player.pos.x + 30, player.pos.y));
   }
   // Temporary damage key for testing the death screen, commented out currently.
   // if (key === "h") {
