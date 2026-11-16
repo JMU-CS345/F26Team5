@@ -127,11 +127,16 @@ const ENEMY_TYPES = Object.freeze({
 const ENEMY_TYPE_NAMES = Object.freeze(Object.keys(ENEMY_TYPES));
 
 // Makes an enemy of the named type. Throws on an unknown name so a typo is loud.
-function createEnemy(typeName, x, y) {
+// Pass spawnIn as true in the game so the enemy is harmless for a moment while it appears.
+function createEnemy(typeName, x, y, spawnIn = false) {
   if (!ENEMY_TYPE_NAMES.includes(typeName)) {
     throw new Error("Unknown enemy type: " + typeName);
   }
-  return new Enemy(x, y, typeName);
+  const enemy = new Enemy(x, y, typeName);
+  if (spawnIn) {
+    enemy.spawnTimer = ENEMY_SPAWN_FRAMES;
+  }
+  return enemy;
 }
 
 function isNumberAtLeast(value, min) {

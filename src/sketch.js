@@ -7,6 +7,7 @@ let game;
 let player;
 let projectiles = [];
 let enemyProjectiles = [];
+let debugOverlay = false; // F3 toggles hitboxes and detection circles for enemies
 let nextSpawnIndex = 0;
 let restartButton;
 let classButtons = [];
@@ -91,6 +92,9 @@ function startRun() {
     game.selectedModel
   );
   nextSpawnIndex = ENEMY_TYPE_NAMES.indexOf("Demon");
+  projectiles = [];
+  enemyProjectiles = [];
+  clearDyingEnemies();
   room.cleared = false;
   restartShown = false;
   restartButton.hide();
@@ -250,7 +254,9 @@ function draw() {
     projectileHitsPlayer(p, player);
   }
   enemyProjectiles = enemyProjectiles.filter((p) => p.alive);
-  removeDeadEnemies(room);
+  for (const dead of removeDeadEnemies(room)) {
+    startEnemyDeath(dead);
+  }
 
   for (const p of projectiles) {
     drawProjectile(p);
@@ -261,7 +267,11 @@ function draw() {
   drawPlayer(player);
   for (const e of room.enemies) {
     drawEnemy(e);
+    if (debugOverlay) {
+      drawEnemyDebug(e);
+    }
   }
+  drawDyingEnemies();
   if (!room.cleared && room.enemies.every((e) => e.isDead())) {
     room.onClear();
   }
@@ -280,7 +290,8 @@ function draw() {
   }
 }
 
-// Testing aid, press E: spawns the next enemy type somewhere on the floor, away from the player.
+// Testing aids: press E to spawn enemies, F3 to toggle the enemy debug overlay.
+// Press E: spawns the next enemy type somewhere on the floor, away from the player.
 function spawnNextEnemy() {
   const typeName = ENEMY_TYPE_NAMES[nextSpawnIndex % ENEMY_TYPE_NAMES.length];
   nextSpawnIndex++;
@@ -288,7 +299,8 @@ function spawnNextEnemy() {
     const enemy = createEnemy(
       typeName,
       random(room.x, room.x + room.width),
-      random(room.y, room.y + room.height)
+      random(room.y, room.y + room.height),
+      true
     );
     const far = p5.Vector.dist(enemy.getCenter(), player.getCenter()) > 150;
     if (far && !room.collidesWithWall(enemy.getBounds())) {
@@ -300,6 +312,10 @@ function spawnNextEnemy() {
 }
 
 function keyPressed() {
+  if (keyCode === 114) {
+    debugOverlay = !debugOverlay;
+    return false;
+  }
   if (game.isModelSelect()) {
     chooseModel(getModelForKey(key));
     return;
