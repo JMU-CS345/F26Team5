@@ -9,7 +9,14 @@ async function loadEnemySheets() {
     if (!sprite) {
       continue;
     }
-    for (const frame of sprite.frames) {
+    // Frames for special states (windup, attack) can use other sheets, so load those too.
+    let allFrames = sprite.frames.slice();
+    if (sprite.states) {
+      for (const stateName of Object.keys(sprite.states)) {
+        allFrames = allFrames.concat(sprite.states[stateName]);
+      }
+    }
+    for (const frame of allFrames) {
       if (!enemySheets[frame.sheet]) {
         enemySheets[frame.sheet] = await loadImage(frame.sheet);
       }
@@ -18,21 +25,34 @@ async function loadEnemySheets() {
 }
 
 function drawEnemySprite(enemy, sprite) {
-  const index = Math.floor(frameCount / sprite.frameTime) % sprite.frames.length;
-  const frame = sprite.frames[index];
+  let frames = sprite.frames;
+  if (sprite.states && sprite.states[enemy.state]) {
+    frames = sprite.states[enemy.state];
+  }
+  const frame = frames[Math.floor(frameCount / sprite.frameTime) % frames.length];
+  const w = frame.w || ENEMY_SPRITE_SIZE;
+  const h = frame.h || ENEMY_SPRITE_SIZE;
+  const ax = frame.ax || w / 2; // the art x that sits at the center of the hitbox
+  const pixelSize = sprite.scale || enemy.length / ENEMY_SPRITE_SIZE;
   // The art faces right, so flip it when the enemy faces left.
   push();
-  translate(enemy.pos.x + enemy.length / 2, enemy.pos.y);
+  translate(enemy.pos.x + enemy.length / 2, enemy.pos.y + enemy.width);
+  if (enemy.state === "windup") {
+    translate(sin(frameCount * 2) * 1.5, 0); // a small shake telegraphs the swing
+  }
   if (enemy.facingLeft) {
     scale(-1, 1);
   }
   if (enemy.hurtTimer > 0) {
     tint(255, 110, 110);
+  } else if (enemy.state === "windup") {
+    tint(255, 200, 120);
   }
+  // The feet sit on the bottom of the hitbox, so a tall frame rises above it.
   image(
     enemySheets[frame.sheet],
-    -enemy.length / 2, 0, enemy.length, enemy.width,
-    frame.x, frame.y, ENEMY_SPRITE_SIZE, ENEMY_SPRITE_SIZE
+    -ax * pixelSize, -h * pixelSize, w * pixelSize, h * pixelSize,
+    frame.x, frame.y, w, h
   );
   pop();
 }

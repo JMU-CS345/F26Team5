@@ -61,8 +61,63 @@ const ENEMY_MOVES = Object.freeze({
     const step = player.getCenter().sub(enemy.getCenter()).setMag(enemy.speed);
     step.rotate(Math.sin(enemy.age / ENEMY_WOBBLE_TIME) * ENEMY_WOBBLE_ANGLE);
     moveWithCollision(enemy, step.x, step.y, room);
+  },
+
+  // Rests, then dashes in a straight line toward where the player was when the dash began.
+  hop: function (enemy, player, room) {
+    hopStep(enemy, player, room, "attack");
+  },
+
+  // Hops like hop, but swings when the player is within attack.reach at the end of a rest.
+  hopSwing: function (enemy, player, room) {
+    const attack = enemy.type.attack;
+    if (enemy.state === "windup" && enemy.stateTimer === 0) {
+      enemy.setState("attack", ENEMY_SWING_FRAMES); // meleeHit can hurt during this state
+    } else if (enemy.state === "attack" && enemy.stateTimer === 0) {
+      enemy.setState("recover", attack.recover);
+    } else if (enemy.state === "recover" && enemy.stateTimer === 0) {
+      enemy.setState("idle", enemy.type.hopRest);
+    } else if (enemy.state === "idle" && enemy.stateTimer === 0 && enemy.canSee(player)) {
+      const distance = player.getCenter().sub(enemy.getCenter()).mag();
+      if (distance <= attack.reach) {
+        enemy.setState("windup", attack.windup);
+      } else {
+        hopStep(enemy, player, room, "hop");
+      }
+    } else if (enemy.state === "hop") {
+      hopStep(enemy, player, room, "hop");
+    }
   }
 });
+
+// One frame of the hop cycle. dashState is the state name used while dashing.
+function hopStep(enemy, player, room, dashState) {
+  const type = enemy.type;
+  if (enemy.state === dashState) {
+    if (enemy.stateTimer > 0) {
+      hopMove(enemy, room);
+    } else {
+      enemy.hopDir = null;
+      enemy.setState("idle", type.hopRest);
+    }
+    return;
+  }
+  if (enemy.stateTimer > 0 || !enemy.canSee(player)) {
+    return;
+  }
+  const toPlayer = player.getCenter().sub(enemy.getCenter());
+  if (toPlayer.magSq() === 0) {
+    return; // no direction to dash in
+  }
+  enemy.hopDir = toPlayer.setMag(1);
+  enemy.setState(dashState, type.hopFrames);
+  hopMove(enemy, room);
+}
+
+function hopMove(enemy, room) {
+  const speed = enemy.type.hopSpeed;
+  moveWithCollision(enemy, enemy.hopDir.x * speed, enemy.hopDir.y * speed, room);
+}
 
 const ENEMY_WANDER_FRAMES = 120; // how long a wandering enemy keeps one direction
 const ENEMY_KEEP_SLACK = 8; // pixels of give around keepRange so shooters do not jitter
@@ -94,5 +149,10 @@ const ENEMY_ATTACKS = Object.freeze({
       shots.push(shot);
     }
     return shots;
+  },
+
+  // Melee does not fire anything. Enemy.meleeHit hurts the player during the attack state.
+  melee: function (enemy, player) {
+    return [];
   }
 });

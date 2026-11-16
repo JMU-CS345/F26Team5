@@ -9,13 +9,20 @@
 //   detectionRange pixels. It only acts when the player is this close.
 //   contactDamage  damage when it touches the player
 //   move           a key of ENEMY_MOVES (enemy-behaviors.js)
-//   attack         null, or { kind, cooldown, damage, speed, color } and optionally
-//                  count and spread (degrees) for a fan. kind is a key of ENEMY_ATTACKS.
+//   attack         null, or { kind, cooldown, damage, ... }. kind is a key of ENEMY_ATTACKS.
+//                  shoot also needs speed and color, and may have count and spread (degrees).
+//                  melee needs reach, windup and recover (frames) and no speed or color.
 //   boss           true shows a health bar above it
-//   sprite         { frameTime, frames: [{ sheet, x, y }] } in 16x16 cells, or null
+//   sprite         { frameTime, frames: [{ sheet, x, y }] } in 16x16 cells, or null.
+//                  A frame may add w and h (pixels, default 16) and ax (the art x that sits
+//                  at the hitbox center, default w / 2). The sprite may add scale (screen
+//                  pixels per art pixel, default hitbox length / 16) and
+//                  states: { windup: [frames], attack: [frames] } used while in that state.
 //   color          [r, g, b] square drawn when there is no sprite
 //   wanderSpeed    only for move "wanderChase"
 //   keepRange      only for move "keepDistance"
+//   hopRest, hopFrames, hopSpeed  only for moves "hop" and "hopSwing": frames resting,
+//                  frames dashing, and pixels per frame while dashing
 
 const ENEMY_SPRITE_SIZE = 16; // every sprite cell is 16x16 pixels in its sheet
 
@@ -142,6 +149,27 @@ function isColor(value) {
   return Array.isArray(value) && value.length === 3 && value.every((c) => isNumberAtLeast(c, 0));
 }
 
+// Adds a problem through bad() for each thing wrong with a list of sprite frames.
+function checkSpriteFrames(frames, label, bad) {
+  if (!Array.isArray(frames) || frames.length === 0) {
+    bad(label + " must be a non-empty list");
+    return;
+  }
+  for (const frame of frames) {
+    if (!frame.sheet || !isNumberAtLeast(frame.x, 0) || !isNumberAtLeast(frame.y, 0)) {
+      bad("each sprite frame needs sheet, x and y");
+    }
+    for (const key of ["w", "h"]) {
+      if (frame[key] !== undefined && !isNumberAtLeast(frame[key], 1)) {
+        bad("sprite frame " + key + " must be at least 1");
+      }
+    }
+    if (frame.ax !== undefined && !isNumberAtLeast(frame.ax, 0)) {
+      bad("sprite frame ax must be at least 0");
+    }
+  }
+}
+
 // Returns a list of problems with an enemy table. An empty list means it is valid.
 function validateEnemyTypes(types = ENEMY_TYPES) {
   const problems = [];
@@ -172,12 +200,26 @@ function validateEnemyTypes(types = ENEMY_TYPES) {
     if (type.move === "keepDistance" && !isNumberAtLeast(type.keepRange, 1)) {
       bad("keepDistance needs keepRange above 0");
     }
+    if (type.move === "hop" || type.move === "hopSwing") {
+      for (const key of ["hopRest", "hopFrames", "hopSpeed"]) {
+        if (!isNumberAtLeast(type[key], 0.01)) {
+          bad(type.move + " needs " + key + " above 0");
+        }
+      }
+    }
+    if (type.move === "hopSwing" && !(type.attack && type.attack.kind === "melee")) {
+      bad("hopSwing needs a melee attack");
+    }
     if (type.attack !== null) {
       const attack = type.attack || {};
       if (!Object.keys(ENEMY_ATTACKS).includes(attack.kind)) {
         bad("attack.kind is not in ENEMY_ATTACKS: " + attack.kind);
       }
-      for (const key of ["cooldown", "damage", "speed"]) {
+      let attackKeys = ["cooldown", "damage", "speed"];
+      if (attack.kind === "melee") {
+        attackKeys = ["cooldown", "damage", "reach", "windup", "recover"];
+      }
+      for (const key of attackKeys) {
         if (!isNumberAtLeast(attack[key], 0.01)) {
           bad("attack." + key + " must be a number above 0");
         }
@@ -188,7 +230,7 @@ function validateEnemyTypes(types = ENEMY_TYPES) {
       if (attack.spread !== undefined && !isNumberAtLeast(attack.spread, 0)) {
         bad("attack.spread must be at least 0");
       }
-      if (!isColor(attack.color)) {
+      if (attack.kind !== "melee" && !isColor(attack.color)) {
         bad("attack.color must be [r, g, b]");
       }
     }
@@ -201,14 +243,13 @@ function validateEnemyTypes(types = ENEMY_TYPES) {
       if (!isNumberAtLeast(sprite.frameTime, 1)) {
         bad("sprite.frameTime must be a number of at least 1");
       }
-      const frames = sprite.frames;
-      if (!Array.isArray(frames) || frames.length === 0) {
-        bad("sprite.frames must be a non-empty list");
-      } else {
-        for (const frame of frames) {
-          if (!frame.sheet || !isNumberAtLeast(frame.x, 0) || !isNumberAtLeast(frame.y, 0)) {
-            bad("each sprite frame needs sheet, x and y");
-          }
+      if (sprite.scale !== undefined && !isNumberAtLeast(sprite.scale, 0.01)) {
+        bad("sprite.scale must be a number above 0");
+      }
+      checkSpriteFrames(sprite.frames, "sprite.frames", bad);
+      if (sprite.states !== undefined) {
+        for (const stateName of Object.keys(sprite.states)) {
+          checkSpriteFrames(sprite.states[stateName], "sprite.states." + stateName, bad);
         }
       }
     }
