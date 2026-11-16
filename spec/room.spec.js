@@ -213,3 +213,40 @@ describe("getWallVariant", () => {
     expect(getWallVariant(room, 5, 0)).toBe("open-s");
   });
 });
+
+describe("Room tile editing and exits", () => {
+  let room;
+  beforeEach(() => {
+    room = new NormalRoom(32, 64, 160, 160); // 10x10 tiles, drawn at pixel (32, 64)
+  });
+
+  it("knows its size in tiles", () => {
+    expect(room.cols).toBe(10);
+    expect(room.rows).toBe(10);
+  });
+
+  it("changes a tile with setTile", () => {
+    expect(room.setTile(3, 4, TILE.PIT)).toBe(true);
+    expect(room.getTile(3, 4)).toBe(TILE.PIT);
+  });
+
+  it("ignores setTile outside the room", () => {
+    expect(room.setTile(-1, 0, TILE.PIT)).toBe(false);
+    expect(room.setTile(0, 10, TILE.PIT)).toBe(false);
+    expect(room.setTile(10, 0, TILE.PIT)).toBe(false);
+  });
+
+  it("starts with no exits", () => {
+    expect(room.exits).toEqual([]);
+    expect(room.getExitAt(40, 70)).toBeNull();
+  });
+
+  it("finds the exit under a pixel, relative to the room's own position", () => {
+    const exit = { side: "N", tiles: [{ col: 4, row: 0 }, { col: 5, row: 0 }], toId: 1, screenStart: 4 };
+    room.exits.push(exit);
+    expect(room.getExitAt(32 + 4 * 16 + 2, 64 + 3)).toBe(exit); // first door tile
+    expect(room.getExitAt(32 + 5 * 16 + 2, 64 + 3)).toBe(exit); // second door tile
+    expect(room.getExitAt(32 + 3 * 16 + 2, 64 + 3)).toBeNull(); // wall beside the door
+    expect(room.getExitAt(32 + 4 * 16 + 2, 64 + 16 + 3)).toBeNull(); // floor just inside
+  });
+});
