@@ -65,7 +65,7 @@ const ENEMY_MOVES = Object.freeze({
 
   // Rests, then dashes in a straight line toward where the player was when the dash began.
   hop: function (enemy, player, room) {
-    hopStep(enemy, player, room, "attack");
+    hopStep(enemy, player, room, "hop");
   },
 
   // Hops like hop, but swings when the player is within attack.reach at the end of a rest.

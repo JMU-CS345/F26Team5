@@ -34,6 +34,13 @@ function creatureFrame(tile) {
   return { sheet: CREATURE_SHEET, x: (tile % 10) * 16, y: Math.floor(tile / 10) * 16 };
 }
 
+const BOUNCER_SHEET = "assets/enemy/Bouncer.png";
+const SPARK_BARK_SHEET = "assets/enemy/Spark Bark.png";
+
+function sparkBarkFrame(index) {
+  return { sheet: SPARK_BARK_SHEET, x: index * 16, y: 16, w: 16, h: 32 };
+}
+
 const ENEMY_TYPES = Object.freeze({
   Jelly: {
     length: 16,
@@ -42,7 +49,10 @@ const ENEMY_TYPES = Object.freeze({
     maxHealth: 3,
     detectionRange: 200,
     contactDamage: 1,
-    move: "chase",
+    move: "hop",
+    hopRest: 40,
+    hopFrames: 14,
+    hopSpeed: 2.2,
     attack: null,
     boss: false,
     color: [220, 80, 80],
@@ -115,6 +125,48 @@ const ENEMY_TYPES = Object.freeze({
     boss: false,
     color: [240, 90, 120],
     sprite: { frameTime: 20, frames: [creatureFrame(5)] }
+  },
+  Bouncer: {
+    length: 16,
+    width: 16,
+    speed: 0, // it only moves in its dashes
+    maxHealth: 5,
+    detectionRange: 220,
+    contactDamage: 1,
+    move: "hopSwing",
+    hopRest: 50,
+    hopFrames: 14,
+    hopSpeed: 2,
+    attack: { kind: "melee", cooldown: 60, damage: 1, reach: 26, windup: 20, recover: 24 },
+    boss: false,
+    color: [90, 90, 200],
+    // Art cells are 32x32 (48x32 for the sword), drawn at half size. The art faces right.
+    sprite: {
+      frameTime: 12,
+      scale: 0.5,
+      frames: [
+        { sheet: BOUNCER_SHEET, x: 0, y: 64, w: 32, h: 32 },
+        { sheet: BOUNCER_SHEET, x: 32, y: 64, w: 32, h: 32 }
+      ],
+      states: {
+        attack: [{ sheet: BOUNCER_SHEET, x: 0, y: 224, w: 48, h: 32, ax: 15 }]
+      }
+    }
+  },
+  SparkBark: {
+    length: 16,
+    width: 16,
+    speed: 0.5,
+    maxHealth: 4,
+    detectionRange: 240,
+    contactDamage: 1,
+    move: "chase",
+    attack: { kind: "shoot", cooldown: 100, damage: 1, speed: 2.2, count: 3, spread: 25,
+      color: [120, 220, 90] },
+    boss: false,
+    color: [120, 220, 90],
+    // The Tracking Player row: 8 frames, each 16 wide and 32 tall, standing on the hitbox.
+    sprite: { frameTime: 8, frames: [0, 1, 2, 3, 4, 5, 6, 7].map((i) => sparkBarkFrame(i)) }
   },
   Demon: {
     length: 32,
