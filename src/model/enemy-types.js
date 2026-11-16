@@ -18,6 +18,10 @@
 //                  at the hitbox center, default w / 2). The sprite may add scale (screen
 //                  pixels per art pixel, default hitbox length / 16) and
 //                  states: { windup: [frames], attack: [frames] } used while in that state.
+//                  directions: { down, up, left, right } each { hop: [frames], attack: [frames] }
+//                  picks art by which side the player is on (no flipping).
+//                  aimFrames: a ring of frames chosen by the angle to the player.
+//                  A frame's ay is the art y that sits at the hitbox bottom (default h).
 //   color          [r, g, b] square drawn when there is no sprite
 //   wanderSpeed    only for move "wanderChase"
 //   keepRange      only for move "keepDistance"
@@ -39,6 +43,14 @@ const SPARK_BARK_SHEET = "assets/enemy/Spark Bark.png";
 
 function sparkBarkFrame(index) {
   return { sheet: SPARK_BARK_SHEET, x: index * 16, y: 16, w: 16, h: 32 };
+}
+
+// The two hop frames of one Bouncer direction row. y is the top of the row's 32x32 cells.
+function bouncerHops(y) {
+  return [
+    { sheet: BOUNCER_SHEET, x: 0, y: y, w: 32, h: 32 },
+    { sheet: BOUNCER_SHEET, x: 32, y: y, w: 32, h: 32 }
+  ];
 }
 
 const ENEMY_TYPES = Object.freeze({
@@ -140,16 +152,30 @@ const ENEMY_TYPES = Object.freeze({
     attack: { kind: "melee", cooldown: 60, damage: 1, reach: 26, windup: 20, recover: 24 },
     boss: false,
     color: [90, 90, 200],
-    // Art cells are 32x32 (48x32 for the sword), drawn at half size. The art faces right.
+    // Four directions, each with 2 hop frames and a sword frame, drawn at half size. Hop cells
+    // are 32x32 with the feet on the bottom row. A frame's ax and ay are the art pixel that
+    // sits at the bottom center of the hitbox.
     sprite: {
-      frameTime: 12,
+      frameTime: 6,
       scale: 0.5,
-      frames: [
-        { sheet: BOUNCER_SHEET, x: 0, y: 64, w: 32, h: 32 },
-        { sheet: BOUNCER_SHEET, x: 32, y: 64, w: 32, h: 32 }
-      ],
-      states: {
-        attack: [{ sheet: BOUNCER_SHEET, x: 0, y: 224, w: 48, h: 32, ax: 15 }]
+      frames: bouncerHops(0),
+      directions: {
+        down: {
+          hop: bouncerHops(0),
+          attack: [{ sheet: BOUNCER_SHEET, x: 0, y: 130, w: 32, h: 47, ax: 17, ay: 28 }]
+        },
+        up: {
+          hop: bouncerHops(32),
+          attack: [{ sheet: BOUNCER_SHEET, x: 0, y: 177, w: 32, h: 45, ax: 17 }]
+        },
+        right: {
+          hop: bouncerHops(64),
+          attack: [{ sheet: BOUNCER_SHEET, x: 0, y: 226, w: 48, h: 30, ax: 15 }]
+        },
+        left: {
+          hop: bouncerHops(96),
+          attack: [{ sheet: BOUNCER_SHEET, x: 0, y: 258, w: 42, h: 30, ax: 32 }]
+        }
       }
     }
   },
@@ -166,7 +192,13 @@ const ENEMY_TYPES = Object.freeze({
     boss: false,
     color: [120, 220, 90],
     // The Tracking Player row: 8 frames, each 16 wide and 32 tall, standing on the hitbox.
-    sprite: { frameTime: 8, frames: [0, 1, 2, 3, 4, 5, 6, 7].map((i) => sparkBarkFrame(i)) }
+    // The trunk has one eye and each frame looks a different way. aimFrames goes from looking
+    // at the viewer, through left to the back of the tree, then right (see aimFrameIndex).
+    sprite: {
+      frameTime: 8,
+      frames: [sparkBarkFrame(0)],
+      aimFrames: [0, 1, 2, 3, 4, 5, 6, 7].map((i) => sparkBarkFrame(i))
+    }
   },
   Demon: {
     length: 32,
@@ -193,6 +225,46 @@ function createEnemy(typeName, x, y) {
   return new Enemy(x, y, typeName);
 }
 
+// Which of count frames to show for an angle in radians (0 is right, y grows down). Frame 0
+// looks straight down the screen, and the frames then turn through left, up and right.
+function aimFrameIndex(angle, count) {
+  const step = (2 * Math.PI) / count;
+  const index = Math.round((angle - Math.PI / 2) / step);
+  return ((index % count) + count) % count;
+}
+
+// Every frame a sprite can show, so the loader can fetch each sheet.
+function allSpriteFrames(sprite) {
+  let list = sprite.frames.slice();
+  for (const stateName of Object.keys(sprite.states || {})) {
+    list = list.concat(sprite.states[stateName]);
+  }
+  for (const dirName of Object.keys(sprite.directions || {})) {
+    list = list.concat(sprite.directions[dirName].hop, sprite.directions[dirName].attack);
+  }
+  return list.concat(sprite.aimFrames || []);
+}
+
+// The frame to draw for this enemy right now. tick is any counter that grows each frame.
+function enemySpriteFrame(enemy, sprite, tick) {
+  if (sprite.aimFrames) {
+    return sprite.aimFrames[aimFrameIndex(enemy.facingAngle, sprite.aimFrames.length)];
+  }
+  let frames = sprite.frames;
+  if (sprite.directions) {
+    const set = sprite.directions[enemy.facingDir];
+    frames = [set.hop[0]]; // still while resting, winding up or recovering
+    if (enemy.state === "hop") {
+      frames = set.hop;
+    } else if (enemy.state === "attack") {
+      frames = set.attack;
+    }
+  } else if (sprite.states && sprite.states[enemy.state]) {
+    frames = sprite.states[enemy.state];
+  }
+  return frames[Math.floor(tick / sprite.frameTime) % frames.length];
+}
+
 function isNumberAtLeast(value, min) {
   return typeof value === "number" && value >= min;
 }
@@ -216,8 +288,10 @@ function checkSpriteFrames(frames, label, bad) {
         bad("sprite frame " + key + " must be at least 1");
       }
     }
-    if (frame.ax !== undefined && !isNumberAtLeast(frame.ax, 0)) {
-      bad("sprite frame ax must be at least 0");
+    for (const key of ["ax", "ay"]) {
+      if (frame[key] !== undefined && !isNumberAtLeast(frame[key], 0)) {
+        bad("sprite frame " + key + " must be at least 0");
+      }
     }
   }
 }
@@ -299,6 +373,16 @@ function validateEnemyTypes(types = ENEMY_TYPES) {
         bad("sprite.scale must be a number above 0");
       }
       checkSpriteFrames(sprite.frames, "sprite.frames", bad);
+      if (sprite.aimFrames !== undefined) {
+        checkSpriteFrames(sprite.aimFrames, "sprite.aimFrames", bad);
+      }
+      if (sprite.directions !== undefined) {
+        for (const dirName of ["down", "up", "left", "right"]) {
+          const set = sprite.directions[dirName] || {};
+          checkSpriteFrames(set.hop, "sprite.directions." + dirName + ".hop", bad);
+          checkSpriteFrames(set.attack, "sprite.directions." + dirName + ".attack", bad);
+        }
+      }
       if (sprite.states !== undefined) {
         for (const stateName of Object.keys(sprite.states)) {
           checkSpriteFrames(sprite.states[stateName], "sprite.states." + stateName, bad);

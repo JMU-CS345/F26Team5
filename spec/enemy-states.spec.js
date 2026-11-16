@@ -150,11 +150,14 @@ describe("Melee attack and hopSwing", function () {
     placePlayerRightOf(enemy, player, 20);
     const before = player.health;
     let hits = 0;
-    for (let frame = 0; frame < 40; frame++) {
+    for (let frame = 0; frame < 120; frame++) {
       enemy.update(player, room);
       if (enemy.meleeHit(player)) {
         hits++;
-        expect(enemy.state).toBe("recover");
+        expect(enemy.state).toBe("attack"); // the sword stays out after the hit
+      }
+      if (hits > 0 && enemy.state === "idle") {
+        break; // the swing is over, before the next one starts
       }
     }
     expect(hits).toBe(1);
