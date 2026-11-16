@@ -3,6 +3,10 @@
 
 const ENEMY_DAMAGE_COOLDOWN = 30; // frames at 60 fps
 const ENEMY_HURT_FRAMES = 6; // how long the hit flash lasts
+const ENEMY_KNOCKBACK_SPEED = 3; // pixels per frame at the start of a shove
+const ENEMY_KNOCKBACK_FRAMES = 8;
+const ENEMY_KNOCKBACK_DECAY = 0.8; // the shove keeps this much of its speed each frame
+const ENEMY_SPAWN_FRAMES = 30; // harmless while the spawn-in ring plays
 
 class Enemy {
   // typeName is a key of ENEMY_TYPES. With no name it is a Jelly.
@@ -29,6 +33,9 @@ class Enemy {
     }
     this.age = 0; // frames alive, for behaviors that wobble
     this.hurtTimer = 0; // frames left of the hit flash
+    this.knockback = new p5.Vector(0, 0); // pixels per frame, shrinks as the shove fades
+    this.knockbackTimer = 0;
+    this.spawnTimer = 0; // createEnemy can raise this so the enemy fades in harmless
     this.facingLeft = false;
     this.rng = Math.random; // specs swap this out to control wandering
     this.wanderDir = null;
@@ -39,9 +46,22 @@ class Enemy {
     return this.health <= 0;
   }
 
-  takeDamage(amount) {
+  isSpawning() {
+    return this.spawnTimer > 0;
+  }
+
+  // fromDir is the direction the hit travels. Leave it out for damage with no shove.
+  takeDamage(amount, fromDir) {
     if (amount > 0) {
       this.hurtTimer = ENEMY_HURT_FRAMES;
+    }
+    if (amount > 0 && fromDir && fromDir.magSq() > 0) {
+      let shove = ENEMY_KNOCKBACK_SPEED;
+      if (this.type.boss) {
+        shove = shove / 2; // bosses are heavy
+      }
+      this.knockback = fromDir.copy().setMag(shove);
+      this.knockbackTimer = ENEMY_KNOCKBACK_FRAMES;
     }
     this.health = Math.max(0, this.health - amount);
   }
@@ -66,13 +86,21 @@ class Enemy {
       return;
     }
     this.age++;
+    if (this.isSpawning()) {
+      this.spawnTimer--;
+      return;
+    }
     this.damageCooldown = Math.max(0, this.damageCooldown - 1);
     this.attackTimer = Math.max(0, this.attackTimer - 1);
     this.hurtTimer = Math.max(0, this.hurtTimer - 1);
     if (this.canSee(player)) {
       this.facingLeft = player.getCenter().x < this.getCenter().x;
     }
-    if (this.damageCooldown === 0) {
+    if (this.knockbackTimer > 0) {
+      moveWithCollision(this, this.knockback.x, this.knockback.y, room);
+      this.knockback.mult(ENEMY_KNOCKBACK_DECAY);
+      this.knockbackTimer--;
+    } else if (this.damageCooldown === 0) {
       ENEMY_MOVES[this.type.move](this, player, room);
     }
   }
@@ -88,7 +116,7 @@ class Enemy {
 
   // Returns an array of new projectiles. Empty for enemies with no attack.
   tryAttack(player) {
-    if (this.isDead() || !this.type.attack) {
+    if (this.isDead() || this.isSpawning() || !this.type.attack) {
       return [];
     }
     return ENEMY_ATTACKS[this.type.attack.kind](this, player);
@@ -99,7 +127,10 @@ class Enemy {
   }
 
   damagePlayer(player) {
-    if (this.isDead() || this.damageCooldown > 0 || !this.isTouching(player)) {
+    if (this.isDead() || this.isSpawning() || this.damageCooldown > 0) {
+      return false;
+    }
+    if (!this.isTouching(player)) {
       return false;
     }
     player.takeDamage(this.contactDamage);
@@ -113,10 +144,13 @@ class Enemy {
   }
 
   damageFromProjectile(projectile) {
-    if (this.isDead() || !projectile.alive || !this.isTouchingProjectile(projectile)) {
+    if (this.isDead() || this.isSpawning() || !projectile.alive) {
       return false;
     }
-    this.takeDamage(projectile.damage);
+    if (!this.isTouchingProjectile(projectile)) {
+      return false;
+    }
+    this.takeDamage(projectile.damage, projectile.vel);
     projectile.alive = false;
     return true;
   }
