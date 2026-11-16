@@ -3,6 +3,7 @@
 
 const ENEMY_DAMAGE_COOLDOWN = 30; // frames at 60 fps
 const ENEMY_HURT_FRAMES = 6; // how long the hit flash lasts
+const ENEMY_PHASE_FLASH_FRAMES = 30; // how long the boss bar flashes after a phase change
 
 class Enemy {
   // typeName is a key of ENEMY_TYPES. With no name it is a Jelly.
@@ -29,6 +30,7 @@ class Enemy {
     }
     this.age = 0; // frames alive, for behaviors that wobble
     this.hurtTimer = 0; // frames left of the hit flash
+    this.phaseFlashTimer = 0; // frames left of the phase change flash
     this.facingLeft = false;
     this.rng = Math.random; // specs swap this out to control wandering
     this.wanderDir = null;
@@ -39,11 +41,64 @@ class Enemy {
     return this.health <= 0;
   }
 
+  // The active phase of the type, or null. The smallest matching below wins.
+  getPhase() {
+    const phases = this.type.phases;
+    if (!phases) {
+      return null;
+    }
+    const fraction = this.health / this.maxHealth;
+    let active = null;
+    for (const phase of phases) {
+      if (fraction < phase.below && (!active || phase.below < active.below)) {
+        active = phase;
+      }
+    }
+    return active;
+  }
+
+  getMoveName() {
+    const phase = this.getPhase();
+    if (phase && phase.move) {
+      return phase.move;
+    }
+    return this.type.move;
+  }
+
+  getAttack() {
+    const phase = this.getPhase();
+    if (phase && phase.attack) {
+      return phase.attack;
+    }
+    return this.type.attack;
+  }
+
+  getSpeed() {
+    const phase = this.getPhase();
+    if (phase && typeof phase.speed === "number") {
+      return phase.speed;
+    }
+    return this.speed;
+  }
+
+  justChangedPhase() {
+    return this.phaseFlashTimer > 0;
+  }
+
   takeDamage(amount) {
     if (amount > 0) {
       this.hurtTimer = ENEMY_HURT_FRAMES;
     }
+    const phaseBefore = this.getPhase();
     this.health = Math.max(0, this.health - amount);
+    if (this.getPhase() !== phaseBefore) {
+      this.phaseFlashTimer = ENEMY_PHASE_FLASH_FRAMES;
+      const attack = this.getAttack();
+      if (attack) {
+        // A faster attack should start soon, but a phase change never delays a shot.
+        this.attackTimer = Math.min(this.attackTimer, attack.cooldown);
+      }
+    }
   }
 
   getBounds() {
@@ -69,11 +124,12 @@ class Enemy {
     this.damageCooldown = Math.max(0, this.damageCooldown - 1);
     this.attackTimer = Math.max(0, this.attackTimer - 1);
     this.hurtTimer = Math.max(0, this.hurtTimer - 1);
+    this.phaseFlashTimer = Math.max(0, this.phaseFlashTimer - 1);
     if (this.canSee(player)) {
       this.facingLeft = player.getCenter().x < this.getCenter().x;
     }
     if (this.damageCooldown === 0) {
-      ENEMY_MOVES[this.type.move](this, player, room);
+      ENEMY_MOVES[this.getMoveName()](this, player, room);
     }
   }
 
@@ -82,16 +138,17 @@ class Enemy {
     if (this.isDead() || !this.canSee(player)) {
       return;
     }
-    const step = player.getCenter().sub(this.getCenter()).setMag(this.speed);
+    const step = player.getCenter().sub(this.getCenter()).setMag(this.getSpeed());
     moveWithCollision(this, step.x, step.y, room);
   }
 
   // Returns an array of new projectiles. Empty for enemies with no attack.
   tryAttack(player) {
-    if (this.isDead() || !this.type.attack) {
+    const attack = this.getAttack();
+    if (this.isDead() || !attack) {
       return [];
     }
-    return ENEMY_ATTACKS[this.type.attack.kind](this, player);
+    return ENEMY_ATTACKS[attack.kind](this, player);
   }
 
   isTouching(player) {
@@ -127,4 +184,9 @@ function removeDeadEnemies(room) {
   const dead = room.enemies.filter((enemy) => enemy.isDead());
   room.enemies = room.enemies.filter((enemy) => !enemy.isDead());
   return dead;
+}
+
+// Returns only the bosses from a list of dead enemies, like the one removeDeadEnemies returns.
+function findDeadBosses(deadEnemies) {
+  return deadEnemies.filter((enemy) => enemy.type.boss);
 }

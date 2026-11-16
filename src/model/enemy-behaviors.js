@@ -44,9 +44,9 @@ const ENEMY_MOVES = Object.freeze({
     const distance = toPlayer.mag();
     const keepRange = enemy.type.keepRange;
     if (distance > keepRange + ENEMY_KEEP_SLACK) {
-      toPlayer.setMag(enemy.speed);
+      toPlayer.setMag(enemy.getSpeed());
     } else if (distance < keepRange - ENEMY_KEEP_SLACK) {
-      toPlayer.setMag(-enemy.speed);
+      toPlayer.setMag(-enemy.getSpeed());
     } else {
       return;
     }
@@ -58,7 +58,7 @@ const ENEMY_MOVES = Object.freeze({
     if (!enemy.canSee(player)) {
       return;
     }
-    const step = player.getCenter().sub(enemy.getCenter()).setMag(enemy.speed);
+    const step = player.getCenter().sub(enemy.getCenter()).setMag(enemy.getSpeed());
     step.rotate(Math.sin(enemy.age / ENEMY_WOBBLE_TIME) * ENEMY_WOBBLE_ANGLE);
     moveWithCollision(enemy, step.x, step.y, room);
   }
@@ -73,7 +73,7 @@ const ENEMY_WOBBLE_ANGLE = 1.2; // radians, the widest swing to either side of t
 const ENEMY_ATTACKS = Object.freeze({
   // Fires count projectiles at the player, spread degrees apart, once the cooldown is over.
   shoot: function (enemy, player) {
-    const attack = enemy.type.attack;
+    const attack = enemy.getAttack();
     if (enemy.attackTimer > 0 || !enemy.canSee(player)) {
       return [];
     }
