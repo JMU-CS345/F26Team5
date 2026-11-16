@@ -3,6 +3,7 @@
 
 const ENEMY_DAMAGE_COOLDOWN = 30; // frames at 60 fps
 const ENEMY_HURT_FRAMES = 6; // how long the hit flash lasts
+const ENEMY_SWING_FRAMES = 6; // how long a melee swing can hit
 
 class Enemy {
   // typeName is a key of ENEMY_TYPES. With no name it is a Jelly.
@@ -29,6 +30,9 @@ class Enemy {
     }
     this.age = 0; // frames alive, for behaviors that wobble
     this.hurtTimer = 0; // frames left of the hit flash
+    this.state = "idle"; // idle, windup, attack or recover. A move behavior sets it.
+    this.stateTimer = 0; // frames left in this state
+    this.hopDir = null; // locked dash direction for the hop moves
     this.facingLeft = false;
     this.rng = Math.random; // specs swap this out to control wandering
     this.wanderDir = null;
@@ -37,6 +41,11 @@ class Enemy {
 
   isDead() {
     return this.health <= 0;
+  }
+
+  setState(name, frames) {
+    this.state = name;
+    this.stateTimer = frames;
   }
 
   takeDamage(amount) {
@@ -69,6 +78,7 @@ class Enemy {
     this.damageCooldown = Math.max(0, this.damageCooldown - 1);
     this.attackTimer = Math.max(0, this.attackTimer - 1);
     this.hurtTimer = Math.max(0, this.hurtTimer - 1);
+    this.stateTimer = Math.max(0, this.stateTimer - 1);
     if (this.canSee(player)) {
       this.facingLeft = player.getCenter().x < this.getCenter().x;
     }
@@ -92,6 +102,30 @@ class Enemy {
       return [];
     }
     return ENEMY_ATTACKS[this.type.attack.kind](this, player);
+  }
+
+  // Melee hit: while in the attack state, hurts a player inside a reach box in front of us.
+  meleeHit(player) {
+    const attack = this.type.attack;
+    if (this.isDead() || this.isSpawning() || !attack || attack.kind !== "melee") {
+      return false;
+    }
+    if (this.state !== "attack" || this.damageCooldown > 0) {
+      return false;
+    }
+    const center = this.getCenter();
+    let left = center.x;
+    if (this.facingLeft) {
+      left = center.x - attack.reach;
+    }
+    const box = { x: left, y: center.y - attack.reach / 2, w: attack.reach, h: attack.reach };
+    if (!rectsOverlap(box, player.getBounds())) {
+      return false;
+    }
+    player.takeDamage(attack.damage);
+    this.damageCooldown = ENEMY_DAMAGE_COOLDOWN;
+    this.setState("recover", attack.recover); // one hit per swing
+    return true;
   }
 
   isTouching(player) {
