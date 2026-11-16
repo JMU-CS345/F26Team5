@@ -12,6 +12,7 @@ let room;
 let roomGraphic;
 let restartShown = false;
 let modelButtons = [];
+let inventoryDrag = null;
 //temp
 const ROOM_WIDTH = 640;
 const ROOM_HEIGHT = 400;
@@ -34,6 +35,26 @@ function startRun() {
     createEnemy("Skeleton", 520, 160),
     createEnemy("Bat", 256, 144),
     createEnemy("Eyeball", 48, 336)
+  ];
+  // Placeholder pickups until room data supplies item placement.
+  room.items = [
+    new ItemDrop(176, 160, new Weapon({
+      id: "training-wand",
+      name: "Training Wand",
+      damage: 2,
+      element: game.selectedClass
+    })),
+    new ItemDrop(256, 224, new Armor({
+      id: "apprentice-robe",
+      name: "Apprentice Robe",
+      defense: 1
+    })),
+    new ItemDrop(400, 160, new Consumable({
+      id: "health-potion",
+      name: "Health Potion",
+      maxStackSize: 5
+    })),
+    new ItemDrop(480, 320, new Gold(), 25)
   ];
   nextSpawnIndex = ENEMY_TYPE_NAMES.indexOf("Demon");
   projectiles = [];
@@ -110,6 +131,7 @@ async function setup() {
   await loadPlayerSheets();
   await loadTileImages();
   await loadEnemySheets();
+  await loadItemSprites();
   createCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);
   noSmooth();
   frameRate(60); // movement is pixels per frame, so keep the frame rate fixed
@@ -148,7 +170,17 @@ function draw() {
   }
   drawRoom(room, roomGraphic);
 
+  if (game.isInventory()) {
+    drawRunScene();
+    drawInventoryMenu(player.inventory, inventoryDrag, mouseX, mouseY);
+    return;
+  }
+
   player.move(getMoveDirection(keyIsDown), room);
+  for (const drop of room.items) {
+    drop.update();
+  }
+  pickupItemDrops(player, room);
 
   if (!player.isDead()) {
     for (const e of room.enemies) {
@@ -181,21 +213,10 @@ function draw() {
   enemyProjectiles = enemyProjectiles.filter((p) => p.alive);
   removeDeadEnemies(room);
 
-  for (const p of projectiles) {
-    drawProjectile(p);
-  }
-  for (const p of enemyProjectiles) {
-    drawEnemyProjectile(p);
-  }
-  drawPlayer(player);
-  for (const e of room.enemies) {
-    drawEnemy(e);
-  }
+  drawRunScene();
   if (!room.cleared && room.enemies.every((e) => e.isDead())) {
     room.onClear();
   }
-  drawHealthBar(player);
-  drawClassLabel(player.mageClass);
   if (player.showDeathScreen()) {
     game.playerDied();
   }
@@ -206,6 +227,24 @@ function draw() {
       restartShown = true;
     }
   }
+}
+
+function drawRunScene() {
+  for (const drop of room.items) {
+    drawItemDrop(drop);
+  }
+  for (const p of projectiles) {
+    drawProjectile(p);
+  }
+  for (const p of enemyProjectiles) {
+    drawEnemyProjectile(p);
+  }
+  drawPlayer(player);
+  for (const e of room.enemies) {
+    drawEnemy(e);
+  }
+  drawHealthBar(player);
+  drawClassLabel(player.mageClass);
 }
 
 // Testing aid, press E: spawns the next enemy type somewhere on the floor, away from the player.
@@ -236,6 +275,16 @@ function keyPressed() {
     chooseClass(getClassForKey(key));
     return;
   }
+  if ((game.isPlaying() || game.isInventory()) && key.toLowerCase() === "i") {
+    game.toggleInventory();
+    if (!game.isInventory()) {
+      inventoryDrag = null;
+    }
+    return false;
+  }
+  if (game.isInventory()) {
+    return false;
+  }
   if (game.isPlaying() && key.toLowerCase() === "e") {
     spawnNextEnemy();
   }
@@ -252,4 +301,22 @@ function keyPressed() {
   ) {
     return false;
   }
+}
+
+function mousePressed() {
+  if (!game.isInventory()) {
+    return;
+  }
+  inventoryDrag = beginInventoryDrag(player.inventory, mouseX, mouseY);
+  return false;
+}
+
+function mouseReleased() {
+  if (!game.isInventory() || inventoryDrag === null) {
+    inventoryDrag = null;
+    return;
+  }
+  finishInventoryDrag(player.inventory, inventoryDrag, mouseX, mouseY);
+  inventoryDrag = null;
+  return false;
 }
