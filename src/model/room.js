@@ -17,6 +17,20 @@ class Room {
     this.items = [];
     this.exits = [];
     this.cleared = false;
+
+    // Filled in by the dungeon generator.
+    this.id = null;
+    this.role = "normal"; // "start", "normal" or "boss"
+    this.worldCol = 0; // where the room's top-left tile sits on the dungeon map
+    this.worldRow = 0;
+  }
+
+  get cols() {
+    return this.width / this.tileSize;
+  }
+
+  get rows() {
+    return this.height / this.tileSize;
   }
   
   // requires subclasses to implement layouts.
@@ -40,6 +54,23 @@ class Room {
       return TILE.WALL;
     }
     return this.tileGrid[row][col];
+  }
+
+  // Changes one tile. Returns false (and does nothing) if the position is outside the room.
+  setTile(col, row, type) {
+    if (row < 0 || col < 0 || row >= this.tileGrid.length || col >= this.tileGrid[0].length) {
+      return false;
+    }
+    this.tileGrid[row][col] = type;
+    return true;
+  }
+
+  // The exit whose door covers this pixel, or null. Each exit looks like:
+  //   { side: "N"|"E"|"S"|"W", tiles: [{ side, tiles, toId, doorIndex, toDoor }]
+  getExitAt(px, py) {
+    const col = Math.floor((px - this.x) / this.tileSize);
+    const row = Math.floor((py - this.y) / this.tileSize);
+    return this.exits.find((e) => e.tiles.some((t) => t.col === col && t.row === row)) || null;
   }
 
   // The tile type at a pixel position.
