@@ -12,7 +12,12 @@
 //   attack         null, or { kind, cooldown, damage, ... }. kind is a key of ENEMY_ATTACKS.
 //                  shoot also needs speed and color, and may have count and spread (degrees).
 //                  melee needs reach, windup and recover (frames) and no speed or color.
-//   boss           true shows a health bar above it
+//   boss           true shows a health bar at the top of the screen
+//   phases         optional list like [{ below: 0.5, speed: 1.6, move: "chase", attack: {...} }].
+//                  While health / maxHealth is below `below`, the phase's speed, move and
+//                  attack replace the base ones. Every key except below is optional. List
+//                  them from the highest below to the lowest. The lowest matching one wins.
+//   lootTable      optional name of a loot pool, for the loot system to read
 //   sprite         { frameTime, frames: [{ sheet, x, y }] } in 16x16 cells, or null.
 //                  A frame may add w and h (pixels, default 16) and ax (the art x that sits
 //                  at the hitbox center, default w / 2). The sprite may add scale (screen
@@ -209,6 +214,22 @@ const ENEMY_TYPES = Object.freeze({
     contactDamage: 2,
     move: "chase",
     attack: { kind: "shoot", cooldown: 75, damage: 1, speed: 3, color: [200, 60, 220] },
+    phases: [
+      {
+        below: 0.5,
+        speed: 1.6,
+        attack: {
+          kind: "shoot",
+          cooldown: 50,
+          damage: 1,
+          speed: 3.5,
+          count: 3,
+          spread: 20,
+          color: [255, 120, 60]
+        }
+      }
+    ],
+    lootTable: "boss",
     boss: true,
     color: [150, 30, 160],
     sprite: { frameTime: 20, frames: [creatureFrame(123)] }
@@ -278,6 +299,64 @@ function isColor(value) {
   return Array.isArray(value) && value.length === 3 && value.every((c) => isNumberAtLeast(c, 0));
 }
 
+// Checks one attack table, used for the base attack and for each phase attack.
+function checkEnemyAttack(attackTable, bad) {
+  const attack = attackTable || {};
+  if (!Object.keys(ENEMY_ATTACKS).includes(attack.kind)) {
+    bad("attack.kind is not in ENEMY_ATTACKS: " + attack.kind);
+  }
+  let attackKeys = ["cooldown", "damage", "speed"];
+  if (attack.kind === "melee") {
+    attackKeys = ["cooldown", "damage", "reach", "windup", "recover"];
+  }
+  for (const key of attackKeys) {
+    if (!isNumberAtLeast(attack[key], 0.01)) {
+      bad("attack." + key + " must be a number above 0");
+    }
+  }
+  if (attack.count !== undefined && !isNumberAtLeast(attack.count, 1)) {
+    bad("attack.count must be at least 1");
+  }
+  if (attack.spread !== undefined && !isNumberAtLeast(attack.spread, 0)) {
+    bad("attack.spread must be at least 0");
+  }
+  if (attack.kind !== "melee" && !isColor(attack.color)) {
+    bad("attack.color must be [r, g, b]");
+  }
+}
+
+// Checks a phases list: below values between 0 and 1 and falling, plus the optional overrides.
+function checkEnemyPhases(phases, bad) {
+  if (!Array.isArray(phases) || phases.length === 0) {
+    bad("phases must be a non-empty list");
+    return;
+  }
+  const phaseBad = (message) => bad("phase " + message);
+  let lastBelow = 1;
+  for (const phase of phases) {
+    if (typeof phase !== "object" || phase === null) {
+      bad("each phase must be an object");
+      continue;
+    }
+    if (!(typeof phase.below === "number" && phase.below > 0 && phase.below < 1)) {
+      phaseBad("below must be a number above 0 and below 1");
+    } else if (phase.below >= lastBelow) {
+      phaseBad("below values must get smaller down the list");
+    } else {
+      lastBelow = phase.below;
+    }
+    if (phase.move !== undefined && !Object.keys(ENEMY_MOVES).includes(phase.move)) {
+      phaseBad("move is not in ENEMY_MOVES: " + phase.move);
+    }
+    if (phase.speed !== undefined && !isNumberAtLeast(phase.speed, 0)) {
+      phaseBad("speed must be a number of at least 0");
+    }
+    if (phase.attack !== undefined && phase.attack !== null) {
+      checkEnemyAttack(phase.attack, phaseBad);
+    }
+  }
+}
+
 // Adds a problem through bad() for each thing wrong with a list of sprite frames.
 function checkSpriteFrames(frames, label, bad) {
   if (!Array.isArray(frames) || frames.length === 0) {
@@ -342,27 +421,14 @@ function validateEnemyTypes(types = ENEMY_TYPES) {
       bad("hopSwing needs a melee attack");
     }
     if (type.attack !== null) {
-      const attack = type.attack || {};
-      if (!Object.keys(ENEMY_ATTACKS).includes(attack.kind)) {
-        bad("attack.kind is not in ENEMY_ATTACKS: " + attack.kind);
-      }
-      let attackKeys = ["cooldown", "damage", "speed"];
-      if (attack.kind === "melee") {
-        attackKeys = ["cooldown", "damage", "reach", "windup", "recover"];
-      }
-      for (const key of attackKeys) {
-        if (!isNumberAtLeast(attack[key], 0.01)) {
-          bad("attack." + key + " must be a number above 0");
-        }
-      }
-      if (attack.count !== undefined && !isNumberAtLeast(attack.count, 1)) {
-        bad("attack.count must be at least 1");
-      }
-      if (attack.spread !== undefined && !isNumberAtLeast(attack.spread, 0)) {
-        bad("attack.spread must be at least 0");
-      }
-      if (attack.kind !== "melee" && !isColor(attack.color)) {
-        bad("attack.color must be [r, g, b]");
+      checkEnemyAttack(type.attack, bad);
+    }
+    if (type.phases !== undefined) {
+      checkEnemyPhases(type.phases, bad);
+    }
+    if (type.lootTable !== undefined) {
+      if (typeof type.lootTable !== "string" || type.lootTable === "") {
+        bad("lootTable must be a non-empty string");
       }
     }
     if (type.sprite === null) {

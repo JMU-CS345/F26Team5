@@ -96,6 +96,7 @@ function startRun() {
   enemyProjectiles = [];
   clearDyingEnemies();
   room.cleared = false;
+  room.bossDefeated = false;
   restartShown = false;
   restartButton.hide();
   for (const button of classButtons) {
@@ -255,9 +256,7 @@ function draw() {
     projectileHitsPlayer(p, player);
   }
   enemyProjectiles = enemyProjectiles.filter((p) => p.alive);
-  for (const dead of removeDeadEnemies(room)) {
-    startEnemyDeath(dead);
-  }
+  handleDeadEnemies(removeDeadEnemies(room));
 
   for (const p of projectiles) {
     drawProjectile(p);
@@ -277,6 +276,7 @@ function draw() {
     room.onClear();
   }
   drawHealthBar(player);
+  drawFirstBossBar();
   drawClassLabel(player.mageClass);
   drawMinimap(dungeon, room);
   if (player.showDeathScreen()) {
@@ -288,6 +288,25 @@ function draw() {
       restartButton.show();
       restartShown = true;
     }
+  }
+}
+
+// Vincent's room code hooks door unlock and exit here, and Nick's loot hooks
+// enemy.type.lootTable here.
+function handleDeadEnemies(dead) {
+  for (const enemy of dead) {
+    startEnemyDeath(enemy);
+  }
+  if (findDeadBosses(dead).length > 0) {
+    room.bossDefeated = true;
+  }
+}
+
+// Only one boss bar shows, even if several bosses are alive.
+function drawFirstBossBar() {
+  const boss = room.enemies.find((e) => e.type.boss && !e.isDead());
+  if (boss) {
+    drawBossBar(boss);
   }
 }
 
