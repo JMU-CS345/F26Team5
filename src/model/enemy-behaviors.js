@@ -73,6 +73,7 @@ const ENEMY_MOVES = Object.freeze({
     const attack = enemy.type.attack;
     if (enemy.state === "windup" && enemy.stateTimer === 0) {
       enemy.setState("attack", ENEMY_SWING_FRAMES); // meleeHit can hurt during this state
+      enemy.swingHit = false;
     } else if (enemy.state === "attack" && enemy.stateTimer === 0) {
       enemy.setState("recover", attack.recover);
     } else if (enemy.state === "recover" && enemy.stateTimer === 0) {

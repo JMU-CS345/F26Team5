@@ -3,7 +3,7 @@
 
 const ENEMY_DAMAGE_COOLDOWN = 30; // frames at 60 fps
 const ENEMY_HURT_FRAMES = 6; // how long the hit flash lasts
-const ENEMY_SWING_FRAMES = 6; // how long a melee swing can hit
+const ENEMY_SWING_FRAMES = 10; // how long a melee swing can hit
 
 class Enemy {
   // typeName is a key of ENEMY_TYPES. With no name it is a Jelly.
@@ -34,6 +34,9 @@ class Enemy {
     this.stateTimer = 0; // frames left in this state
     this.hopDir = null; // locked dash direction for the hop moves
     this.facingLeft = false;
+    this.facingDir = "down"; // "down", "up", "left" or "right", the side the player is on
+    this.facingAngle = Math.PI / 2; // radians toward the player, 0 is right and y grows down
+    this.swingHit = false; // true once the current swing has hurt the player
     this.rng = Math.random; // specs swap this out to control wandering
     this.wanderDir = null;
     this.wanderTimer = 0;
@@ -80,10 +83,28 @@ class Enemy {
     this.hurtTimer = Math.max(0, this.hurtTimer - 1);
     this.stateTimer = Math.max(0, this.stateTimer - 1);
     if (this.canSee(player)) {
-      this.facingLeft = player.getCenter().x < this.getCenter().x;
+      this.faceToward(player);
     }
     if (this.damageCooldown === 0) {
       ENEMY_MOVES[this.type.move](this, player, room);
+    }
+  }
+
+  // Remembers which way the player is. The art picks its direction from these.
+  faceToward(player) {
+    const toPlayer = player.getCenter().sub(this.getCenter());
+    this.facingLeft = toPlayer.x < 0;
+    this.facingAngle = toPlayer.heading();
+    if (Math.abs(toPlayer.y) > Math.abs(toPlayer.x)) {
+      if (toPlayer.y > 0) {
+        this.facingDir = "down";
+      } else {
+        this.facingDir = "up";
+      }
+    } else if (toPlayer.x < 0) {
+      this.facingDir = "left";
+    } else {
+      this.facingDir = "right";
     }
   }
 
@@ -110,7 +131,7 @@ class Enemy {
     if (this.isDead() || this.isSpawning() || !attack || attack.kind !== "melee") {
       return false;
     }
-    if (this.state !== "attack" || this.damageCooldown > 0) {
+    if (this.state !== "attack" || this.swingHit || this.damageCooldown > 0) {
       return false;
     }
     const center = this.getCenter();
@@ -124,7 +145,7 @@ class Enemy {
     }
     player.takeDamage(attack.damage);
     this.damageCooldown = ENEMY_DAMAGE_COOLDOWN;
-    this.setState("recover", attack.recover); // one hit per swing
+    this.swingHit = true; // one hit per swing, and the sword stays out
     return true;
   }
 
