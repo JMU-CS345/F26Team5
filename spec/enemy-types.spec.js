@@ -48,7 +48,9 @@ describe("Enemy sprite frames", function () {
   // Add a line here when a type uses a new sprite sheet. The sizes keep a typo in a frame
   // rectangle from drawing half a sprite.
   const SHEET_SIZES = {
+    "assets/enemy/Bouncer.png": { w: 149, h: 288 },
     "assets/enemy/Jelly.png": { w: 157, h: 272 },
+    "assets/enemy/Spark Bark.png": { w: 128, h: 80 },
     "assets/enemy/tiny-creatures.png": { w: 160, h: 288 }
   };
 

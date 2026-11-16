@@ -67,7 +67,7 @@ describe("Hop move", function () {
       expect(enemy.state).toBe("idle");
     }
     expect(stepMoved()).toBe(true);
-    expect(enemy.state).toBe("attack");
+    expect(enemy.state).toBe("hop");
   });
 
   it("dashes toward the player at hopSpeed", function () {
@@ -270,4 +270,33 @@ describe("validateEnemyTypes for hop and melee", function () {
     expect(validateEnemyTypes(tableWith({ sprite: { ...sprite, states: { attack: [] } } })))
       .toEqual(["Test: sprite.states.attack must be a non-empty list"]);
   });
+});
+
+// The melee version of the contract checks in enemy-contract.spec.js.
+describe("Every melee enemy type", function () {
+  for (const name of ENEMY_TYPE_NAMES) {
+    const type = ENEMY_TYPES[name];
+    if (!type.attack || type.attack.kind !== "melee") {
+      continue;
+    }
+    describe(name, function () {
+      it("has reach, windup and recover above 0", function () {
+        expect(type.attack.reach).toBeGreaterThan(0);
+        expect(type.attack.windup).toBeGreaterThan(0);
+        expect(type.attack.recover).toBeGreaterThan(0);
+      });
+
+      it("hurts a player in reach exactly once per swing", function () {
+        const enemy = createEnemy(name, 100, 100);
+        const player = new Player(0, 0);
+        const center = enemy.getCenter();
+        player.pos.set(center.x + 4, center.y - player.width / 2);
+        const before = player.health;
+        enemy.setState("attack", ENEMY_SWING_FRAMES);
+        expect(enemy.meleeHit(player)).toBe(true);
+        expect(enemy.meleeHit(player)).toBe(false);
+        expect(player.health).toBe(before - type.attack.damage);
+      });
+    });
+  }
 });
