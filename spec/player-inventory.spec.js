@@ -1,8 +1,11 @@
 describe("PlayerInventory", () => {
   function makeEquipment() {
     return {
-      weapon: new Weapon({ id: "sword", name: "Sword" }),
-      armor: new Armor({ id: "robe", name: "Robe" })
+      melee: new MeleeWeapon({ id: "sword", name: "Sword" }),
+      projectile: new ProjectileWeapon({ id: "wand", name: "Wand" }),
+      head: new Helmet({ id: "hat", name: "Hat" }),
+      body: new ChestArmor({ id: "robe", name: "Robe" }),
+      legs: new LegArmor({ id: "boots", name: "Boots" })
     };
   }
 
@@ -54,33 +57,46 @@ describe("PlayerInventory", () => {
 
   it("requires the equipped item to be in the bag", () => {
     const inventory = new PlayerInventory(1);
-    const sword = makeEquipment().weapon;
+    const sword = makeEquipment().melee;
     expect(() => inventory.equip(sword)).toThrow();
-    expect(inventory.getEquipped("weapon")).toBeNull();
+    expect(inventory.getEquipped("melee")).toBeNull();
+  });
+
+  it("enforces the concrete type for every equipment slot", () => {
+    const inventory = new PlayerInventory(2);
+    const genericWeapon = new Weapon({ id: "generic", name: "Generic Weapon" });
+    const genericArmor = new Armor({ id: "generic-armor", name: "Generic Armor" });
+    inventory.add(genericWeapon);
+    inventory.add(genericArmor);
+
+    expect(() => inventory.equip(genericWeapon)).toThrow();
+    expect(() => inventory.equip(genericArmor)).toThrow();
+    expect(inventory.quantityOf(genericWeapon)).toBe(1);
+    expect(inventory.quantityOf(genericArmor)).toBe(1);
   });
 
   it("unequips an item back into the bag", () => {
     const inventory = new PlayerInventory(1);
-    const sword = makeEquipment().weapon;
+    const sword = makeEquipment().melee;
     inventory.add(sword);
     inventory.equip(sword);
 
-    expect(inventory.unequip("weapon")).toBe(sword);
-    expect(inventory.getEquipped("weapon")).toBeNull();
+    expect(inventory.unequip("melee")).toBe(sword);
+    expect(inventory.getEquipped("melee")).toBeNull();
     expect(inventory.quantityOf(sword)).toBe(1);
   });
 
   it("swaps occupied equipment without duplication or loss", () => {
     const inventory = new PlayerInventory(1);
-    const first = new Weapon({ id: "first", name: "First Sword" });
-    const second = new Weapon({ id: "second", name: "Second Sword" });
+    const first = new MeleeWeapon({ id: "first", name: "First Sword" });
+    const second = new MeleeWeapon({ id: "second", name: "Second Sword" });
     inventory.add(first);
     inventory.equip(first);
     inventory.add(second);
 
     inventory.equip(second);
 
-    expect(inventory.getEquipped("weapon")).toBe(second);
+    expect(inventory.getEquipped("melee")).toBe(second);
     expect(inventory.quantityOf(first)).toBe(1);
     expect(inventory.quantityOf(second)).toBe(0);
     expect(inventory.contents().length).toBe(1);
@@ -88,23 +104,23 @@ describe("PlayerInventory", () => {
 
   it("keeps an equipped item in place when the bag cannot accept it", () => {
     const inventory = new PlayerInventory(1);
-    const sword = makeEquipment().weapon;
+    const sword = makeEquipment().melee;
     inventory.add(sword);
     inventory.equip(sword);
     inventory.add(new Consumable({ id: "potion", name: "Potion" }));
 
-    expect(inventory.unequip("weapon")).toBeNull();
-    expect(inventory.getEquipped("weapon")).toBe(sword);
+    expect(inventory.unequip("melee")).toBeNull();
+    expect(inventory.getEquipped("melee")).toBe(sword);
     expect(inventory.quantityOf(sword)).toBe(0);
   });
 
   it("exposes read-only equipment inspection", () => {
     const inventory = new PlayerInventory(1);
-    const sword = makeEquipment().weapon;
+    const sword = makeEquipment().melee;
     inventory.add(sword);
     inventory.equip(sword);
 
-    expect(inventory.equipment.weapon.item).toBe(sword);
+    expect(inventory.equipment.melee.item).toBe(sword);
     expect(Object.isFrozen(inventory.equipment)).toBe(true);
   });
 
@@ -158,5 +174,36 @@ describe("PlayerInventory", () => {
     expect(removed.quantity).toBe(7);
     expect(player.gold).toBe(13);
     expect(player.contents().length).toBe(0);
+  });
+
+  it("consumes exactly one healing item and applies its real effect", () => {
+    const inventory = new PlayerInventory(1);
+    const potion = new Consumable({
+      id: "potion",
+      name: "Potion",
+      maxStackSize: 5,
+      healthRestore: 2
+    });
+    const target = { health: 1, maxHealth: 5 };
+    inventory.add(potion, 3);
+
+    expect(inventory.consume(potion, target)).toBe(true);
+    expect(target.health).toBe(3);
+    expect(inventory.quantityOf(potion)).toBe(2);
+  });
+
+  it("does not consume an item when its effect cannot be applied", () => {
+    const inventory = new PlayerInventory(1);
+    const potion = new Consumable({
+      id: "potion",
+      name: "Potion",
+      healthRestore: 2
+    });
+    const target = { health: 5, maxHealth: 5 };
+    inventory.add(potion, 2);
+
+    expect(inventory.consume(potion, target)).toBe(false);
+    expect(target.health).toBe(5);
+    expect(inventory.quantityOf(potion)).toBe(2);
   });
 });

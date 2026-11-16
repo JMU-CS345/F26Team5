@@ -5,6 +5,11 @@ describe("Item hierarchy", () => {
 
     expect(weapon instanceof Item).toBe(true);
     expect(armor instanceof Item).toBe(true);
+    expect(new MeleeWeapon({ id: "axe", name: "Axe" }) instanceof Weapon).toBe(true);
+    expect(new ProjectileWeapon({ id: "bow", name: "Bow" }) instanceof Weapon).toBe(true);
+    expect(new Helmet({ id: "hat", name: "Hat" }) instanceof Armor).toBe(true);
+    expect(new ChestArmor({ id: "coat", name: "Coat" }) instanceof Armor).toBe(true);
+    expect(new LegArmor({ id: "boots", name: "Boots" }) instanceof Armor).toBe(true);
     expect(new Consumable({ id: "potion", name: "Potion" }) instanceof Item).toBe(true);
     expect(new Gold() instanceof Item).toBe(true);
   });
@@ -87,10 +92,25 @@ describe("Item hierarchy", () => {
     expect(gold.stackable).toBe(true);
   });
 
-  it("stores armor defense without specialized armor subclasses", () => {
-    const armor = new Armor({ id: "robe", name: "Robe", defense: 4 });
+  it("stores armor defense on specialized armor subclasses", () => {
+    const armor = new ChestArmor({ id: "robe", name: "Robe", defense: 4 });
     expect(armor.defense).toBe(4);
     expect(armor.maxStackSize).toBe(1);
+  });
+
+  it("stores consumable descriptions and healing effects", () => {
+    const potion = new Consumable({
+      id: "potion",
+      name: "Potion",
+      description: "Restores a little health.",
+      healthRestore: 2
+    });
+    const target = { health: 2, maxHealth: 5 };
+
+    expect(potion.description).toBe("Restores a little health.");
+    expect(potion.canUse(target)).toBe(true);
+    expect(potion.applyTo(target)).toBe(true);
+    expect(target.health).toBe(4);
   });
 
   it("rejects invalid shared item properties", () => {

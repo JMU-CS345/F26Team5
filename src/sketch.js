@@ -13,6 +13,9 @@ let roomGraphic;
 let restartShown = false;
 let modelButtons = [];
 let inventoryDrag = null;
+let inventorySelection = null;
+let inventoryInfoLines = [];
+let resumeInputBlocked = false;
 //temp
 const ROOM_WIDTH = 640;
 const ROOM_HEIGHT = 400;
@@ -38,27 +41,35 @@ function startRun() {
   ];
   // Placeholder pickups until room data supplies item placement.
   room.items = [
-    new ItemDrop(176, 160, new Weapon({
+    new ItemDrop(176, 160, new ProjectileWeapon({
       id: "training-wand",
       name: "Training Wand",
       damage: 2,
-      element: game.selectedClass
+      element: game.selectedClass,
+      description: "A simple wand for apprentice mages."
     })),
-    new ItemDrop(256, 224, new Armor({
+    new ItemDrop(256, 224, new ChestArmor({
       id: "apprentice-robe",
       name: "Apprentice Robe",
-      defense: 1
+      defense: 1,
+      description: "A light robe with basic protection."
     })),
     new ItemDrop(400, 160, new Consumable({
       id: "health-potion",
       name: "Health Potion",
-      maxStackSize: 5
+      maxStackSize: 5,
+      healthRestore: 2,
+      description: "A small restorative potion."
     })),
     new ItemDrop(480, 320, new Gold(), 25)
   ];
   nextSpawnIndex = ENEMY_TYPE_NAMES.indexOf("Demon");
   projectiles = [];
   enemyProjectiles = [];
+  inventoryDrag = null;
+  inventorySelection = null;
+  inventoryInfoLines = [];
+  resumeInputBlocked = false;
   room.cleared = false;
   restartShown = false;
   restartButton.hide();
@@ -172,11 +183,27 @@ function draw() {
 
   if (game.isInventory()) {
     drawRunScene();
-    drawInventoryMenu(player.inventory, inventoryDrag, mouseX, mouseY);
+    drawInventoryMenu(
+      player.inventory,
+      player,
+      inventoryDrag,
+      inventorySelection,
+      inventoryInfoLines,
+      mouseX,
+      mouseY
+    );
+    drawInventoryHudButton(true);
     return;
   }
 
-  player.move(getMoveDirection(keyIsDown), room);
+  const heldInputBlocked = resumeInputBlocked && isGameplayInputHeld(keyIsDown);
+  if (resumeInputBlocked && !heldInputBlocked) {
+    resumeInputBlocked = false;
+  }
+  player.move(
+    heldInputBlocked ? new p5.Vector(0, 0) : getMoveDirection(keyIsDown),
+    room
+  );
   for (const drop of room.items) {
     drop.update();
   }
@@ -192,7 +219,9 @@ function draw() {
     }
   }
 
-  const proj = player.fire(getFireDirection(keyIsDown));
+  const proj = player.fire(
+    heldInputBlocked ? new p5.Vector(0, 0) : getFireDirection(keyIsDown)
+  );
   if (proj) {
     projectiles.push(proj);
   }
@@ -244,7 +273,29 @@ function drawRunScene() {
     drawEnemy(e);
   }
   drawHealthBar(player);
+  drawGoldHud(player.inventory);
   drawClassLabel(player.mageClass);
+  if (game.isPlaying() || game.isInventory()) {
+    drawInventoryHudButton(game.isInventory());
+  }
+}
+
+function clearInventoryUiState() {
+  inventoryDrag = null;
+  inventorySelection = null;
+  inventoryInfoLines = [];
+}
+
+function toggleInventoryMenu() {
+  const wasInventoryOpen = game.isInventory();
+  if (!toggleInventoryFromControl(game)) {
+    return false;
+  }
+  clearInventoryUiState();
+  if (wasInventoryOpen) {
+    resumeInputBlocked = true;
+  }
+  return true;
 }
 
 // Testing aid, press E: spawns the next enemy type somewhere on the floor, away from the player.
@@ -276,13 +327,14 @@ function keyPressed() {
     return;
   }
   if ((game.isPlaying() || game.isInventory()) && key.toLowerCase() === "i") {
-    game.toggleInventory();
-    if (!game.isInventory()) {
-      inventoryDrag = null;
-    }
+    toggleInventoryMenu();
     return false;
   }
   if (game.isInventory()) {
+    if (keyCode === ESCAPE) {
+      inventorySelection = null;
+      inventoryInfoLines = [];
+    }
     return false;
   }
   if (game.isPlaying() && key.toLowerCase() === "e") {
@@ -304,8 +356,39 @@ function keyPressed() {
 }
 
 function mousePressed() {
+  if ((game.isPlaying() || game.isInventory()) && inventoryHudButtonAt(mouseX, mouseY)) {
+    toggleInventoryMenu();
+    return false;
+  }
   if (!game.isInventory()) {
     return;
+  }
+
+  const contextAction = inventoryContextActionAt(
+    player.inventory,
+    player,
+    inventorySelection,
+    mouseX,
+    mouseY
+  );
+  if (contextAction !== null) {
+    const result = performInventoryContextAction(
+      player.inventory,
+      player,
+      inventorySelection,
+      contextAction.id
+    );
+    inventoryInfoLines = result.infoLines;
+    if (result.success && contextAction.id !== "view") {
+      inventorySelection = null;
+    }
+    inventoryDrag = null;
+    return false;
+  }
+
+  if (inventorySelectionAt(player.inventory, mouseX, mouseY) === null) {
+    inventorySelection = null;
+    inventoryInfoLines = [];
   }
   inventoryDrag = beginInventoryDrag(player.inventory, mouseX, mouseY);
   return false;
@@ -316,7 +399,18 @@ function mouseReleased() {
     inventoryDrag = null;
     return;
   }
-  finishInventoryDrag(player.inventory, inventoryDrag, mouseX, mouseY);
+  if (inventoryDragMoved(inventoryDrag, mouseX, mouseY)) {
+    finishInventoryDrag(player.inventory, inventoryDrag, mouseX, mouseY);
+    inventorySelection = null;
+    inventoryInfoLines = [];
+  } else {
+    inventorySelection = inventorySelectionAt(
+      player.inventory,
+      inventoryDrag.startX,
+      inventoryDrag.startY
+    );
+    inventoryInfoLines = [];
+  }
   inventoryDrag = null;
   return false;
 }

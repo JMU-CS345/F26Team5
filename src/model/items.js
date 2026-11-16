@@ -42,6 +42,10 @@ class Item {
     this.name = options.name;
     this.value = resolvedValue;
     this.maxStackSize = resolvedMax;
+    this.description = options.description === undefined ? "" : options.description;
+    if (typeof this.description !== "string") {
+      throw new TypeError("description must be a string");
+    }
     this.instanceId = resolvedMax === 1 ? `item-instance-${nextItemInstanceId++}` : null;
   }
 
@@ -77,6 +81,20 @@ class Weapon extends Item {
     this.damage = damage;
     this.elementalType = elementalType === undefined ? null : elementalType;
     this.element = this.elementalType;
+    this.attackType = options.attackType === undefined ? "Weapon" : options.attackType;
+    requireNonEmptyString(this.attackType, "attackType");
+  }
+}
+
+class MeleeWeapon extends Weapon {
+  constructor(options = {}) {
+    super({ ...options, attackType: options.attackType || "Melee" });
+  }
+}
+
+class ProjectileWeapon extends Weapon {
+  constructor(options = {}) {
+    super({ ...options, attackType: options.attackType || "Projectile" });
   }
 }
 
@@ -90,10 +108,35 @@ class Armor extends Item {
   }
 }
 
+class Helmet extends Armor {}
+
+class ChestArmor extends Armor {}
+
+class LegArmor extends Armor {}
+
 class Consumable extends Item {
   constructor(options = {}) {
     super(options);
-    this.description = options.description === undefined ? "" : options.description;
+    const healthRestore = options.healthRestore === undefined ? 0 : options.healthRestore;
+    requireNonNegativeNumber(healthRestore, "healthRestore");
+    this.healthRestore = healthRestore;
+  }
+
+  canUse(target) {
+    return this.healthRestore > 0
+      && target !== null
+      && typeof target === "object"
+      && typeof target.health === "number"
+      && typeof target.maxHealth === "number"
+      && target.health < target.maxHealth;
+  }
+
+  applyTo(target) {
+    if (!this.canUse(target)) {
+      return false;
+    }
+    target.health = Math.min(target.maxHealth, target.health + this.healthRestore);
+    return true;
   }
 }
 

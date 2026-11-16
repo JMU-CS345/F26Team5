@@ -1,8 +1,11 @@
 // Player-specific storage built from the generic inventory and slot models.
 
 const PLAYER_EQUIPMENT_TYPES = Object.freeze({
-  weapon: Weapon,
-  armor: Armor
+  melee: MeleeWeapon,
+  projectile: ProjectileWeapon,
+  head: Helmet,
+  body: ChestArmor,
+  legs: LegArmor
 });
 
 class PlayerInventory extends Inventory {
@@ -193,6 +196,33 @@ class PlayerInventory extends Inventory {
       throw new TypeError("unknown equipment slot");
     }
     return slot.empty ? null : slot._stack.item;
+  }
+
+  consume(itemOrId, target) {
+    const matchingSlot = this._slots.find((slot) => (
+      !slot.empty && this._matches(slot._stack.item, itemOrId)
+    ));
+    if (matchingSlot === undefined || !(matchingSlot._stack.item instanceof Consumable)) {
+      return false;
+    }
+    const item = matchingSlot._stack.item;
+    if (!item.canUse(target)) {
+      return false;
+    }
+
+    const state = this._captureState();
+    const previousHealth = target.health;
+    try {
+      super.remove(item, 1);
+      if (!item.applyTo(target)) {
+        throw new Error("the consumable effect could not be applied");
+      }
+      return true;
+    } catch (error) {
+      this._restoreState(state);
+      target.health = previousHealth;
+      return false;
+    }
   }
 
   transferTo(destination, itemOrId, quantity = 1) {

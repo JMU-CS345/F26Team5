@@ -65,8 +65,8 @@ describe("pickupItemDrops", function () {
   });
 
   it("collects one of each supported item type on contact", function () {
-    const weapon = new Weapon({ id: "wand", name: "Wand" });
-    const armor = new Armor({ id: "robe", name: "Robe" });
+    const weapon = new ProjectileWeapon({ id: "wand", name: "Wand" });
+    const armor = new ChestArmor({ id: "robe", name: "Robe" });
     const potion = new Consumable({ id: "potion", name: "Potion" });
     room.items = [
       new ItemDrop(52, 52, weapon),

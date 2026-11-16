@@ -30,7 +30,7 @@ function drawClassLabel(mageClass) {
   fill(...CLASS_COLORS[mageClass]);
   textSize(12);
   textAlign(RIGHT, CENTER);
-  text(mageClass + " Mage", width - 10, 17);
+  text(mageClass + " Mage", width - 120, 17);
 }
 
 // Center x of the nth model button and preview.
