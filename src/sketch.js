@@ -41,6 +41,10 @@ function startRun() {
     createEnemy("Bat", ROOM_X + 256, ROOM_Y + 64, true),
     createEnemy("Eyeball", ROOM_X + 48, ROOM_Y + 256, true)
   ];
+  // TEMPORARY: a test NPC until room files place them.
+  room.npcs = [
+    new Npc(ROOM_X + 288, ROOM_Y + 176, "Elder")
+  ];
   nextSpawnIndex = ENEMY_TYPE_NAMES.indexOf("Demon");
   projectiles = [];
   enemyProjectiles = [];
@@ -221,6 +225,9 @@ function draw() {
     if (debugOverlay) {
       drawEnemyDebug(e);
     }
+  }
+  for (const npc of room.npcs) {
+    drawNpc(npc);
   }
   drawDyingEnemies();
   if (!room.cleared && room.enemies.every((e) => e.isDead())) {
