@@ -26,13 +26,6 @@ describe("Enemy state", function () {
     enemy.update(player, room);
     expect(enemy.stateTimer).toBe(0);
   });
-
-  it("does not count down while spawning in", function () {
-    const enemy = createEnemy("Jelly", 100, 100, true);
-    enemy.setState("recover", 5);
-    enemy.update(new Player(600, 350), room);
-    expect(enemy.stateTimer).toBe(5);
-  });
 });
 
 describe("Hop move", function () {

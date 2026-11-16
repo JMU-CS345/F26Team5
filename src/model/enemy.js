@@ -128,7 +128,7 @@ class Enemy {
   // Melee hit: while in the attack state, hurts a player inside a reach box in front of us.
   meleeHit(player) {
     const attack = this.type.attack;
-    if (this.isDead() || this.isSpawning() || !attack || attack.kind !== "melee") {
+    if (this.isDead() || !attack || attack.kind !== "melee") {
       return false;
     }
     if (this.state !== "attack" || this.swingHit || this.damageCooldown > 0) {
