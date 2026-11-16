@@ -11,8 +11,10 @@ let debugOverlay = false; // F3 toggles hitboxes and detection circles for enemi
 let nextSpawnIndex = 0;
 let restartButton;
 let classButtons = [];
-let room;
-let roomGraphic;
+let dungeon;
+let room; // the room the player is in right now
+let roomGraphic; // the picture of that room
+let roomGraphics = new Map(); // room id -> picture, built the first time the room is entered
 let restartShown = false;
 let modelButtons = [];
 let activeDialogue;
@@ -23,39 +25,81 @@ const ROOM_X = (CANVAS_WIDTH - ROOM_WIDTH) / 2;
 const ROOM_Y = (CANVAS_HEIGHT - ROOM_HEIGHT) / 2;
 const NPC_TOP_RIGHT_X = ROOM_X + ROOM_WIDTH - 48;
 const NPC_TOP_RIGHT_Y = ROOM_Y + 32;
+const DUNGEON_ROOM_COUNT = 10;
 let pageScale = 1; // set by fitToWindow(), also used to line up the page background
 let pageLeft = 0;
 let pageTop = 0;
 
+// Makes the picture of a room the first time it is needed, and reuses it after that.
+function getRoomGraphic(r) {
+  if (!roomGraphics.has(r.id)) {
+    roomGraphics.set(r.id, buildRoomGraphic(r));
+  }
+  return roomGraphics.get(r.id);
+}
+
+// Moves the game into a room. Shots in flight don't follow the player through a door.
+function enterRoom(r) {
+  room = r;
+  roomGraphic = getRoomGraphic(r);
+  projectiles = [];
+  enemyProjectiles = [];
+  room.onEnter();
+}
+
+// Walks the player through an exit into the next room.
+function useExit(exit) {
+  const next = dungeon.rooms[exit.toId];
+  const spot = dungeon.entryPoint(room, exit);
+  enterRoom(next);
+  player.pos.set(spot.x - player.length / 2, spot.y - player.width / 2);
+}
+
+// TEMPORARY: a few random enemies on the floor, until room files (#13) place enemies.
+function fillRoomTemp(r) {
+  const names = ["Jelly", "Zombie", "Skeleton", "Bat", "Eyeball"];
+  const count = r.role === "boss" ? 5 : 2 + Math.floor(random(3));
+  for (let n = 0; n < count; n++) {
+    for (let tries = 0; tries < 50; tries++) {
+      const enemy = createEnemy(
+        random(names),
+        random(r.x + r.tileSize, r.x + r.width - 2 * r.tileSize),
+        random(r.y + r.tileSize, r.y + r.height - 2 * r.tileSize)
+      );
+      if (!r.collidesWithWall(enemy.getBounds())) {
+        r.enemies.push(enemy);
+        break;
+      }
+    }
+  }
+}
+
 // Makes a fresh player with the class picked on the menu.
 function startRun() {
-  roomGraphic = buildRoomGraphic(room);
+  for (const g of roomGraphics.values()) {
+    g.remove(); // free the old dungeon's pictures
+  }
+  roomGraphics.clear();
+  dungeon = generateDungeon({
+    roomCount: DUNGEON_ROOM_COUNT,
+    screenX: ROOM_X,
+    screenY: ROOM_Y
+  });
+  console.log("Dungeon seed:", dungeon.seed); // pass this as seed to replay a dungeon
+  enterRoom(dungeon.start);
+  const spawn = room.getPlayerSpawn(); // the @ in the start room's drawing
   player = new Player(
-    ROOM_X + ROOM_WIDTH / 2 - PLAYER_LENGTH / 2,
-    ROOM_Y + ROOM_HEIGHT / 2 - PLAYER_WIDTH / 2,
+    spawn.x - PLAYER_LENGTH / 2,
+    spawn.y - PLAYER_WIDTH / 2,
     game.selectedClass,
     game.selectedModel
   );
-  // TEMPORARY: a starter mix until room files (#13) place enemies. Press E for more.
-  room.enemies = [
-    createEnemy("Jelly", ROOM_X + 112, ROOM_Y + 32, true),
-    createEnemy("Zombie", ROOM_X + 480, ROOM_Y + 336, true),
-    createEnemy("Skeleton", ROOM_X + 520, ROOM_Y + 80, true),
-    createEnemy("Bat", ROOM_X + 256, ROOM_Y + 64, true),
-    createEnemy("Eyeball", ROOM_X + 48, ROOM_Y + 256, true)
-  ];
-  // An Elder NPC placed in the top right of the room (press N to toggle)
-  room.npcs = [
-    createTopRightNpc()
-  ];
-  if (activeDialogue) {
-    activeDialogue.close();
-  }
   nextSpawnIndex = ENEMY_TYPE_NAMES.indexOf("Demon");
   projectiles = [];
   enemyProjectiles = [];
   clearDyingEnemies();
   room.cleared = false;
+  room.bossDefeated = false;
   restartShown = false;
   restartButton.hide();
   for (const button of classButtons) {
@@ -135,16 +179,6 @@ async function setup() {
   noSmooth();
   buildBackground();
   frameRate(60); // movement is pixels per frame, so keep the frame rate fixed
-  room = new NormalRoom(ROOM_X, ROOM_Y, ROOM_WIDTH, ROOM_HEIGHT);
-  // TEMPORARY: one of each new tile, to check the art. Delete once real rooms exist.
-  room.tileGrid[8][10] = TILE.PIT;
-  room.tileGrid[0][20] = TILE.DOOR_CLOSED;
-  room.tileGrid[12][8] = TILE.INTERIOR_WALL;
-  for (let r = 1; r <= 3; r++) {
-    for (let c = 24; c <= 26; c++) {
-      room.tileGrid[r][c] = TILE.WALL; // a bump on the north wall, to check the outside corners
-    }
-  }
   game = new Game();
   activeDialogue = new DialogueBox();
   restartButton = createButton("Restart");
@@ -186,6 +220,15 @@ function draw() {
     drawClassMenu();
     return;
   }
+  // Standing in a door tile means the player is leaving the room. This is checked before
+  // drawing, so the new room is drawn on the same frame the player arrives.
+  if (!player.isDead()) {
+    const center = player.getCenter();
+    const exit = room.getExitAt(center.x, center.y);
+    if (exit) {
+      useExit(exit);
+    }
+  }
   drawRoom(room, roomGraphic);
 
   if (!activeDialogue.isActive()) {
@@ -198,6 +241,7 @@ function draw() {
     for (const e of room.enemies) {
       e.update(player, room);
       e.damagePlayer(player);
+      e.meleeHit(player);
       for (const shot of e.tryAttack(player)) {
         enemyProjectiles.push(shot);
       }
@@ -225,9 +269,7 @@ function draw() {
     projectileHitsPlayer(p, player);
   }
   enemyProjectiles = enemyProjectiles.filter((p) => p.alive);
-  for (const dead of removeDeadEnemies(room)) {
-    startEnemyDeath(dead);
-  }
+  handleDeadEnemies(removeDeadEnemies(room));
 
   for (const p of projectiles) {
     drawProjectile(p);
@@ -250,8 +292,9 @@ function draw() {
     room.onClear();
   }
   drawHealthBar(player);
+  drawFirstBossBar();
   drawClassLabel(player.mageClass);
-  drawDialogueBox(activeDialogue, ROOM_X, ROOM_Y, ROOM_WIDTH, ROOM_HEIGHT);
+  drawMinimap(dungeon, room);
   if (player.showDeathScreen()) {
     activeDialogue.close();
     game.playerDied();
@@ -262,6 +305,25 @@ function draw() {
       restartButton.show();
       restartShown = true;
     }
+  }
+}
+
+// Vincent's room code hooks door unlock and exit here, and Nick's loot hooks
+// enemy.type.lootTable here.
+function handleDeadEnemies(dead) {
+  for (const enemy of dead) {
+    startEnemyDeath(enemy);
+  }
+  if (findDeadBosses(dead).length > 0) {
+    room.bossDefeated = true;
+  }
+}
+
+// Only one boss bar shows, even if several bosses are alive.
+function drawFirstBossBar() {
+  const boss = room.enemies.find((e) => e.type.boss && !e.isDead());
+  if (boss) {
+    drawBossBar(boss);
   }
 }
 

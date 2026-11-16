@@ -3,6 +3,8 @@
 
 const ENEMY_DAMAGE_COOLDOWN = 30; // frames at 60 fps
 const ENEMY_HURT_FRAMES = 6; // how long the hit flash lasts
+const ENEMY_PHASE_FLASH_FRAMES = 30; // how long the boss bar flashes after a phase change
+const ENEMY_SWING_FRAMES = 10; // how long a melee swing can hit
 const ENEMY_KNOCKBACK_SPEED = 3; // pixels per frame at the start of a shove
 const ENEMY_KNOCKBACK_FRAMES = 8;
 const ENEMY_KNOCKBACK_DECAY = 0.8; // the shove keeps this much of its speed each frame
@@ -33,10 +35,17 @@ class Enemy {
     }
     this.age = 0; // frames alive, for behaviors that wobble
     this.hurtTimer = 0; // frames left of the hit flash
+    this.phaseFlashTimer = 0; // frames left of the phase change flash
+    this.state = "idle"; // idle, windup, attack or recover. A move behavior sets it.
+    this.stateTimer = 0; // frames left in this state
+    this.hopDir = null; // locked dash direction for the hop moves
     this.knockback = new p5.Vector(0, 0); // pixels per frame, shrinks as the shove fades
     this.knockbackTimer = 0;
     this.spawnTimer = 0; // createEnemy can raise this so the enemy fades in harmless
     this.facingLeft = false;
+    this.facingDir = "down"; // "down", "up", "left" or "right", the side the player is on
+    this.facingAngle = Math.PI / 2; // radians toward the player, 0 is right and y grows down
+    this.swingHit = false; // true once the current swing has hurt the player
     this.rng = Math.random; // specs swap this out to control wandering
     this.wanderDir = null;
     this.wanderTimer = 0;
@@ -44,6 +53,55 @@ class Enemy {
 
   isDead() {
     return this.health <= 0;
+  }
+
+  // The active phase of the type, or null. The smallest matching below wins.
+  getPhase() {
+    const phases = this.type.phases;
+    if (!phases) {
+      return null;
+    }
+    const fraction = this.health / this.maxHealth;
+    let active = null;
+    for (const phase of phases) {
+      if (fraction < phase.below && (!active || phase.below < active.below)) {
+        active = phase;
+      }
+    }
+    return active;
+  }
+
+  getMoveName() {
+    const phase = this.getPhase();
+    if (phase && phase.move) {
+      return phase.move;
+    }
+    return this.type.move;
+  }
+
+  getAttack() {
+    const phase = this.getPhase();
+    if (phase && phase.attack) {
+      return phase.attack;
+    }
+    return this.type.attack;
+  }
+
+  getSpeed() {
+    const phase = this.getPhase();
+    if (phase && typeof phase.speed === "number") {
+      return phase.speed;
+    }
+    return this.speed;
+  }
+
+  justChangedPhase() {
+    return this.phaseFlashTimer > 0;
+  }
+
+  setState(name, frames) {
+    this.state = name;
+    this.stateTimer = frames;
   }
 
   isSpawning() {
@@ -63,7 +121,16 @@ class Enemy {
       this.knockback = fromDir.copy().setMag(shove);
       this.knockbackTimer = ENEMY_KNOCKBACK_FRAMES;
     }
+    const phaseBefore = this.getPhase();
     this.health = Math.max(0, this.health - amount);
+    if (this.getPhase() !== phaseBefore) {
+      this.phaseFlashTimer = ENEMY_PHASE_FLASH_FRAMES;
+      const attack = this.getAttack();
+      if (attack) {
+        // A faster attack should start soon, but a phase change never delays a shot.
+        this.attackTimer = Math.min(this.attackTimer, attack.cooldown);
+      }
+    }
   }
 
   getBounds() {
@@ -93,15 +160,35 @@ class Enemy {
     this.damageCooldown = Math.max(0, this.damageCooldown - 1);
     this.attackTimer = Math.max(0, this.attackTimer - 1);
     this.hurtTimer = Math.max(0, this.hurtTimer - 1);
+    this.phaseFlashTimer = Math.max(0, this.phaseFlashTimer - 1);
+    this.stateTimer = Math.max(0, this.stateTimer - 1);
     if (this.canSee(player)) {
-      this.facingLeft = player.getCenter().x < this.getCenter().x;
+      this.faceToward(player);
     }
     if (this.knockbackTimer > 0) {
       moveWithCollision(this, this.knockback.x, this.knockback.y, room);
       this.knockback.mult(ENEMY_KNOCKBACK_DECAY);
       this.knockbackTimer--;
     } else if (this.damageCooldown === 0) {
-      ENEMY_MOVES[this.type.move](this, player, room);
+      ENEMY_MOVES[this.getMoveName()](this, player, room);
+    }
+  }
+
+  // Remembers which way the player is. The art picks its direction from these.
+  faceToward(player) {
+    const toPlayer = player.getCenter().sub(this.getCenter());
+    this.facingLeft = toPlayer.x < 0;
+    this.facingAngle = toPlayer.heading();
+    if (Math.abs(toPlayer.y) > Math.abs(toPlayer.x)) {
+      if (toPlayer.y > 0) {
+        this.facingDir = "down";
+      } else {
+        this.facingDir = "up";
+      }
+    } else if (toPlayer.x < 0) {
+      this.facingDir = "left";
+    } else {
+      this.facingDir = "right";
     }
   }
 
@@ -110,16 +197,41 @@ class Enemy {
     if (this.isDead() || !this.canSee(player)) {
       return;
     }
-    const step = player.getCenter().sub(this.getCenter()).setMag(this.speed);
+    const step = player.getCenter().sub(this.getCenter()).setMag(this.getSpeed());
     moveWithCollision(this, step.x, step.y, room);
   }
 
   // Returns an array of new projectiles. Empty for enemies with no attack.
   tryAttack(player) {
-    if (this.isDead() || this.isSpawning() || !this.type.attack) {
+    const attack = this.getAttack();
+    if (this.isDead() || this.isSpawning() || !attack) {
       return [];
     }
-    return ENEMY_ATTACKS[this.type.attack.kind](this, player);
+    return ENEMY_ATTACKS[attack.kind](this, player);
+  }
+
+  // Melee hit: while in the attack state, hurts a player inside a reach box in front of us.
+  meleeHit(player) {
+    const attack = this.getAttack();
+    if (this.isDead() || !attack || attack.kind !== "melee") {
+      return false;
+    }
+    if (this.state !== "attack" || this.swingHit || this.damageCooldown > 0) {
+      return false;
+    }
+    const center = this.getCenter();
+    let left = center.x;
+    if (this.facingLeft) {
+      left = center.x - attack.reach;
+    }
+    const box = { x: left, y: center.y - attack.reach / 2, w: attack.reach, h: attack.reach };
+    if (!rectsOverlap(box, player.getBounds())) {
+      return false;
+    }
+    player.takeDamage(attack.damage);
+    this.damageCooldown = ENEMY_DAMAGE_COOLDOWN;
+    this.swingHit = true; // one hit per swing, and the sword stays out
+    return true;
   }
 
   isTouching(player) {
@@ -161,4 +273,9 @@ function removeDeadEnemies(room) {
   const dead = room.enemies.filter((enemy) => enemy.isDead());
   room.enemies = room.enemies.filter((enemy) => !enemy.isDead());
   return dead;
+}
+
+// Returns only the bosses from a list of dead enemies, like the one removeDeadEnemies returns.
+function findDeadBosses(deadEnemies) {
+  return deadEnemies.filter((enemy) => enemy.type.boss);
 }
