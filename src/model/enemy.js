@@ -3,6 +3,7 @@
 
 const ENEMY_DAMAGE_COOLDOWN = 30; // frames at 60 fps
 const ENEMY_HURT_FRAMES = 6; // how long the hit flash lasts
+const ENEMY_SWING_FRAMES = 10; // how long a melee swing can hit
 const ENEMY_KNOCKBACK_SPEED = 3; // pixels per frame at the start of a shove
 const ENEMY_KNOCKBACK_FRAMES = 8;
 const ENEMY_KNOCKBACK_DECAY = 0.8; // the shove keeps this much of its speed each frame
@@ -33,10 +34,16 @@ class Enemy {
     }
     this.age = 0; // frames alive, for behaviors that wobble
     this.hurtTimer = 0; // frames left of the hit flash
+    this.state = "idle"; // idle, windup, attack or recover. A move behavior sets it.
+    this.stateTimer = 0; // frames left in this state
+    this.hopDir = null; // locked dash direction for the hop moves
     this.knockback = new p5.Vector(0, 0); // pixels per frame, shrinks as the shove fades
     this.knockbackTimer = 0;
     this.spawnTimer = 0; // createEnemy can raise this so the enemy fades in harmless
     this.facingLeft = false;
+    this.facingDir = "down"; // "down", "up", "left" or "right", the side the player is on
+    this.facingAngle = Math.PI / 2; // radians toward the player, 0 is right and y grows down
+    this.swingHit = false; // true once the current swing has hurt the player
     this.rng = Math.random; // specs swap this out to control wandering
     this.wanderDir = null;
     this.wanderTimer = 0;
@@ -44,6 +51,11 @@ class Enemy {
 
   isDead() {
     return this.health <= 0;
+  }
+
+  setState(name, frames) {
+    this.state = name;
+    this.stateTimer = frames;
   }
 
   isSpawning() {
@@ -93,8 +105,9 @@ class Enemy {
     this.damageCooldown = Math.max(0, this.damageCooldown - 1);
     this.attackTimer = Math.max(0, this.attackTimer - 1);
     this.hurtTimer = Math.max(0, this.hurtTimer - 1);
+    this.stateTimer = Math.max(0, this.stateTimer - 1);
     if (this.canSee(player)) {
-      this.facingLeft = player.getCenter().x < this.getCenter().x;
+      this.faceToward(player);
     }
     if (this.knockbackTimer > 0) {
       moveWithCollision(this, this.knockback.x, this.knockback.y, room);
@@ -102,6 +115,24 @@ class Enemy {
       this.knockbackTimer--;
     } else if (this.damageCooldown === 0) {
       ENEMY_MOVES[this.type.move](this, player, room);
+    }
+  }
+
+  // Remembers which way the player is. The art picks its direction from these.
+  faceToward(player) {
+    const toPlayer = player.getCenter().sub(this.getCenter());
+    this.facingLeft = toPlayer.x < 0;
+    this.facingAngle = toPlayer.heading();
+    if (Math.abs(toPlayer.y) > Math.abs(toPlayer.x)) {
+      if (toPlayer.y > 0) {
+        this.facingDir = "down";
+      } else {
+        this.facingDir = "up";
+      }
+    } else if (toPlayer.x < 0) {
+      this.facingDir = "left";
+    } else {
+      this.facingDir = "right";
     }
   }
 
@@ -120,6 +151,30 @@ class Enemy {
       return [];
     }
     return ENEMY_ATTACKS[this.type.attack.kind](this, player);
+  }
+
+  // Melee hit: while in the attack state, hurts a player inside a reach box in front of us.
+  meleeHit(player) {
+    const attack = this.type.attack;
+    if (this.isDead() || !attack || attack.kind !== "melee") {
+      return false;
+    }
+    if (this.state !== "attack" || this.swingHit || this.damageCooldown > 0) {
+      return false;
+    }
+    const center = this.getCenter();
+    let left = center.x;
+    if (this.facingLeft) {
+      left = center.x - attack.reach;
+    }
+    const box = { x: left, y: center.y - attack.reach / 2, w: attack.reach, h: attack.reach };
+    if (!rectsOverlap(box, player.getBounds())) {
+      return false;
+    }
+    player.takeDamage(attack.damage);
+    this.damageCooldown = ENEMY_DAMAGE_COOLDOWN;
+    this.swingHit = true; // one hit per swing, and the sword stays out
+    return true;
   }
 
   isTouching(player) {

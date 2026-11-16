@@ -229,6 +229,7 @@ function draw() {
     for (const e of room.enemies) {
       e.update(player, room);
       e.damagePlayer(player);
+      e.meleeHit(player);
       for (const shot of e.tryAttack(player)) {
         enemyProjectiles.push(shot);
       }
