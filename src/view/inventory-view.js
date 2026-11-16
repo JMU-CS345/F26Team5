@@ -25,7 +25,7 @@ function drawInventorySlot(slot, drag, selection = null) {
     noStroke();
     fill(255);
     textAlign(RIGHT, BOTTOM);
-    textSize(11);
+    textSize(16);
     text(slot.quantity, slot.x + slot.w - 5, slot.y + slot.h - 3);
   }
   pop();
@@ -60,8 +60,8 @@ function drawInventoryContextMenu(inventory, player, selection) {
     noStroke();
     fill(action.enabled ? 255 : 110);
     textAlign(LEFT, CENTER);
-    textSize(11);
-    text(action.label, action.x + 8, action.y + action.h / 2);
+    textSize(16);
+    text(action.label, action.x + 12, action.y + action.h / 2);
     stroke(255);
   }
   pop();
@@ -71,7 +71,7 @@ function drawInventoryInformation(infoLines) {
   if (infoLines.length === 0) {
     return;
   }
-  const box = { x: 74, y: 334, w: 220, h: 92 };
+  const box = { x: 210, y: 500, w: 316, h: 140 };
   push();
   fill(0);
   stroke(255);
@@ -80,9 +80,9 @@ function drawInventoryInformation(infoLines) {
   noStroke();
   fill(255);
   textAlign(LEFT, TOP);
-  textSize(11);
+  textSize(16);
   for (let index = 0; index < infoLines.length; index++) {
-    text(infoLines[index], box.x + 8, box.y + 8 + index * 16, box.w - 16);
+    text(infoLines[index], box.x + 12, box.y + 12 + index * 24, box.w - 24);
   }
   pop();
 }
@@ -112,39 +112,39 @@ function drawInventoryMenu(
 
   fill(255);
   textAlign(LEFT, TOP);
-  textSize(28);
-  text("Inventory", panelX + 24, panelY + 20);
-  textSize(12);
+  textSize(42);
+  text("Inventory", panelX + 40, panelY + 28);
+  textSize(18);
   fill(255);
-  text("Press I to resume", panelX + 24, panelY + 56);
+  text("Press I to resume", panelX + 40, panelY + 82);
 
   fill(255);
   textAlign(RIGHT, TOP);
-  textSize(14);
-  text(`Gold: ${inventory.gold}`, panelX + panelWidth - 24, panelY + 28);
+  textSize(24);
+  text(`Gold: ${inventory.gold}`, panelX + panelWidth - 40, panelY + 42);
 
   fill(255);
   textAlign(LEFT, TOP);
-  textSize(16);
-  text("Equipment", panelX + 36, panelY + 88);
+  textSize(26);
+  text("Equipment", 210, panelY + 138);
 
   const layout = inventoryUiLayout(inventory);
   const visibleDrag = inventoryDragMoved(drag, pointerX, pointerY) ? drag : null;
   for (const slot of layout.equipmentSlots) {
     fill(255);
     textAlign(CENTER, BOTTOM);
-    textSize(12);
-    text(slot.label, slot.x + slot.w / 2, slot.y - 8);
+    textSize(18);
+    text(slot.label, slot.x + slot.w / 2, slot.y - 12);
     drawInventorySlot(slot, visibleDrag, selection);
   }
 
   fill(255);
   textAlign(LEFT, TOP);
-  textSize(16);
-  text("Bag", 320, panelY + 88);
+  textSize(26);
+  text("Bag", 650, panelY + 138);
   fill(255);
-  textSize(11);
-  text("Drag items to equip, or click for options", 320, panelY + 116);
+  textSize(16);
+  text("Drag to equip, or click for options", 650, panelY + 176);
   for (const slot of layout.bagSlots) {
     drawInventorySlot(slot, visibleDrag, selection);
   }

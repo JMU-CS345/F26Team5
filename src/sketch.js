@@ -1,15 +1,20 @@
-// 640x480 is a multiple of 16, so the room can use 16x16 wall tiles.
-const CANVAS_WIDTH = 640;
-const CANVAS_HEIGHT = 480;
+// The game screen is always 1280x720. fitToWindow() scales the whole page to fit the browser
+// window, so zooming or resizing never changes how much of the game you can see.
+// The room stays 640x400 (a multiple of 16 for the wall tiles) in the middle of it.
+const CANVAS_WIDTH = 1280;
+const CANVAS_HEIGHT = 720;
 let game;
 let player;
 let projectiles = [];
 let enemyProjectiles = [];
+let debugOverlay = false; // F3 toggles hitboxes and detection circles for enemies
 let nextSpawnIndex = 0;
 let restartButton;
 let classButtons = [];
-let room;
-let roomGraphic;
+let dungeon;
+let room; // the room the player is in right now
+let roomGraphic; // the picture of that room
+let roomGraphics = new Map(); // room id -> picture, built the first time the room is entered
 let restartShown = false;
 let modelButtons = [];
 let inventoryDrag = null;
@@ -19,58 +24,111 @@ let resumeInputBlocked = false;
 //temp
 const ROOM_WIDTH = 640;
 const ROOM_HEIGHT = 400;
-const ROOM_X = 0;
-const ROOM_Y = 80;
+const ROOM_X = (CANVAS_WIDTH - ROOM_WIDTH) / 2;
+const ROOM_Y = (CANVAS_HEIGHT - ROOM_HEIGHT) / 2;
+const DUNGEON_ROOM_COUNT = 10;
+let pageScale = 1; // set by fitToWindow(), also used to line up the page background
+let pageLeft = 0;
+let pageTop = 0;
+
+// Makes the picture of a room the first time it is needed, and reuses it after that.
+function getRoomGraphic(r) {
+  if (!roomGraphics.has(r.id)) {
+    roomGraphics.set(r.id, buildRoomGraphic(r));
+  }
+  return roomGraphics.get(r.id);
+}
+
+// Moves the game into a room. Shots in flight don't follow the player through a door.
+function enterRoom(r) {
+  room = r;
+  roomGraphic = getRoomGraphic(r);
+  projectiles = [];
+  enemyProjectiles = [];
+  room.onEnter();
+}
+
+// Walks the player through an exit into the next room.
+function useExit(exit) {
+  const next = dungeon.rooms[exit.toId];
+  const spot = dungeon.entryPoint(room, exit);
+  enterRoom(next);
+  player.pos.set(spot.x - player.length / 2, spot.y - player.width / 2);
+}
+
+// TEMPORARY: a few random enemies on the floor, until room files (#13) place enemies.
+function fillRoomTemp(r) {
+  const names = ["Jelly", "Zombie", "Skeleton", "Bat", "Eyeball"];
+  const count = r.role === "boss" ? 5 : 2 + Math.floor(random(3));
+  for (let n = 0; n < count; n++) {
+    for (let tries = 0; tries < 50; tries++) {
+      const enemy = createEnemy(
+        random(names),
+        random(r.x + r.tileSize, r.x + r.width - 2 * r.tileSize),
+        random(r.y + r.tileSize, r.y + r.height - 2 * r.tileSize)
+      );
+      if (!r.collidesWithWall(enemy.getBounds())) {
+        r.enemies.push(enemy);
+        break;
+      }
+    }
+  }
+}
 
 // Makes a fresh player with the class picked on the menu.
 function startRun() {
-  roomGraphic = buildRoomGraphic(room);
+  for (const g of roomGraphics.values()) {
+    g.remove(); // free the old dungeon's pictures
+  }
+  roomGraphics.clear();
+  dungeon = generateDungeon({
+    roomCount: DUNGEON_ROOM_COUNT,
+    screenX: ROOM_X,
+    screenY: ROOM_Y
+  });
+  console.log("Dungeon seed:", dungeon.seed); // pass this as seed to replay a dungeon
+  enterRoom(dungeon.start);
+  const spawn = room.getPlayerSpawn(); // the @ in the start room's drawing
   player = new Player(
-    ROOM_X + ROOM_WIDTH / 2 - PLAYER_LENGTH / 2,
-    ROOM_Y + ROOM_HEIGHT / 2 - PLAYER_WIDTH / 2,
+    spawn.x - PLAYER_LENGTH / 2,
+    spawn.y - PLAYER_WIDTH / 2,
     game.selectedClass,
     game.selectedModel
   );
-  // TEMPORARY: a starter mix until room files (#13) place enemies. Press E for more.
-  room.enemies = [
-    createEnemy("Jelly", 112, 112),
-    createEnemy("Zombie", 480, 416),
-    createEnemy("Skeleton", 520, 160),
-    createEnemy("Bat", 256, 144),
-    createEnemy("Eyeball", 48, 336)
-  ];
   // Placeholder pickups until room data supplies item placement.
   room.items = [
-    new ItemDrop(176, 160, new ProjectileWeapon({
+    new ItemDrop(spawn.x - 48, spawn.y - 48, new ProjectileWeapon({
       id: "training-wand",
       name: "Training Wand",
       damage: 2,
       element: game.selectedClass,
       description: "A simple wand for apprentice mages."
     })),
-    new ItemDrop(256, 224, new ChestArmor({
+    new ItemDrop(spawn.x + 48, spawn.y - 48, new ChestArmor({
       id: "apprentice-robe",
       name: "Apprentice Robe",
       defense: 1,
       description: "A light robe with basic protection."
     })),
-    new ItemDrop(400, 160, new Consumable({
+    new ItemDrop(spawn.x - 48, spawn.y + 48, new Consumable({
       id: "health-potion",
       name: "Health Potion",
       maxStackSize: 5,
       healthRestore: 2,
       description: "A small restorative potion."
     })),
-    new ItemDrop(480, 320, new Gold(), 25)
+    new ItemDrop(spawn.x + 48, spawn.y + 48, new Gold(), 25)
   ];
   nextSpawnIndex = ENEMY_TYPE_NAMES.indexOf("Demon");
   projectiles = [];
   enemyProjectiles = [];
+  clearDyingEnemies();
   inventoryDrag = null;
   inventorySelection = null;
   inventoryInfoLines = [];
   resumeInputBlocked = false;
   room.cleared = false;
+  room.bossDefeated = false;
   restartShown = false;
   restartButton.hide();
   for (const button of classButtons) {
@@ -111,28 +169,28 @@ function showMenu() {
 function makeModelButtons() {
   PLAYER_MODEL_NAMES.forEach((name, i) => {
     const button = createButton(i + 1 + ". " + name);
-    button.size(MODEL_BUTTON_W, 60);
-    button.position(modelSlotCenterX(i) - MODEL_BUTTON_W / 2, MODEL_BUTTON_Y);
+    button.size(MODEL_BUTTON_W, MENU_BUTTON_H);
+    button.position(modelSlotCenterX(i) - MODEL_BUTTON_W / 2, modelButtonY());
     button.style("background-color", "rgb(90, 90, 110)");
     button.style("color", "white");
-    button.style("font-size", "18px");
+    button.style("font-size", "24px");
     button.mousePressed(() => chooseModel(name));
     modelButtons.push(button);
   });
 }
 
 function makeClassButtons() {
-  const buttonWidth = 140;
-  const gap = 20;
+  const buttonWidth = MODEL_BUTTON_W;
+  const gap = MODEL_BUTTON_GAP;
   const totalWidth = MAGE_CLASSES.length * buttonWidth + (MAGE_CLASSES.length - 1) * gap;
   const left = CANVAS_WIDTH / 2 - totalWidth / 2;
   MAGE_CLASSES.forEach((mageClass, i) => {
     const button = createButton(i + 1 + ". " + mageClass);
-    button.size(buttonWidth, 60);
+    button.size(buttonWidth, MENU_BUTTON_H);
     button.position(left + i * (buttonWidth + gap), CANVAS_HEIGHT / 2 - 10);
     button.style("background-color", "rgb(" + CLASS_COLORS[mageClass].join(",") + ")");
     button.style("color", "white");
-    button.style("font-size", "18px");
+    button.style("font-size", "24px");
     button.mousePressed(() => chooseClass(mageClass));
     classButtons.push(button);
   });
@@ -144,22 +202,15 @@ async function setup() {
   await loadEnemySheets();
   await loadItemSprites();
   createCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);
+  fitToWindow();
   noSmooth();
+  buildBackground();
   frameRate(60); // movement is pixels per frame, so keep the frame rate fixed
-  room = new NormalRoom(ROOM_X, ROOM_Y, ROOM_WIDTH, ROOM_HEIGHT);
-  // TEMPORARY: one of each new tile, to check the art. Delete once real rooms exist.
-  room.tileGrid[8][10] = TILE.PIT;
-  room.tileGrid[0][20] = TILE.DOOR_CLOSED;
-  room.tileGrid[12][8] = TILE.INTERIOR_WALL;
-  for (let r = 1; r <= 3; r++) {
-    for (let c = 24; c <= 26; c++) {
-      room.tileGrid[r][c] = TILE.WALL; // a bump on the north wall, to check the outside corners
-    }
-  }
   game = new Game();
   restartButton = createButton("Restart");
-  restartButton.size(140, 40);
-  restartButton.position(CANVAS_WIDTH / 2 - 70, CANVAS_HEIGHT / 2 + 20);
+  restartButton.size(220, 64);
+  restartButton.style("font-size", "24px");
+  restartButton.position(CANVAS_WIDTH / 2 - 110, CANVAS_HEIGHT / 2 + 30);
   restartButton.mousePressed(showMenu);
   restartButton.hide();
   makeClassButtons();
@@ -169,8 +220,31 @@ async function setup() {
   makeModelButtons();
 }
 
+// Scales the whole page (canvas and buttons) to fit the window and centers it.
+// Runs on load and whenever the window changes size, which includes browser zoom.
+function fitToWindow() {
+  pageScale = min(window.innerWidth / CANVAS_WIDTH, window.innerHeight / CANVAS_HEIGHT);
+  pageLeft = (window.innerWidth - CANVAS_WIDTH * pageScale) / 2;
+  pageTop = (window.innerHeight - CANVAS_HEIGHT * pageScale) / 2;
+  document.body.style.transform =
+    "translate(" + pageLeft + "px, " + pageTop + "px) scale(" + pageScale + ")";
+}
+
+function windowResized() {
+  fitToWindow();
+}
+
+// This p5 build reports pointer offsets after the page's CSS scale is applied.
+// Convert them back to the fixed 1280x720 canvas coordinates used by every HUD layout.
+function canvasPointer() {
+  const scale = pageScale > 0 ? pageScale : 1;
+  return { x: mouseX / scale, y: mouseY / scale };
+}
+
 function draw() {
   background(0);
+  updateBackground();
+  drawBackground();
   if (game.isModelSelect()) {
     drawModelMenu();
     return;
@@ -179,9 +253,9 @@ function draw() {
     drawClassMenu();
     return;
   }
-  drawRoom(room, roomGraphic);
-
   if (game.isInventory()) {
+    const pointer = canvasPointer();
+    drawRoom(room, roomGraphic);
     drawRunScene();
     drawInventoryMenu(
       player.inventory,
@@ -189,12 +263,23 @@ function draw() {
       inventoryDrag,
       inventorySelection,
       inventoryInfoLines,
-      mouseX,
-      mouseY
+      pointer.x,
+      pointer.y
     );
     drawInventoryHudButton(true);
     return;
   }
+
+  // Standing in a door tile means the player is leaving the room. This is checked before
+  // drawing, so the new room is drawn on the same frame the player arrives.
+  if (!player.isDead()) {
+    const center = player.getCenter();
+    const exit = room.getExitAt(center.x, center.y);
+    if (exit) {
+      useExit(exit);
+    }
+  }
+  drawRoom(room, roomGraphic);
 
   const heldInputBlocked = resumeInputBlocked && isGameplayInputHeld(keyIsDown);
   if (resumeInputBlocked && !heldInputBlocked) {
@@ -213,6 +298,7 @@ function draw() {
     for (const e of room.enemies) {
       e.update(player, room);
       e.damagePlayer(player);
+      e.meleeHit(player);
       for (const shot of e.tryAttack(player)) {
         enemyProjectiles.push(shot);
       }
@@ -240,7 +326,7 @@ function draw() {
     projectileHitsPlayer(p, player);
   }
   enemyProjectiles = enemyProjectiles.filter((p) => p.alive);
-  removeDeadEnemies(room);
+  handleDeadEnemies(removeDeadEnemies(room));
 
   drawRunScene();
   if (!room.cleared && room.enemies.every((e) => e.isDead())) {
@@ -271,10 +357,16 @@ function drawRunScene() {
   drawPlayer(player);
   for (const e of room.enemies) {
     drawEnemy(e);
+    if (debugOverlay) {
+      drawEnemyDebug(e);
+    }
   }
+  drawDyingEnemies(!game.isInventory());
   drawHealthBar(player);
   drawGoldHud(player.inventory);
+  drawFirstBossBar();
   drawClassLabel(player.mageClass);
+  drawMinimap(dungeon, room);
   if (game.isPlaying() || game.isInventory()) {
     drawInventoryHudButton(game.isInventory());
   }
@@ -298,7 +390,27 @@ function toggleInventoryMenu() {
   return true;
 }
 
-// Testing aid, press E: spawns the next enemy type somewhere on the floor, away from the player.
+// Vincent's room code hooks door unlock and exit here, and Nick's loot hooks
+// enemy.type.lootTable here.
+function handleDeadEnemies(dead) {
+  for (const enemy of dead) {
+    startEnemyDeath(enemy);
+  }
+  if (findDeadBosses(dead).length > 0) {
+    room.bossDefeated = true;
+  }
+}
+
+// Only one boss bar shows, even if several bosses are alive.
+function drawFirstBossBar() {
+  const boss = room.enemies.find((e) => e.type.boss && !e.isDead());
+  if (boss) {
+    drawBossBar(boss);
+  }
+}
+
+// Testing aids: press E to spawn enemies, F3 to toggle the enemy debug overlay.
+// Press E: spawns the next enemy type somewhere on the floor, away from the player.
 function spawnNextEnemy() {
   const typeName = ENEMY_TYPE_NAMES[nextSpawnIndex % ENEMY_TYPE_NAMES.length];
   nextSpawnIndex++;
@@ -306,7 +418,8 @@ function spawnNextEnemy() {
     const enemy = createEnemy(
       typeName,
       random(room.x, room.x + room.width),
-      random(room.y, room.y + room.height)
+      random(room.y, room.y + room.height),
+      true
     );
     const far = p5.Vector.dist(enemy.getCenter(), player.getCenter()) > 150;
     if (far && !room.collidesWithWall(enemy.getBounds())) {
@@ -318,6 +431,10 @@ function spawnNextEnemy() {
 }
 
 function keyPressed() {
+  if (keyCode === 114) {
+    debugOverlay = !debugOverlay;
+    return false;
+  }
   if (game.isModelSelect()) {
     chooseModel(getModelForKey(key));
     return;
@@ -356,7 +473,9 @@ function keyPressed() {
 }
 
 function mousePressed() {
-  if ((game.isPlaying() || game.isInventory()) && inventoryHudButtonAt(mouseX, mouseY)) {
+  const pointer = canvasPointer();
+  if ((game.isPlaying() || game.isInventory())
+      && inventoryHudButtonAt(pointer.x, pointer.y)) {
     toggleInventoryMenu();
     return false;
   }
@@ -368,8 +487,8 @@ function mousePressed() {
     player.inventory,
     player,
     inventorySelection,
-    mouseX,
-    mouseY
+    pointer.x,
+    pointer.y
   );
   if (contextAction !== null) {
     const result = performInventoryContextAction(
@@ -386,11 +505,11 @@ function mousePressed() {
     return false;
   }
 
-  if (inventorySelectionAt(player.inventory, mouseX, mouseY) === null) {
+  if (inventorySelectionAt(player.inventory, pointer.x, pointer.y) === null) {
     inventorySelection = null;
     inventoryInfoLines = [];
   }
-  inventoryDrag = beginInventoryDrag(player.inventory, mouseX, mouseY);
+  inventoryDrag = beginInventoryDrag(player.inventory, pointer.x, pointer.y);
   return false;
 }
 
@@ -399,8 +518,9 @@ function mouseReleased() {
     inventoryDrag = null;
     return;
   }
-  if (inventoryDragMoved(inventoryDrag, mouseX, mouseY)) {
-    finishInventoryDrag(player.inventory, inventoryDrag, mouseX, mouseY);
+  const pointer = canvasPointer();
+  if (inventoryDragMoved(inventoryDrag, pointer.x, pointer.y)) {
+    finishInventoryDrag(player.inventory, inventoryDrag, pointer.x, pointer.y);
     inventorySelection = null;
     inventoryInfoLines = [];
   } else {

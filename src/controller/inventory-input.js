@@ -1,14 +1,14 @@
 // Inventory slot layout and drag interactions. Rendering stays in inventory-view.js.
 
-const INVENTORY_PANEL = Object.freeze({ x: 55, y: 35, w: 530, h: 410 });
-const INVENTORY_SLOT_SIZE = 52;
-const INVENTORY_SLOT_GAP = 9;
+const INVENTORY_PANEL = Object.freeze({ x: 140, y: 50, w: 1000, h: 620 });
+const INVENTORY_SLOT_SIZE = 76;
+const INVENTORY_SLOT_GAP = 16;
 const INVENTORY_BAG_COLUMNS = 4;
 const INVENTORY_BAG_ROWS = 4;
 const INVENTORY_DRAG_THRESHOLD = 5;
-const INVENTORY_CONTEXT_WIDTH = 150;
-const INVENTORY_CONTEXT_ROW_HEIGHT = 24;
-const INVENTORY_HUD_BUTTON = Object.freeze({ x: 530, y: 6, w: 100, h: 25 });
+const INVENTORY_CONTEXT_WIDTH = 210;
+const INVENTORY_CONTEXT_ROW_HEIGHT = 34;
+const INVENTORY_HUD_BUTTON = Object.freeze({ x: 1040, y: 650, w: 220, h: 50 });
 const PLAYER_EQUIPMENT_LABELS = Object.freeze({
   melee: "Melee",
   projectile: "Projectile",
@@ -26,11 +26,11 @@ function inventoryPointInRect(x, y, rectangle) {
 
 function inventoryUiLayout(inventory) {
   const equipmentPositions = {
-    melee: { x: 74, y: 162 },
-    projectile: { x: 158, y: 162 },
-    head: { x: 74, y: 256 },
-    body: { x: 158, y: 256 },
-    legs: { x: 242, y: 256 }
+    melee: { x: 210, y: 245 },
+    projectile: { x: 330, y: 245 },
+    head: { x: 210, y: 385 },
+    body: { x: 330, y: 385 },
+    legs: { x: 450, y: 385 }
   };
   const equipmentSlots = Object.keys(PLAYER_EQUIPMENT_TYPES).map((equipmentName) => ({
     kind: "equipment",
@@ -45,8 +45,8 @@ function inventoryUiLayout(inventory) {
 
   const contents = inventory.contents();
   const bagSlots = [];
-  const bagX = 320;
-  const bagY = 162;
+  const bagX = 650;
+  const bagY = 245;
   const slotStep = INVENTORY_SLOT_SIZE + INVENTORY_SLOT_GAP;
   const slotCount = INVENTORY_BAG_COLUMNS * INVENTORY_BAG_ROWS;
   for (let index = 0; index < slotCount; index++) {
