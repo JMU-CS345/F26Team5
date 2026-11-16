@@ -44,13 +44,40 @@ function drawEnemySquare(enemy) {
   rect(enemy.pos.x, enemy.pos.y, enemy.length, enemy.width);
 }
 
-// A health bar above bosses only, so ordinary enemies stay clean.
+// Boss health bar for the top of the screen, with a tick at each phase threshold.
 function drawBossBar(enemy) {
+  const barWidth = 480;
+  const barHeight = 16;
+  const x = (CANVAS_WIDTH - barWidth) / 2;
+  const y = 24;
+  push();
+  textAlign(CENTER, BOTTOM);
+  textSize(14);
   noStroke();
-  fill(60);
-  rect(enemy.pos.x, enemy.pos.y - 6, enemy.length, 3);
+  fill(255);
+  text(enemy.typeName, CANVAS_WIDTH / 2, y - 4);
+  fill(40);
+  rect(x, y, barWidth, barHeight);
   fill(220, 50, 50);
-  rect(enemy.pos.x, enemy.pos.y - 6, map(enemy.health, 0, enemy.maxHealth, 0, enemy.length), 3);
+  rect(x, y, map(enemy.health, 0, enemy.maxHealth, 0, barWidth), barHeight);
+  if (enemy.type.phases) {
+    stroke(230);
+    strokeWeight(1);
+    for (const phase of enemy.type.phases) {
+      const tickX = x + phase.below * barWidth;
+      line(tickX, y, tickX, y + barHeight);
+    }
+  }
+  noFill();
+  stroke(200, 190, 180);
+  strokeWeight(2);
+  if (enemy.justChangedPhase()) {
+    const amount = map(enemy.phaseFlashTimer, 0, ENEMY_PHASE_FLASH_FRAMES, 0, 1);
+    stroke(lerpColor(color(200, 190, 180), color(255), amount));
+    strokeWeight(lerp(2, 5, amount));
+  }
+  rect(x, y, barWidth, barHeight);
+  pop();
 }
 
 function drawEnemy(enemy) {
@@ -61,9 +88,6 @@ function drawEnemy(enemy) {
     drawEnemySprite(enemy, enemy.type.sprite);
   } else {
     drawEnemySquare(enemy);
-  }
-  if (enemy.type.boss) {
-    drawBossBar(enemy);
   }
 }
 
