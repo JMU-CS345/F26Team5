@@ -11,7 +11,8 @@ async function loadEnemySheets() {
     if (!sprite) {
       continue;
     }
-    for (const frame of sprite.frames) {
+    const allFrames = allSpriteFrames(sprite);
+    for (const frame of allFrames) {
       if (!enemySheets[frame.sheet]) {
         enemySheets[frame.sheet] = await loadImage(frame.sheet);
       }
@@ -20,23 +21,32 @@ async function loadEnemySheets() {
 }
 
 function drawEnemySprite(enemy, sprite, alpha = 255) {
-  const index = Math.floor(frameCount / sprite.frameTime) % sprite.frames.length;
-  const frame = sprite.frames[index];
-  // The art faces right, so flip it when the enemy faces left.
+  const frame = enemySpriteFrame(enemy, sprite, frameCount);
+  const w = frame.w || ENEMY_SPRITE_SIZE;
+  const h = frame.h || ENEMY_SPRITE_SIZE;
+  const ax = frame.ax || w / 2; // the art x that sits at the center of the hitbox
+  const ay = frame.ay || h; // the art y that sits at the bottom of the hitbox
+  const pixelSize = sprite.scale || enemy.length / ENEMY_SPRITE_SIZE;
   push();
-  translate(enemy.pos.x + enemy.length / 2, enemy.pos.y);
-  if (enemy.facingLeft) {
+  translate(enemy.pos.x + enemy.length / 2, enemy.pos.y + enemy.width);
+  if (enemy.state === "windup") {
+    translate(sin(frameCount * 2) * 1.5, 0); // a small shake telegraphs the swing
+  }
+  // Plain sprites face right and flip. Art that picks its own direction must not flip.
+  if (enemy.facingLeft && !sprite.directions && !sprite.aimFrames) {
     scale(-1, 1);
   }
   if (enemy.hurtTimer > 0) {
     tint(255, 110, 110, alpha);
+  } else if (enemy.state === "windup") {
+    tint(255, 200, 120, alpha);
   } else {
     tint(255, alpha);
   }
   image(
     enemySheets[frame.sheet],
-    -enemy.length / 2, 0, enemy.length, enemy.width,
-    frame.x, frame.y, ENEMY_SPRITE_SIZE, ENEMY_SPRITE_SIZE
+    -ax * pixelSize, -ay * pixelSize, w * pixelSize, h * pixelSize,
+    frame.x, frame.y, w, h
   );
   pop();
 }

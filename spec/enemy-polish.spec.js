@@ -8,6 +8,7 @@ describe("Enemy knockback", function () {
     room = new NormalRoom(0, 0, 320, 160); // floor spans 16 to 304 by 16 to 144
     enemy = new Enemy(100, 60);
     enemy.speed = 0; // so only the knockback moves it
+    enemy.type = { ...enemy.type, move: "none" }; // Jelly hops now, so stand it still
   });
 
   it("pushes the enemy along the hit direction over several updates", function () {

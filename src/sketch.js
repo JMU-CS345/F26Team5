@@ -39,7 +39,9 @@ function startRun() {
     createEnemy("Zombie", ROOM_X + 480, ROOM_Y + 336, true),
     createEnemy("Skeleton", ROOM_X + 520, ROOM_Y + 80, true),
     createEnemy("Bat", ROOM_X + 256, ROOM_Y + 64, true),
-    createEnemy("Eyeball", ROOM_X + 48, ROOM_Y + 256, true)
+    createEnemy("Eyeball", ROOM_X + 48, ROOM_Y + 256, true),
+    createEnemy("Bouncer", ROOM_X + 560, ROOM_Y + 200, true),
+    createEnemy("SparkBark", ROOM_X + 80, ROOM_Y + 120, true)
   ];
   nextSpawnIndex = ENEMY_TYPE_NAMES.indexOf("Demon");
   projectiles = [];
@@ -180,6 +182,7 @@ function draw() {
     for (const e of room.enemies) {
       e.update(player, room);
       e.damagePlayer(player);
+      e.meleeHit(player);
       for (const shot of e.tryAttack(player)) {
         enemyProjectiles.push(shot);
       }
