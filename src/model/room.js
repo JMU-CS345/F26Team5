@@ -14,6 +14,7 @@ class Room {
     this.height = height;
     this.tileSize = TILE_SIZE;
     this.enemies = [];
+    this.npcs = [];
     this.items = [];
     this.exits = [];
     this.cleared = false;
