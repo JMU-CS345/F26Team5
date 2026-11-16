@@ -38,7 +38,9 @@ function startRun() {
     createEnemy("Zombie", ROOM_X + 480, ROOM_Y + 336),
     createEnemy("Skeleton", ROOM_X + 520, ROOM_Y + 80),
     createEnemy("Bat", ROOM_X + 256, ROOM_Y + 64),
-    createEnemy("Eyeball", ROOM_X + 48, ROOM_Y + 256)
+    createEnemy("Eyeball", ROOM_X + 48, ROOM_Y + 256),
+    createEnemy("Bouncer", ROOM_X + 560, ROOM_Y + 200),
+    createEnemy("SparkBark", ROOM_X + 80, ROOM_Y + 120)
   ];
   nextSpawnIndex = ENEMY_TYPE_NAMES.indexOf("Demon");
   projectiles = [];
