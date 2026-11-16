@@ -66,24 +66,11 @@ function drawEnemyBody(enemy, alpha = 255) {
   }
 }
 
-// A ring that shrinks onto the enemy while it spawns in.
-function drawSpawnRing(enemy) {
-  const center = enemy.getCenter();
-  const size = map(enemy.spawnTimer, ENEMY_SPAWN_FRAMES, 0, enemy.length * 3, enemy.length);
-  push();
-  noFill();
-  stroke(200, 160, 255, 200);
-  strokeWeight(2);
-  circle(center.x, center.y, size);
-  pop();
-}
-
 function drawEnemy(enemy) {
   if (enemy.isDead()) {
     return;
   }
   if (enemy.isSpawning()) {
-    drawSpawnRing(enemy);
     drawEnemyBody(enemy, map(enemy.spawnTimer, ENEMY_SPAWN_FRAMES, 0, 40, 255));
     return;
   }
