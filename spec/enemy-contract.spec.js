@@ -133,30 +133,34 @@ describe("Every enemy type", function () {
           }
         });
 
-        it("shoots projectiles that can hurt the player", function () {
-          placePlayer(type.detectionRange / 2);
-          enemy.attackTimer = 0;
-          const shots = enemy.tryAttack(player);
-          expect(shots.length).toBe(type.attack.count || 1);
-          for (const shot of shots) {
-            expect(shot instanceof Projectile).toBe(true);
-            expect(shot.alive).toBe(true);
-            expect(shot.damage).toBe(type.attack.damage);
-          }
-          const target = player.getCenter();
-          shots[0].pos.set(target.x - shots[0].length / 2, target.y - shots[0].width / 2);
-          const before = player.health;
-          expect(projectileHitsPlayer(shots[0], player)).toBe(true);
-          expect(player.health).toBe(before - type.attack.damage);
-        });
+        if (type.attack.kind === "shoot") {
+          it("shoots projectiles that can hurt the player", function () {
+            placePlayer(type.detectionRange / 2);
+            enemy.attackTimer = 0;
+            const shots = enemy.tryAttack(player);
+            expect(shots.length).toBe(type.attack.count || 1);
+            for (const shot of shots) {
+              expect(shot instanceof Projectile).toBe(true);
+              expect(shot.alive).toBe(true);
+              expect(shot.damage).toBe(type.attack.damage);
+            }
+            const target = player.getCenter();
+            shots[0].pos.set(target.x - shots[0].length / 2, target.y - shots[0].width / 2);
+            const before = player.health;
+            expect(projectileHitsPlayer(shots[0], player)).toBe(true);
+            expect(player.health).toBe(before - type.attack.damage);
+          });
+        }
 
-        it("starts the cooldown again after it fires", function () {
-          placePlayer(type.detectionRange / 2);
-          enemy.attackTimer = 0;
-          enemy.tryAttack(player);
-          expect(enemy.attackTimer).toBe(type.attack.cooldown);
-          expect(enemy.tryAttack(player)).toEqual([]);
-        });
+        if (type.attack.kind === "shoot") {
+          it("starts the cooldown again after it fires", function () {
+            placePlayer(type.detectionRange / 2);
+            enemy.attackTimer = 0;
+            enemy.tryAttack(player);
+            expect(enemy.attackTimer).toBe(type.attack.cooldown);
+            expect(enemy.tryAttack(player)).toEqual([]);
+          });
+        }
       }
     });
   }

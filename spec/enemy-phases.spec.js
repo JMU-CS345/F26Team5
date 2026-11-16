@@ -44,7 +44,7 @@ describe("Enemy phases", function () {
       const jelly = createEnemy("Jelly", 100, 100);
       jelly.health = 1;
       expect(jelly.getPhase()).toBeNull();
-      expect(jelly.getMoveName()).toBe("chase");
+      expect(jelly.getMoveName()).toBe(ENEMY_TYPES.Jelly.move);
       expect(jelly.getAttack()).toBeNull();
       expect(jelly.getSpeed()).toBe(1);
     });

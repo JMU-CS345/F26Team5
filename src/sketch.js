@@ -7,6 +7,7 @@ let game;
 let player;
 let projectiles = [];
 let enemyProjectiles = [];
+let debugOverlay = false; // F3 toggles hitboxes and detection circles for enemies
 let nextSpawnIndex = 0;
 let restartButton;
 let classButtons = [];
@@ -34,15 +35,18 @@ function startRun() {
   );
   // TEMPORARY: a starter mix until room files (#13) place enemies. Press E for more.
   room.enemies = [
-    createEnemy("Jelly", ROOM_X + 112, ROOM_Y + 32),
-    createEnemy("Zombie", ROOM_X + 480, ROOM_Y + 336),
-    createEnemy("Skeleton", ROOM_X + 520, ROOM_Y + 80),
-    createEnemy("Bat", ROOM_X + 256, ROOM_Y + 64),
-    createEnemy("Eyeball", ROOM_X + 48, ROOM_Y + 256)
+    createEnemy("Jelly", ROOM_X + 112, ROOM_Y + 32, true),
+    createEnemy("Zombie", ROOM_X + 480, ROOM_Y + 336, true),
+    createEnemy("Skeleton", ROOM_X + 520, ROOM_Y + 80, true),
+    createEnemy("Bat", ROOM_X + 256, ROOM_Y + 64, true),
+    createEnemy("Eyeball", ROOM_X + 48, ROOM_Y + 256, true),
+    createEnemy("Bouncer", ROOM_X + 560, ROOM_Y + 200, true),
+    createEnemy("SparkBark", ROOM_X + 80, ROOM_Y + 120, true)
   ];
   nextSpawnIndex = ENEMY_TYPE_NAMES.indexOf("Demon");
   projectiles = [];
   enemyProjectiles = [];
+  clearDyingEnemies();
   room.cleared = false;
   room.bossDefeated = false;
   restartShown = false;
@@ -179,6 +183,7 @@ function draw() {
     for (const e of room.enemies) {
       e.update(player, room);
       e.damagePlayer(player);
+      e.meleeHit(player);
       for (const shot of e.tryAttack(player)) {
         enemyProjectiles.push(shot);
       }
@@ -215,7 +220,11 @@ function draw() {
   drawPlayer(player);
   for (const e of room.enemies) {
     drawEnemy(e);
+    if (debugOverlay) {
+      drawEnemyDebug(e);
+    }
   }
+  drawDyingEnemies();
   if (!room.cleared && room.enemies.every((e) => e.isDead())) {
     room.onClear();
   }
@@ -237,6 +246,9 @@ function draw() {
 // Vincent's room code hooks door unlock and exit here, and Nick's loot hooks
 // enemy.type.lootTable here.
 function handleDeadEnemies(dead) {
+  for (const enemy of dead) {
+    startEnemyDeath(enemy);
+  }
   if (findDeadBosses(dead).length > 0) {
     room.bossDefeated = true;
   }
@@ -250,7 +262,8 @@ function drawFirstBossBar() {
   }
 }
 
-// Testing aid, press E: spawns the next enemy type somewhere on the floor, away from the player.
+// Testing aids: press E to spawn enemies, F3 to toggle the enemy debug overlay.
+// Press E: spawns the next enemy type somewhere on the floor, away from the player.
 function spawnNextEnemy() {
   const typeName = ENEMY_TYPE_NAMES[nextSpawnIndex % ENEMY_TYPE_NAMES.length];
   nextSpawnIndex++;
@@ -258,7 +271,8 @@ function spawnNextEnemy() {
     const enemy = createEnemy(
       typeName,
       random(room.x, room.x + room.width),
-      random(room.y, room.y + room.height)
+      random(room.y, room.y + room.height),
+      true
     );
     const far = p5.Vector.dist(enemy.getCenter(), player.getCenter()) > 150;
     if (far && !room.collidesWithWall(enemy.getBounds())) {
@@ -270,6 +284,10 @@ function spawnNextEnemy() {
 }
 
 function keyPressed() {
+  if (keyCode === 114) {
+    debugOverlay = !debugOverlay;
+    return false;
+  }
   if (game.isModelSelect()) {
     chooseModel(getModelForKey(key));
     return;
