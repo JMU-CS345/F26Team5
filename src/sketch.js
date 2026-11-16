@@ -15,11 +15,14 @@ let room;
 let roomGraphic;
 let restartShown = false;
 let modelButtons = [];
+let activeDialogue;
 //temp
 const ROOM_WIDTH = 640;
 const ROOM_HEIGHT = 400;
 const ROOM_X = (CANVAS_WIDTH - ROOM_WIDTH) / 2;
 const ROOM_Y = (CANVAS_HEIGHT - ROOM_HEIGHT) / 2;
+const NPC_TOP_RIGHT_X = ROOM_X + ROOM_WIDTH - 48;
+const NPC_TOP_RIGHT_Y = ROOM_Y + 32;
 let pageScale = 1; // set by fitToWindow(), also used to line up the page background
 let pageLeft = 0;
 let pageTop = 0;
@@ -41,10 +44,13 @@ function startRun() {
     createEnemy("Bat", ROOM_X + 256, ROOM_Y + 64, true),
     createEnemy("Eyeball", ROOM_X + 48, ROOM_Y + 256, true)
   ];
-  // TEMPORARY: a test NPC until room files place them.
+  // An Elder NPC placed in the top right of the room (press N to toggle)
   room.npcs = [
-    new Npc(ROOM_X + 288, ROOM_Y + 176, "Elder")
+    createTopRightNpc()
   ];
+  if (activeDialogue) {
+    activeDialogue.close();
+  }
   nextSpawnIndex = ENEMY_TYPE_NAMES.indexOf("Demon");
   projectiles = [];
   enemyProjectiles = [];
@@ -78,6 +84,9 @@ function chooseModel(modelName) {
 
 // Ends the run and goes back to the start of the character creator.
 function showMenu() {
+  if (activeDialogue) {
+    activeDialogue.close();
+  }
   if (!game.newRun()) {
     return;
   }
@@ -137,6 +146,7 @@ async function setup() {
     }
   }
   game = new Game();
+  activeDialogue = new DialogueBox();
   restartButton = createButton("Restart");
   restartButton.size(220, 64);
   restartButton.style("font-size", "24px");
@@ -178,7 +188,11 @@ function draw() {
   }
   drawRoom(room, roomGraphic);
 
-  player.move(getMoveDirection(keyIsDown), room);
+  if (!activeDialogue.isActive()) {
+    player.move(getMoveDirection(keyIsDown), room);
+  } else {
+    player.walkFrames = 0;
+  }
 
   if (!player.isDead()) {
     for (const e of room.enemies) {
@@ -190,9 +204,11 @@ function draw() {
     }
   }
 
-  const proj = player.fire(getFireDirection(keyIsDown));
-  if (proj) {
-    projectiles.push(proj);
+  if (!activeDialogue.isActive()) {
+    const proj = player.fire(getFireDirection(keyIsDown));
+    if (proj) {
+      projectiles.push(proj);
+    }
   }
   player.update();
 
@@ -227,7 +243,7 @@ function draw() {
     }
   }
   for (const npc of room.npcs) {
-    drawNpc(npc);
+    drawNpc(npc, player, activeDialogue.isActive());
   }
   drawDyingEnemies();
   if (!room.cleared && room.enemies.every((e) => e.isDead())) {
@@ -235,7 +251,9 @@ function draw() {
   }
   drawHealthBar(player);
   drawClassLabel(player.mageClass);
+  drawDialogueBox(activeDialogue, ROOM_X, ROOM_Y, ROOM_WIDTH, ROOM_HEIGHT);
   if (player.showDeathScreen()) {
+    activeDialogue.close();
     game.playerDied();
   }
   if (game.isDead()) {
@@ -268,6 +286,28 @@ function spawnNextEnemy() {
   }
 }
 
+// Creates the test Elder NPC in the top right of the room.
+function createTopRightNpc() {
+  return new Npc(NPC_TOP_RIGHT_X, NPC_TOP_RIGHT_Y, "Elder", [
+    "Greetings, traveler! The dungeons ahead are perilous.",
+    "Keep your distance from skeletons and watch for swift bats.",
+    "May your arcane magic guide your journey. Good luck!"
+  ]);
+}
+
+// Toggles spawning/despawning the Elder NPC in the top right.
+function toggleTopRightNpc() {
+  const existingIndex = room.npcs.findIndex((n) => n.name === "Elder");
+  if (existingIndex !== -1) {
+    room.npcs.splice(existingIndex, 1);
+    if (activeDialogue.isActive() && activeDialogue.getSpeakerName() === "Elder") {
+      activeDialogue.close();
+    }
+  } else {
+    room.npcs.push(createTopRightNpc());
+  }
+}
+
 function keyPressed() {
   if (keyCode === 114) {
     debugOverlay = !debugOverlay;
@@ -281,8 +321,26 @@ function keyPressed() {
     chooseClass(getClassForKey(key));
     return;
   }
-  if (game.isPlaying() && key.toLowerCase() === "e") {
-    spawnNextEnemy();
+  if (game.isPlaying()) {
+    if (key.toLowerCase() === "n") {
+      toggleTopRightNpc();
+      return false;
+    }
+    // Interaction: Space (32) or F
+    if (keyCode === 32 || key.toLowerCase() === "f") {
+      if (activeDialogue.isActive()) {
+        activeDialogue.advance();
+        return false;
+      }
+      const nearbyNpc = room.npcs.find((n) => n.isPlayerNear(player));
+      if (nearbyNpc) {
+        activeDialogue.start(nearbyNpc);
+        return false;
+      }
+    }
+    if (key.toLowerCase() === "e") {
+      spawnNextEnemy();
+    }
   }
   // Temporary damage key for testing the death screen, commented out currently.
   // if (key === "h") {
@@ -293,7 +351,8 @@ function keyPressed() {
   }
   if (
     keyCode === LEFT_ARROW || keyCode === RIGHT_ARROW ||
-    keyCode === UP_ARROW || keyCode === DOWN_ARROW
+    keyCode === UP_ARROW || keyCode === DOWN_ARROW ||
+    keyCode === 32
   ) {
     return false;
   }

@@ -2,7 +2,7 @@
 
 const NPC_COLOR = [240, 220, 60]; // yellow, friendly and distinct from enemies
 
-function drawNpc(npc) {
+function drawNpc(npc, player = null, isDialogueActive = false) {
   // Body: a yellow rectangle.
   noStroke();
   fill(NPC_COLOR[0], NPC_COLOR[1], NPC_COLOR[2]);
@@ -14,4 +14,12 @@ function drawNpc(npc) {
   textSize(8);
   textAlign(CENTER, BOTTOM);
   text(npc.name, npc.pos.x + npc.length / 2, npc.pos.y - 2);
+
+  // Interaction prompt when player is nearby and dialogue is not already open
+  if (player && !isDialogueActive && npc.isPlayerNear(player)) {
+    fill(255, 235, 120);
+    textSize(8);
+    textAlign(CENTER, BOTTOM);
+    text("[Space] Talk", npc.pos.x + npc.length / 2, npc.pos.y - 12);
+  }
 }
