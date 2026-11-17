@@ -91,6 +91,7 @@ describe("Melee swing", function () {
         hits++;
       }
       player.health = 99; // so the player stays alive and in reach
+      player.iFrames = 0; // this spec counts swings, not i-frames
     }
     expect(swings).toBeGreaterThan(1);
     expect(hits).toBe(swings);

@@ -333,7 +333,7 @@ function draw() {
       projectiles.push(proj);
     }
   }
-  player.update();
+  player.update(room);
 
   for (const p of projectiles) {
     p.update(room);

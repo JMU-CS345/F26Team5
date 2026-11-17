@@ -311,3 +311,72 @@ describe("Player health and death", function () {
     expect(fresh.showDeathScreen()).toBe(false);
   });
 });
+
+describe("Player i-frames and defense", function () {
+  let player;
+  const room = new NormalRoom(0, 0, 160, 160);
+
+  beforeEach(function () {
+    player = new Player(50, 50, "Fire");
+  });
+
+  function wear(armor) {
+    player.inventory.add(armor);
+    player.inventory.equip(armor);
+  }
+
+  it("starts i-frames when hit", function () {
+    expect(player.takeDamage(1)).toBe(true);
+    expect(player.iFrames).toBe(HIT_IFRAMES);
+    expect(player.isInvulnerable()).toBe(true);
+  });
+
+  it("takes no damage while invulnerable", function () {
+    player.takeDamage(1);
+    expect(player.takeDamage(1)).toBe(false);
+    expect(player.health).toBe(player.maxHealth - 1);
+  });
+
+  it("can be hit again once the i-frames expire", function () {
+    player.takeDamage(1);
+    for (let i = 0; i < HIT_IFRAMES; i++) player.update(room);
+    expect(player.isInvulnerable()).toBe(false);
+    expect(player.takeDamage(1)).toBe(true);
+    expect(player.health).toBe(player.maxHealth - 2);
+  });
+
+  it("is knocked back away from the hit", function () {
+    player.takeDamage(1, new p5.Vector(1, 0));
+    player.update(room);
+    expect(player.pos.x).toBeGreaterThan(50);
+    expect(player.pos.y).toBe(50);
+  });
+
+  it("does not walk while being shoved", function () {
+    player.takeDamage(1, new p5.Vector(1, 0));
+    const before = player.pos.x;
+    player.move(new p5.Vector(-1, 0), room);
+    expect(player.pos.x).toBe(before);
+  });
+
+  it("reduces damage by worn armor", function () {
+    wear(new ChestArmor({ id: "robe", name: "Robe", defense: 1 }));
+    expect(player.getDefense()).toBe(1);
+    player.takeDamage(2);
+    expect(player.health).toBe(player.maxHealth - 1);
+  });
+
+  it("never cuts a hit below the minimum", function () {
+    wear(new ChestArmor({ id: "plate", name: "Plate", defense: 50 }));
+    player.takeDamage(3);
+    expect(player.health).toBe(player.maxHealth - MIN_HIT_DAMAGE);
+  });
+
+  it("does not heal from negative or zero damage", function () {
+    player.takeDamage(2);
+    for (let i = 0; i < HIT_IFRAMES; i++) player.update(room);
+    expect(player.takeDamage(-3)).toBe(false);
+    expect(player.takeDamage(0)).toBe(false);
+    expect(player.health).toBe(player.maxHealth - 2);
+  });
+});

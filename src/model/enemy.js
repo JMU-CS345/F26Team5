@@ -228,7 +228,9 @@ class Enemy {
     if (!rectsOverlap(box, player.getBounds())) {
       return false;
     }
-    player.takeDamage(attack.damage);
+    if (!player.takeDamage(attack.damage, player.getCenter().sub(center))) {
+      return false; // the player is in i-frames, so try again next frame
+    }
     this.damageCooldown = ENEMY_DAMAGE_COOLDOWN;
     this.swingHit = true; // one hit per swing, and the sword stays out
     return true;
@@ -245,7 +247,10 @@ class Enemy {
     if (!this.isTouching(player)) {
       return false;
     }
-    player.takeDamage(this.contactDamage);
+    const push = player.getCenter().sub(this.getCenter());
+    if (!player.takeDamage(this.contactDamage, push)) {
+      return false;
+    }
     this.damageCooldown = ENEMY_DAMAGE_COOLDOWN;
     return true;
   }

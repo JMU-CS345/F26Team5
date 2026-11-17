@@ -2,7 +2,12 @@
 
 const PLAYER_LENGTH = 16;
 const PLAYER_WIDTH = 16;
-const FIRE_COOLDOWN = 15; // frames between shots
+const FIRE_COOLDOWN = 30; // frames between default shots, slower than melee on purpose
+const HIT_IFRAMES = 45; // invulnerable frames after being hurt
+const MIN_HIT_DAMAGE = 0.5; // armor never cuts a hit below this
+const PLAYER_KNOCKBACK_SPEED = 4; // pixels per frame at the start of a shove
+const PLAYER_KNOCKBACK_FRAMES = 6;
+const PLAYER_KNOCKBACK_DECAY = 0.8;
 const DEATH_FRAMES = 48; // death animation length (0.8 s at 60 fps)
 
 class Player {
@@ -20,6 +25,9 @@ class Player {
     this.inventory = new PlayerInventory();
     this.deathFrames = 0; // frames spent dead
     this.fireCooldown = 0; // frames until the player can fire again
+    this.iFrames = 0; // frames left of invulnerability after a hit
+    this.knockback = new p5.Vector(0, 0); // pixels per frame, shrinks as the shove fades
+    this.knockbackTimer = 0;
 
     // Animation state. The view reads these to pick a sprite frame.
     this.facing = "down"; // "down", "up", "left" or "right"
@@ -65,18 +73,56 @@ class Player {
     return this.health <= 0;
   }
 
-  // Enemies and hazards should call this instead of changing health directly.
-  takeDamage(amount) {
-    this.health = Math.max(0, this.health - amount);
+  isInvulnerable() {
+    return this.iFrames > 0;
   }
 
-  // Call once per frame. Counts the death animation and the fire cooldown.
-  update() {
+  // Total defense of the armor being worn.
+  getDefense() {
+    let total = 0;
+    for (const slot of ["head", "body", "legs"]) {
+      const armor = this.inventory.getEquipped(slot);
+      if (armor) {
+        total += armor.defense;
+      }
+    }
+    return total;
+  }
+
+  // Enemies and hazards should call this instead of changing health directly.
+  // fromDir is the way the hit travels, used for the shove. Returns true if damage landed.
+  takeDamage(amount, fromDir) {
+    if (this.isDead() || this.isInvulnerable() || amount <= 0) {
+      return false; // a negative hit must never heal
+    }
+    const reduced = Math.max(MIN_HIT_DAMAGE, amount - this.getDefense());
+    this.health = Math.max(0, this.health - Math.min(amount, reduced));
+    this.iFrames = HIT_IFRAMES;
+    if (fromDir && fromDir.magSq() > 0) {
+      this.knockback = fromDir.copy().setMag(PLAYER_KNOCKBACK_SPEED);
+      this.knockbackTimer = PLAYER_KNOCKBACK_FRAMES;
+    }
+    playCombatSfx("hurt");
+    return true;
+  }
+
+  // Call once per frame. Counts the timers down. Pass the room so a shove can move us.
+  update(room) {
     if (this.isDead()) {
       this.deathFrames = Math.min(this.deathFrames + 1, DEATH_FRAMES);
     }
     if (this.fireCooldown > 0) {
       this.fireCooldown--;
+    }
+    if (this.iFrames > 0) {
+      this.iFrames--;
+    }
+    if (this.knockbackTimer > 0) {
+      if (room) {
+        moveWithCollision(this, this.knockback.x, this.knockback.y, room);
+      }
+      this.knockback.mult(PLAYER_KNOCKBACK_DECAY);
+      this.knockbackTimer--;
     }
   }
 
@@ -86,7 +132,7 @@ class Player {
   }
 
   move(dir, room) {
-    if (this.isDead() || dir.magSq() === 0) {
+    if (this.isDead() || dir.magSq() === 0 || this.knockbackTimer > 0) {
       this.walkFrames = 0;
       return;
     }

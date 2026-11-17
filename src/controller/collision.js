@@ -11,7 +11,9 @@ function projectileHitsPlayer(projectile, player) {
   if (!rectsOverlap(projectile.getBounds(), player.getBounds())) {
     return false;
   }
-  player.takeDamage(projectile.damage);
+  if (!player.takeDamage(projectile.damage, projectile.vel)) {
+    return false; // shots pass through a player in i-frames
+  }
   projectile.alive = false;
   return true;
 }
