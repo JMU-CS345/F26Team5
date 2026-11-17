@@ -50,4 +50,5 @@ The only source of colors is `src/view/palette.js` (`PALETTE.name`, or `paletteC
 1. Draw it to the rules above, or recolor a CC0 asset to the palette.
 2. Save it as a PNG under `assets/`, with a lowercase-hyphen file name (`stone-door.png`).
 3. Load it with `loadImageFile` in the view code. Do not use `loadImage`, it fails on `file://`.
+   Tile art is listed in `src/view/tile-sprites.js`: add the file to `TILE_IMAGE_FILES` and point the tile type at it.
 4. If anyone else made it, add a row to `assets/CREDITS.md` with the creator's name exactly as on the source page, the source URL and the license. Only CC0 or art we made ourselves goes in the repo. Copy the pack's license text next to the files if it includes one.
