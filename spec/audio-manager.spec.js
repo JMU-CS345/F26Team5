@@ -1,6 +1,7 @@
 describe("Audio rules", function () {
   const SOUND_NAMES = [
-    "swing", "hit", "shoot", "hurt", "dash", "pickup", "chest", "menu", "death"
+    "swing", "hit", "shoot", "hurt", "dash", "pickup", "chest", "menu", "death",
+    "levelup", "perfect"
   ];
 
   describe("volumeFor", function () {
@@ -60,8 +61,8 @@ describe("Audio rules", function () {
       localStorage.removeItem(KEY);
       expect(loadSettings()).toEqual({
         controls: "classic",
-        musicVolume: 0.5,
-        sfxVolume: 0.7,
+        musicVolume: 0.4,
+        sfxVolume: 0.55,
         screenShake: true,
         damageNumbers: true
       });
@@ -69,26 +70,26 @@ describe("Audio rules", function () {
 
     it("returns the defaults when the saved JSON is bad", function () {
       localStorage.setItem(KEY, "{not json");
-      expect(loadSettings().musicVolume).toBe(0.5);
+      expect(loadSettings().musicVolume).toBe(0.4);
     });
 
     it("returns the defaults when saved data is not an object", function () {
       localStorage.setItem(KEY, "42");
-      expect(loadSettings().sfxVolume).toBe(0.7);
+      expect(loadSettings().sfxVolume).toBe(0.55);
       localStorage.setItem(KEY, "[1, 2]");
-      expect(loadSettings().sfxVolume).toBe(0.7);
+      expect(loadSettings().sfxVolume).toBe(0.55);
     });
 
     it("returns the defaults when storage throws", function () {
       spyOn(Storage.prototype, "getItem").and.throwError("storage blocked");
-      expect(loadSettings().sfxVolume).toBe(0.7);
+      expect(loadSettings().sfxVolume).toBe(0.55);
     });
 
     it("uses saved values and fills in fields that are missing or the wrong type", function () {
       localStorage.setItem(KEY, JSON.stringify({ musicVolume: 0.1, sfxVolume: "high" }));
       const loaded = loadSettings();
       expect(loaded.musicVolume).toBe(0.1);
-      expect(loaded.sfxVolume).toBe(0.7);
+      expect(loaded.sfxVolume).toBe(0.55);
       expect(loaded.controls).toBe("classic");
     });
   });

@@ -8,7 +8,9 @@ const SFX_FILES = {
   pickup: "assets/audio/pickup.mp3",
   chest: "assets/audio/chest.mp3",
   menu: "assets/audio/menu.mp3",
-  death: "assets/audio/death.mp3"
+  death: "assets/audio/death.mp3",
+  levelup: "assets/audio/levelup.mp3",
+  perfect: "assets/audio/perfect.mp3"
 };
 
 const MUSIC_FILE = "assets/audio/music-loop.mp3";
