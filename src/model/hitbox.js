@@ -82,6 +82,11 @@ class Hitbox {
       const bounds = target.getBounds();
       const push = new p5.Vector(bounds.x + bounds.w / 2, bounds.y + bounds.h / 2)
         .sub(this.getOrigin());
+      if (this.arc < 360 && push.magSq() > 0) {
+        // Mostly along the swing, a little away from the centre.
+        push.normalize();
+        push.set(p5.Vector.lerp(push, this.dir, KNOCKBACK_SWING_MIX));
+      }
       target.takeDamage(this.damage, push, this.knockback);
       hits.push({ target: target, damage: this.damage, push: push });
     }

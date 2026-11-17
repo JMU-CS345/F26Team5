@@ -11,13 +11,17 @@ const FINISHER_REACH = 1.15;
 const FINISHER_EXTRA_FRAMES = 3;
 
 // Spin
-const SPIN_CHARGE_FRAMES = 40; // hold melee this long, then let go for a spin
+const SPIN_CHARGE_FRAMES = 30; // hold melee this long, then let go for a spin
 const SPIN_DAMAGE = 1.5;
 const SPIN_KNOCKBACK = 1.5;
 const SPIN_REACH = 1.3;
 const SPIN_WINDUP = 2;
 const SPIN_ACTIVE = 5;
 const SPIN_RECOVERY = 8;
+
+// Knockback on enemies: this share of the shove follows the swing, the rest is away from
+// the player.
+const KNOCKBACK_SWING_MIX = 0.6;
 
 // Walking. Speed is a share of the class speed, by swing phase.
 const MOVE_ACCEL = 0.45; // share of the gap to full speed closed each frame
@@ -62,9 +66,13 @@ const DODGE_ENEMY_SPEED = 0.35; // share of normal enemy speed while slowed
 const DODGE_FLASH_FRAMES = 12; // how long the view flashes the player
 
 // Game feel
-const HITSTOP_MELEE_FRAMES = 3;
+const HITSTOP_NORMAL_FRAMES = 2;
+const HITSTOP_FINISHER_FRAMES = 5;
+const HITSTOP_SPIN_FRAMES = 4;
+const HITSTOP_RANGED_FRAMES = 0;
 const SHAKE_FRAMES = 6;
-const SHAKE_MELEE = 2; // pixels
+const SHAKE_MELEE = 2; // pixels, along the swing direction
+const SHAKE_FINISHER = 4;
 const SHAKE_RANGED = 1;
 const SHAKE_HURT = 3;
 const NUMBER_FRAMES = 40; // how long a damage number floats

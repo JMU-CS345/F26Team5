@@ -108,11 +108,21 @@ class MeleeAttack {
       this.hitbox.x = center.x;
       this.hitbox.y = center.y;
       hits = this.hitbox.resolve(targets);
+      this.tagHits(hits);
       this.hitbox.update();
       this.callHooks(hits);
     }
     this.frame++;
     return hits;
+  }
+
+  // The game feel code reads how strong the swing was from the hit itself.
+  tagHits(hits) {
+    for (const hit of hits) {
+      hit.attack = this.plan.kind;
+      hit.finisher = this.plan.kind === "swing" && this.plan.step === COMBO_LENGTH - 1;
+      hit.dir = this.dir.copy();
+    }
   }
 
   makeHitbox() {

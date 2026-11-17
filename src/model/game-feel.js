@@ -8,6 +8,7 @@ class GameFeel {
     this.hitstop = 0; // frames the game stays frozen
     this.shakeFrames = 0;
     this.shakeStrength = 0;
+    this.shakeDir = null; // unit vector for a directional shake, or null for a random one
     this.numbers = []; // { x, y, text, age }
   }
 
@@ -19,15 +20,27 @@ class GameFeel {
   reset() {
     this.hitstop = 0;
     this.shakeFrames = 0;
+    this.shakeStrength = 0;
+    this.shakeDir = null;
     this.numbers = [];
   }
 
-  // hit is { target, damage }. kind is "melee" or "ranged". Only melee freezes the game.
+  // hit is { target, damage }, and from a swing also { attack, finisher, dir }.
+  // kind is "melee" or "ranged". Ranged hits do not freeze the game.
   onHit(hit, kind) {
     if (kind === "melee") {
-      this.hitstop = Math.max(this.hitstop, HITSTOP_MELEE_FRAMES);
-      this.startShake(SHAKE_MELEE);
+      let freeze = HITSTOP_NORMAL_FRAMES;
+      let shake = SHAKE_MELEE;
+      if (hit.attack === "spin") {
+        freeze = HITSTOP_SPIN_FRAMES;
+      } else if (hit.finisher) {
+        freeze = HITSTOP_FINISHER_FRAMES;
+        shake = SHAKE_FINISHER;
+      }
+      this.hitstop = Math.max(this.hitstop, freeze);
+      this.startShake(shake, hit.dir);
     } else {
+      this.hitstop = Math.max(this.hitstop, HITSTOP_RANGED_FRAMES);
       this.startShake(SHAKE_RANGED);
     }
     if (this.settings.damageNumbers) {
@@ -45,12 +58,19 @@ class GameFeel {
     this.startShake(SHAKE_HURT);
   }
 
-  startShake(strength) {
+  // dir (optional) shakes along that line instead of at random. The setting still rules.
+  startShake(strength, dir = null) {
     if (!this.settings.screenShake) {
       return;
     }
     this.shakeFrames = SHAKE_FRAMES;
-    this.shakeStrength = Math.max(this.shakeStrength, strength);
+    if (strength >= this.shakeStrength) {
+      this.shakeStrength = strength;
+      this.shakeDir = null;
+      if (dir && dir.magSq() > 0) {
+        this.shakeDir = dir.copy().normalize();
+      }
+    }
   }
 
   // True on frames the game should stand still. Each call uses up one frozen frame.
@@ -68,6 +88,10 @@ class GameFeel {
       return { x: 0, y: 0 };
     }
     const size = this.shakeStrength * (this.shakeFrames / SHAKE_FRAMES);
+    if (this.shakeDir !== null) {
+      const kick = size * Math.cos(this.shakeFrames * Math.PI); // flips sign each frame
+      return { x: this.shakeDir.x * kick, y: this.shakeDir.y * kick };
+    }
     return { x: (Math.random() * 2 - 1) * size, y: (Math.random() * 2 - 1) * size };
   }
 
@@ -77,6 +101,7 @@ class GameFeel {
       this.shakeFrames--;
       if (this.shakeFrames === 0) {
         this.shakeStrength = 0;
+        this.shakeDir = null;
       }
     }
     for (const n of this.numbers) {

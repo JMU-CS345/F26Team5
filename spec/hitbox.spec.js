@@ -94,3 +94,37 @@ describe("Hitbox", function () {
     expect(box.resolve([dummyAt(110, 110), dummyAt(300, 300)]).length).toBe(1);
   });
 });
+
+describe("Hitbox knockback mix", function () {
+  const owner = {};
+
+  function shoved(origin, target, dir, arc) {
+    const hitbox = new Hitbox(owner, {
+      shape: "arc", x: origin.x, y: origin.y, dir: dir, reach: 60, arc: arc
+    });
+    const dummy = {
+      getBounds: () => ({ x: target.x - 8, y: target.y - 8, w: 16, h: 16 }),
+      takeDamage: function () {}
+    };
+    return hitbox.resolve([dummy])[0].push;
+  }
+
+  it("blends 60% swing direction with 40% away from the centre", function () {
+    const push = shoved({ x: 0, y: 0 }, { x: 0, y: 30 }, new p5.Vector(1, 0), 360 - 1);
+    // away is straight down, swing is right: 0.4 down + 0.6 right
+    expect(push.x).toBeCloseTo(0.6, 5);
+    expect(push.y).toBeCloseTo(0.4, 5);
+  });
+
+  it("keeps a target dead ahead moving straight ahead", function () {
+    const push = shoved({ x: 0, y: 0 }, { x: 30, y: 0 }, new p5.Vector(1, 0), 120);
+    expect(push.x).toBeCloseTo(1, 5);
+    expect(push.y).toBeCloseTo(0, 5);
+  });
+
+  it("pushes away from the centre for a full circle", function () {
+    const push = shoved({ x: 0, y: 0 }, { x: 0, y: 30 }, new p5.Vector(1, 0), 360);
+    expect(push.x).toBeCloseTo(0, 5);
+    expect(push.y).toBeGreaterThan(0);
+  });
+});

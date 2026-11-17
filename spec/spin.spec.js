@@ -26,6 +26,12 @@ describe("Charged spin", function () {
     }
   }
 
+  it("charges in 30 frames", function () {
+    expect(SPIN_CHARGE_FRAMES).toBe(30);
+    hold(30);
+    expect(player.isCharged()).toBe(true);
+  });
+
   it("is not charged before the threshold", function () {
     hold(SPIN_CHARGE_FRAMES - 1);
     expect(player.isCharged()).toBe(false);
