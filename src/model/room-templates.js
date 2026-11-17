@@ -339,11 +339,11 @@ const ROOM_TEMPLATES = [
   {
     name: "dead-end-west",
     role: "normal",
-    // A small chamber with one door, on the west wall. A chest at the far end.
+    // A small chamber with one door, on the west wall.
     rows: [
       "################",
       "#..............#",
-      "#.............C#",
+      "#..............#",
       "#..............#",
       "+........Z.....#",
       "+..............#",
@@ -357,11 +357,11 @@ const ROOM_TEMPLATES = [
   {
     name: "dead-end-east",
     role: "normal",
-    // A small chamber with one door, on the east wall. A chest at the far end.
+    // A small chamber with one door, on the east wall.
     rows: [
       "################",
       "#..............#",
-      "#C.............#",
+      "#..............#",
       "#..............#",
       "#..............+",
       "#....J....J....+",
@@ -375,7 +375,7 @@ const ROOM_TEMPLATES = [
   {
     name: "dead-end-north",
     role: "normal",
-    // A small chamber with one door, on the north wall. A chest at the far end.
+    // A small chamber with one door, on the north wall.
     rows: [
       "#######++#######",
       "#..............#",
@@ -386,17 +386,17 @@ const ROOM_TEMPLATES = [
       "#..............#",
       "#..............#",
       "#..............#",
-      "#.......C......#",
+      "#..............#",
       "################"
     ]
   },
   {
     name: "dead-end-south",
     role: "normal",
-    // A small chamber with one door, on the south wall. A chest at the far end.
+    // A small chamber with one door, on the south wall.
     rows: [
       "################",
-      "#.......C......#",
+      "#..............#",
       "#..............#",
       "#..............#",
       "#..............#",

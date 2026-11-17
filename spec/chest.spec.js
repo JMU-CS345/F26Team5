@@ -42,9 +42,10 @@ describe("chest", function () {
       expect(room.chests[0].opened).toBe(false);
     });
 
-    it("is used by at least a couple of the real room templates", function () {
-      const withChests = ROOM_TEMPLATES.filter((t) => t.rows.some((r) => r.includes("C")));
-      expect(withChests.length).toBeGreaterThanOrEqual(2);
+    it("is not used by combat room templates, gear comes from loot slots", function () {
+      const withChests = ROOM_TEMPLATES.filter((t) => t.role === "normal"
+        && t.rows.some((r) => r.includes("C")));
+      expect(withChests).toEqual([]);
     });
   });
 
@@ -54,7 +55,9 @@ describe("chest", function () {
 
     beforeEach(function () {
       room = new TemplateRoom(0, 0, smallTemplate(CHEST_ROOM));
+      room.id = 3;
       lootRun = new LootRun(5, []);
+      lootRun.slots = { 3: ["chest"] };
     });
 
     it("needs the player to be close", function () {
@@ -88,8 +91,13 @@ describe("chest", function () {
 
     it("rolls the same loot for the same seed", function () {
       const other = new TemplateRoom(0, 0, smallTemplate(CHEST_ROOM));
-      const a = room.chests[0].open(new LootRun(77, []), room);
-      const b = other.chests[0].open(new LootRun(77, []), other);
+      other.id = 3;
+      const runA = new LootRun(77, []);
+      const runB = new LootRun(77, []);
+      runA.slots = { 3: ["chest"] };
+      runB.slots = { 3: ["chest"] };
+      const a = room.chests[0].open(runA, room);
+      const b = other.chests[0].open(runB, other);
       expect(a[0].item.name).toBe(b[0].item.name);
       expect(a[0].item.damage).toBe(b[0].item.damage);
       expect(a[1].quantity).toBe(b[1].quantity);
@@ -102,6 +110,26 @@ describe("chest", function () {
       const deepGold = deep.rollChestLoot(room).gold;
       const shallowGold = shallow.rollChestLoot(room).gold;
       expect(deepGold).toBeGreaterThan(shallowGold);
+    });
+
+    it("holds only gold when its room has no chest slot", function () {
+      lootRun.slots = {};
+      const drops = room.chests[0].open(lootRun, room);
+      expect(drops.length).toBe(1);
+      expect(drops[0].item instanceof Gold).toBe(true);
+      expect(room.chests[0].rarity).toBeNull();
+      expect(room.chests[0].beamStrength).toBe(0);
+    });
+
+    it("uses up the room's chest slots, one weapon per chest", function () {
+      lootRun.slots = { 3: ["chest", "chest"] };
+      const first = lootRun.rollChestLoot(room);
+      const second = lootRun.rollChestLoot(room);
+      const third = lootRun.rollChestLoot(room);
+      expect(first.weapon).not.toBeNull();
+      expect(second.weapon).not.toBeNull();
+      expect(third.weapon).toBeNull();
+      expect(lootRun.gearDropped).toBe(2);
     });
 
     it("animates: lid and beam follow openFrames", function () {

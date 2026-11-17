@@ -5,7 +5,7 @@ describe("bad-luck protection", function () {
     expect(run.nextChestMinRarity()).toBeNull();
   });
 
-  it("counts chests without a rare or better", function () {
+  it("counts gear without a rare or better", function () {
     const run = new LootRun(1, []);
     run.recordChestRarity("common");
     run.recordChestRarity("uncommon");
@@ -20,8 +20,8 @@ describe("bad-luck protection", function () {
     }
     expect(BAD_LUCK_LIMIT).toBe(4);
     expect(run.nextChestMinRarity()).toBe("rare");
-    const loot = run.rollChestLoot({ id: 0 });
-    expect(isRareOrBetter(loot.weapon.rarity)).toBe(true);
+    const weapon = run.rollGear({ id: 0 }, "chest");
+    expect(isRareOrBetter(weapon.rarity)).toBe(true);
     expect(run.chestsWithoutRare).toBe(0);
     expect(run.nextChestMinRarity()).toBeNull();
   });
@@ -34,14 +34,13 @@ describe("bad-luck protection", function () {
     expect(run.chestsWithoutRare).toBe(0);
   });
 
-  it("never lets more than the limit of chests in a row miss rare, whatever the seed", function () {
+  it("never lets more than the limit of gear pieces in a row miss rare, whatever the seed", function () {
     for (let seed = 1; seed <= 300; seed++) {
       const run = new LootRun(seed, []);
       let misses = 0;
       let worst = 0;
       for (let i = 0; i < 20; i++) {
-        const loot = run.rollChestLoot({ id: 0 });
-        if (isRareOrBetter(loot.weapon.rarity)) {
+        if (isRareOrBetter(run.rollGear({ id: 0 }, "chest").rarity)) {
           misses = 0;
         } else {
           misses++;
@@ -56,8 +55,8 @@ describe("bad-luck protection", function () {
     const a = new LootRun(33, []);
     const b = new LootRun(33, []);
     for (let i = 0; i < 10; i++) {
-      const first = a.rollChestLoot({ id: 0 }).weapon.name;
-      expect(first).toBe(b.rollChestLoot({ id: 0 }).weapon.name);
+      const first = a.rollGear({ id: 0 }, "chest").name;
+      expect(first).toBe(b.rollGear({ id: 0 }, "chest").name);
     }
   });
 
