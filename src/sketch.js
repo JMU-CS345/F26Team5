@@ -22,6 +22,8 @@ let inventorySelection = null;
 let inventoryInfoLines = [];
 let resumeInputBlocked = false;
 let activeDialogue;
+let gameFeel; // hitstop, shake and damage numbers
+let lastPlayerHealth = 0;
 let setupDone = false; // draw() waits for this, because setup() loads art with await
 //temp
 const ROOM_WIDTH = 640;
@@ -82,6 +84,8 @@ function fillRoomTemp(r) {
 // Makes a fresh player with the class picked on the menu.
 function startRun() {
   refreshBindings(); // the menus may have changed the controls setting
+  gameFeel.refreshSettings();
+  gameFeel.reset();
   for (const g of roomGraphics.values()) {
     g.remove(); // free the old dungeon's pictures
   }
@@ -124,6 +128,7 @@ function startRun() {
     })),
     new ItemDrop(spawn.x + 48, spawn.y + 48, new Gold(), 25)
   ];
+  lastPlayerHealth = player.health;
   nextSpawnIndex = ENEMY_TYPE_NAMES.indexOf("Demon");
   projectiles = [];
   enemyProjectiles = [];
@@ -217,6 +222,7 @@ async function setup() {
   frameRate(60); // movement is pixels per frame, so keep the frame rate fixed
   game = new Game();
   activeDialogue = new DialogueBox();
+  gameFeel = new GameFeel();
   restartButton = createButton("Restart");
   restartButton.size(220, 64);
   restartButton.style("font-size", "24px");
@@ -296,7 +302,15 @@ function draw() {
       useExit(exit);
     }
   }
+  const shake = gameFeel.getShakeOffset();
+  push();
+  translate(shake.x, shake.y);
   drawRoom(room, roomGraphic);
+  pop();
+  if (gameFeel.consumeHitstop()) {
+    drawGameScene(shake); // a hit freezes the game for a moment
+    return;
+  }
 
   const heldInputBlocked = resumeInputBlocked && isGameplayInputHeld(keyIsDown);
   if (resumeInputBlocked && !heldInputBlocked) {
@@ -328,11 +342,17 @@ function draw() {
 
   projectiles.push(...player.fireAll(input.fireDir));
   player.update(room, input);
+  for (const hit of player.lastHits) {
+    gameFeel.onHit(hit, "melee");
+  }
 
   for (const p of projectiles) {
     p.update(room);
     for (const e of room.enemies) {
-      e.damageFromProjectile(p);
+      if (e.damageFromProjectile(p)) {
+        gameFeel.onHit({ target: e, damage: p.damage }, "ranged");
+        playCombatSfx("hit");
+      }
     }
   }
   projectiles = projectiles.filter((p) => p.alive);
@@ -347,7 +367,12 @@ function draw() {
   enemyProjectiles = enemyProjectiles.filter((p) => p.alive);
   handleDeadEnemies(removeDeadEnemies(room));
 
-  drawRunScene();
+  if (player.health < lastPlayerHealth) {
+    gameFeel.onPlayerHurt();
+  }
+  lastPlayerHealth = player.health;
+  gameFeel.update();
+  drawGameScene(shake);
   if (!room.cleared && room.enemies.every((e) => e.isDead())) {
     room.onClear();
   }
@@ -364,7 +389,21 @@ function draw() {
   }
 }
 
+// The world shakes with a hit, the HUD stays put.
+function drawGameScene(shake) {
+  push();
+  translate(shake.x, shake.y);
+  drawWorldScene();
+  pop();
+  drawHud();
+}
+
 function drawRunScene() {
+  drawWorldScene();
+  drawHud();
+}
+
+function drawWorldScene() {
   for (const drop of room.items) {
     drawItemDrop(drop);
   }
@@ -386,6 +425,10 @@ function drawRunScene() {
     drawNpc(npc, player, activeDialogue.isActive());
   }
   drawDyingEnemies(!game.isInventory());
+  drawDamageNumbers(gameFeel);
+}
+
+function drawHud() {
   drawHealthBar(player);
   drawGoldHud(player.inventory);
   drawFirstBossBar();

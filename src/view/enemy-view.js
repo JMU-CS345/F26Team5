@@ -36,9 +36,7 @@ function drawEnemySprite(enemy, sprite, alpha = 255) {
   if (enemy.facingLeft && !sprite.directions && !sprite.aimFrames) {
     scale(-1, 1);
   }
-  if (enemy.hurtTimer > 0) {
-    tint(255, 110, 110, alpha);
-  } else if (enemy.state === "windup") {
+  if (enemy.state === "windup") {
     tint(255, 200, 120, alpha);
   } else {
     tint(255, alpha);
@@ -48,11 +46,25 @@ function drawEnemySprite(enemy, sprite, alpha = 255) {
     -ax * pixelSize, -ay * pixelSize, w * pixelSize, h * pixelSize,
     frame.x, frame.y, w, h
   );
+  if (enemy.hurtTimer > 0) {
+    // Adding the sprite to itself washes it out to white for a moment.
+    blendMode(ADD);
+    tint(255, min(alpha, 200));
+    image(
+      enemySheets[frame.sheet],
+      -ax * pixelSize, -ay * pixelSize, w * pixelSize, h * pixelSize,
+      frame.x, frame.y, w, h
+    );
+    blendMode(BLEND);
+  }
   pop();
 }
 
 function drawEnemySquare(enemy, alpha = 255) {
-  const c = enemy.type.color;
+  let c = enemy.type.color;
+  if (enemy.hurtTimer > 0) {
+    c = [255, 255, 255]; // white flash
+  }
   noStroke();
   fill(c[0], c[1], c[2], alpha);
   rect(enemy.pos.x, enemy.pos.y, enemy.length, enemy.width);
