@@ -315,7 +315,8 @@ function draw() {
   }
   pickupItemDrops(player, room);
 
-  if (!player.isDead()) {
+  // Enemies and their shots stand still while someone is talking.
+  if (!player.isDead() && !activeDialogue.isActive()) {
     for (const e of room.enemies) {
       e.update(player, room);
       e.damagePlayer(player);
@@ -344,6 +345,9 @@ function draw() {
   projectiles = projectiles.filter((p) => p.alive);
 
   for (const p of enemyProjectiles) {
+    if (activeDialogue.isActive()) {
+      break;
+    }
     p.update(room);
     projectileHitsPlayer(p, player);
   }

@@ -9,6 +9,7 @@ const ENEMY_KNOCKBACK_SPEED = 3; // pixels per frame at the start of a shove
 const ENEMY_KNOCKBACK_FRAMES = 8;
 const ENEMY_KNOCKBACK_DECAY = 0.8; // the shove keeps this much of its speed each frame
 const ENEMY_SPAWN_FRAMES = 30; // harmless while the spawn-in ring plays
+const ROOM_GRACE_FRAMES = 30; // template enemies are harmless this long after the room loads
 
 class Enemy {
   // typeName is a key of ENEMY_TYPES. With no name it is a Jelly.
@@ -41,6 +42,7 @@ class Enemy {
     this.hopDir = null; // locked dash direction for the hop moves
     this.knockback = new p5.Vector(0, 0); // pixels per frame, shrinks as the shove fades
     this.knockbackTimer = 0;
+    this.graceTimer = 0; // harmless while above zero, set when the player enters the room
     this.spawnTimer = 0; // createEnemy can raise this so the enemy fades in harmless
     this.facingLeft = false;
     this.facingDir = "down"; // "down", "up", "left" or "right", the side the player is on
@@ -108,6 +110,11 @@ class Enemy {
     return this.spawnTimer > 0;
   }
 
+  // Enemies that cannot hurt anyone yet: still appearing, or in the room's grace period.
+  isHarmless() {
+    return this.isSpawning() || this.graceTimer > 0;
+  }
+
   // fromDir is the direction the hit travels. Leave it out for damage with no shove.
   takeDamage(amount, fromDir) {
     if (amount > 0) {
@@ -148,11 +155,13 @@ class Enemy {
   }
 
   // Call once per frame. Counts the timers down and runs the type's move behavior.
-  update(player, room) {
-    if (this.isDead()) {
+  // frozen is true while dialogue is open: nothing changes at all.
+  update(player, room, frozen = false) {
+    if (this.isDead() || frozen) {
       return;
     }
     this.age++;
+    this.graceTimer = Math.max(0, this.graceTimer - 1);
     if (this.isSpawning()) {
       this.spawnTimer--;
       return;
@@ -204,7 +213,7 @@ class Enemy {
   // Returns an array of new projectiles. Empty for enemies with no attack.
   tryAttack(player) {
     const attack = this.getAttack();
-    if (this.isDead() || this.isSpawning() || !attack) {
+    if (this.isDead() || this.isHarmless() || !attack) {
       return [];
     }
     return ENEMY_ATTACKS[attack.kind](this, player);
@@ -213,7 +222,7 @@ class Enemy {
   // Melee hit: while in the attack state, hurts a player inside a reach box in front of us.
   meleeHit(player) {
     const attack = this.getAttack();
-    if (this.isDead() || !attack || attack.kind !== "melee") {
+    if (this.isDead() || this.isHarmless() || !attack || attack.kind !== "melee") {
       return false;
     }
     if (this.state !== "attack" || this.swingHit || this.damageCooldown > 0) {
@@ -241,7 +250,7 @@ class Enemy {
   }
 
   damagePlayer(player) {
-    if (this.isDead() || this.isSpawning() || this.damageCooldown > 0) {
+    if (this.isDead() || this.isHarmless() || this.damageCooldown > 0) {
       return false;
     }
     if (!this.isTouching(player)) {

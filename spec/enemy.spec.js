@@ -289,3 +289,54 @@ describe("Demon", function () {
     expect(room.enemies.length).toBe(0);
   });
 });
+
+describe("Enemy dialogue freeze and room grace", function () {
+  const room = new NormalRoom(0, 0, 640, 320);
+
+  it("does not move or count timers while frozen", function () {
+    const demon = new Enemy(50, 100, "Demon");
+    const player = new Player(0, 0);
+    placePlayerRightOf(demon, player, 150);
+    demon.update(player, room, true);
+    expect(demon.pos.x).toBe(50);
+    expect(demon.age).toBe(0);
+  });
+
+  it("moves again once unfrozen", function () {
+    const demon = new Enemy(50, 100, "Demon");
+    const player = new Player(0, 0);
+    placePlayerRightOf(demon, player, 150);
+    demon.update(player, room, true);
+    demon.update(player, room, false);
+    expect(demon.pos.x).toBeGreaterThan(50);
+  });
+
+  it("cannot hurt the player during the grace period", function () {
+    const demon = new Enemy(50, 100, "Demon");
+    const player = new Player(60, 110);
+    demon.graceTimer = ROOM_GRACE_FRAMES;
+    expect(demon.damagePlayer(player)).toBe(false);
+    expect(player.health).toBe(player.maxHealth);
+  });
+
+  it("can hurt the player once the grace period expires", function () {
+    const demon = new Enemy(50, 100, "Demon");
+    const player = new Player(60, 110);
+    demon.graceTimer = ROOM_GRACE_FRAMES;
+    for (let i = 0; i < ROOM_GRACE_FRAMES; i++) {
+      demon.update(player, room);
+    }
+    expect(demon.graceTimer).toBe(0);
+    expect(demon.damagePlayer(player)).toBe(true);
+  });
+
+  it("template enemies start the grace period when the room loads", function () {
+    const parsed = ROOM_TEMPLATES.map(parseRoomTemplate).find((t) => t.spawns.length > 0);
+    const templateRoom = new TemplateRoom(0, 0, parsed);
+    templateRoom.onEnter();
+    expect(templateRoom.enemies.length).toBeGreaterThan(0);
+    for (const enemy of templateRoom.enemies) {
+      expect(enemy.graceTimer).toBe(ROOM_GRACE_FRAMES);
+    }
+  });
+});
