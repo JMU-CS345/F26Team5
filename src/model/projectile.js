@@ -47,12 +47,13 @@ class Projectile {
     if (this.hitTargets.length > this.pierce) {
       this.alive = false;
     }
-    if (typeof this.onHit === "function") {
-      this.onHit({
-        player: this.owner,
-        target: target,
+    if (this.owner !== null) {
+      runWeaponHook(this.owner, this.onHit, "hit", {
+        weapon: this.weapon,
+        angle: this.vel.heading(),
         damage: this.damage,
-        weapon: this.weapon
+        target: target,
+        enemies: this.owner.nearbyEnemies()
       });
     }
   }

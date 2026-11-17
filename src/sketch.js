@@ -518,6 +518,12 @@ function drawScreen() {
 
   projectiles.push(...player.fireAll(input.fireDir));
   player.update(room, input);
+  for (const effect of player.takeDueEffects()) {
+    const shot = applyWeaponEffect(effect, player, room);
+    if (shot !== null) {
+      projectiles.push(shot);
+    }
+  }
   for (const hit of player.lastHits) {
     gameFeel.onHit(hit, "melee");
   }
