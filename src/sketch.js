@@ -9,17 +9,25 @@ let projectiles = [];
 let enemyProjectiles = [];
 let debugOverlay = false; // F3 toggles hitboxes and detection circles for enemies
 let nextSpawnIndex = 0;
-let restartButton;
-let classButtons = [];
 let dungeon;
 let room; // the room the player is in right now
 let roomGraphic; // the picture of that room
 let roomGraphics = new Map(); // room id -> picture, built the first time the room is entered
-let restartShown = false;
-let modelButtons = [];
 let inventoryDrag = null;
 let inventorySelection = null;
 let inventoryInfoLines = [];
+let inventoryCursor = new InventoryCursor();
+let gameSettings; // loaded from localStorage in setup()
+let runStats = new RunStats();
+let titleMenu;
+let classMenu;
+let pauseMenu;
+let settingsMenu;
+let confirmDialog;
+let screenFade = new ScreenFade();
+let upRepeat = new KeyRepeat();
+let downRepeat = new KeyRepeat();
+let creditsScroll = 0; // pixels the credits have scrolled
 let resumeInputBlocked = false;
 let activeDialogue;
 let setupDone = false; // draw() waits for this, because setup() loads art with await
@@ -131,15 +139,13 @@ function startRun() {
   inventoryDrag = null;
   inventorySelection = null;
   inventoryInfoLines = [];
+  inventoryCursor = new InventoryCursor();
   resumeInputBlocked = false;
   activeDialogue.close();
   room.cleared = false;
   room.bossDefeated = false;
-  restartShown = false;
-  restartButton.hide();
-  for (const button of classButtons) {
-    button.hide();
-  }
+  runStats.reset();
+  pauseMenu.reset(); // a new run starts the pause menu on Resume again
 }
 
 // Picks a class on the menu and starts the run.
@@ -149,60 +155,138 @@ function chooseClass(mageClass) {
   }
 }
 
-// Picks a playermodel in the character creator and moves on to the class menu.
-function chooseModel(modelName) {
-  if (game.selectModel(modelName)) {
-    for (const button of modelButtons) {
-      button.hide();
-    }
-    for (const button of classButtons) {
-      button.show();
-    }
+// Goes back to the title screen from character select, pause or the death screen.
+function goToTitle() {
+  activeDialogue.close();
+  if (game.backToTitle()) {
+    titleMenu.reopen();
   }
 }
 
-// Ends the run and goes back to the start of the character creator.
-function showMenu() {
-  if (activeDialogue) {
-    activeDialogue.close();
-  }
-  if (!game.newRun()) {
-    return;
-  }
-  restartButton.hide();
-  for (const button of modelButtons) {
-    button.show();
+function openSettings() {
+  if (game.openSettings()) {
+    settingsMenu.reopen();
   }
 }
 
-function makeModelButtons() {
-  PLAYER_MODEL_NAMES.forEach((name, i) => {
-    const button = createButton(i + 1 + ". " + name);
-    button.size(MODEL_BUTTON_W, MENU_BUTTON_H);
-    button.position(modelSlotCenterX(i) - MODEL_BUTTON_W / 2, modelButtonY());
-    button.style("background-color", "rgb(90, 90, 110)");
-    button.style("color", "white");
-    button.style("font-size", "24px");
-    button.mousePressed(() => chooseModel(name));
-    modelButtons.push(button);
-  });
+function openCredits() {
+  if (game.openCredits()) {
+    creditsScroll = 0;
+  }
 }
 
-function makeClassButtons() {
-  const buttonWidth = MODEL_BUTTON_W;
-  const gap = MODEL_BUTTON_GAP;
-  const totalWidth = MAGE_CLASSES.length * buttonWidth + (MAGE_CLASSES.length - 1) * gap;
-  const left = CANVAS_WIDTH / 2 - totalWidth / 2;
-  MAGE_CLASSES.forEach((mageClass, i) => {
-    const button = createButton(i + 1 + ". " + mageClass);
-    button.size(buttonWidth, MENU_BUTTON_H);
-    button.position(left + i * (buttonWidth + gap), CANVAS_HEIGHT / 2 - 10);
-    button.style("background-color", "rgb(" + CLASS_COLORS[mageClass].join(",") + ")");
-    button.style("color", "white");
-    button.style("font-size", "24px");
-    button.mousePressed(() => chooseClass(mageClass));
-    classButtons.push(button);
-  });
+function startCharacterSelect() {
+  if (game.startCharacterSelect()) {
+    classMenu.reopen();
+  }
+}
+
+// Esc during a run, or the window losing focus.
+function pauseGame() {
+  if (game.pause()) {
+    pauseMenu.reopen();
+  }
+}
+
+function resumeGame() {
+  if (game.resume()) {
+    resumeInputBlocked = true; // keys still held from before the pause do nothing
+  }
+}
+
+function askRestartRun() {
+  confirmDialog.show("Restart this run?", restartRun);
+}
+
+function askQuitToTitle() {
+  confirmDialog.show("Quit to title? This run is lost.", goToTitle);
+}
+
+function restartRun() {
+  if (game.restartRun()) {
+    startRun();
+  }
+}
+
+// Settings changes save right away.
+function changeSetting() {
+  saveSettings(gameSettings);
+}
+
+function stepVolume(volume, direction) {
+  return constrain(round((volume + direction * 0.1) * 10) / 10, 0, 1);
+}
+
+function makeMenus() {
+  confirmDialog = new ConfirmDialog();
+  titleMenu = new Menu([
+    { label: "New Run", action: startCharacterSelect },
+    { label: "Settings", action: openSettings },
+    { label: "Credits", action: openCredits }
+  ]);
+  classMenu = new Menu(
+    MAGE_CLASSES.map((name) => ({ label: name, action: () => chooseClass(name) })),
+    goToTitle
+  );
+  pauseMenu = new Menu([
+    { label: "Resume", action: resumeGame },
+    { label: "Settings", action: openSettings },
+    { label: "Restart Run", action: askRestartRun },
+    { label: "Quit to Title", action: askQuitToTitle }
+  ], resumeGame);
+  settingsMenu = new Menu([
+    {
+      label: "Controls",
+      kind: "choice",
+      value: () => CONTROL_PRESETS[gameSettings.controls].name,
+      adjust: () => {
+        const other = CONTROL_PRESET_IDS.find((id) => id !== gameSettings.controls);
+        gameSettings.controls = other;
+        changeSetting();
+      }
+    },
+    {
+      label: "Music volume",
+      kind: "volume",
+      value: () => gameSettings.musicVolume,
+      adjust: (direction) => {
+        gameSettings.musicVolume = stepVolume(gameSettings.musicVolume, direction);
+        changeSetting();
+      }
+    },
+    {
+      label: "Sound effects",
+      kind: "volume",
+      value: () => gameSettings.sfxVolume,
+      adjust: (direction) => {
+        gameSettings.sfxVolume = stepVolume(gameSettings.sfxVolume, direction);
+        changeSetting();
+      }
+    },
+    {
+      label: "Screen shake",
+      kind: "toggle",
+      value: () => gameSettings.screenShake,
+      adjust: () => {
+        gameSettings.screenShake = !gameSettings.screenShake;
+        changeSetting();
+      }
+    },
+    {
+      label: "Damage numbers",
+      kind: "toggle",
+      value: () => gameSettings.damageNumbers,
+      adjust: () => {
+        gameSettings.damageNumbers = !gameSettings.damageNumbers;
+        changeSetting();
+      }
+    },
+    { label: "Back", action: closeSettings }
+  ], closeSettings);
+}
+
+function closeSettings() {
+  game.closeSettings();
 }
 
 async function setup() {
@@ -222,17 +306,10 @@ async function setup() {
   frameRate(60); // movement is pixels per frame, so keep the frame rate fixed
   game = new Game();
   activeDialogue = new DialogueBox();
-  restartButton = createButton("Restart");
-  restartButton.size(220, 64);
-  restartButton.style("font-size", "24px");
-  restartButton.position(CANVAS_WIDTH / 2 - 110, CANVAS_HEIGHT / 2 + 30);
-  restartButton.mousePressed(showMenu);
-  restartButton.hide();
-  makeClassButtons();
-  for (const button of classButtons) {
-    button.hide(); // the class menu comes after the model screen
-  }
-  makeModelButtons();
+  gameSettings = loadSettings();
+  makeMenus();
+  // The window losing focus pauses a run. p5 has no event for it, so use the DOM one.
+  window.addEventListener("blur", pauseGame);
   setupDone = true;
 }
 
@@ -258,22 +335,85 @@ function canvasPointer() {
   return { x: mouseX / scale, y: mouseY / scale };
 }
 
+// The name the fade watches. Playing and the inventory count as one screen.
+function fadeScreenName() {
+  if (game.isPlaying() || game.isInventory()) {
+    return "run";
+  }
+  return game.state;
+}
+
+function activeVerticalMenu() {
+  if (confirmDialog.isOpen()) {
+    return null;
+  }
+  if (game.isTitle()) {
+    return titleMenu;
+  }
+  if (game.isSettings()) {
+    return settingsMenu;
+  }
+  if (game.isPaused()) {
+    return pauseMenu;
+  }
+  return null;
+}
+
+// Holding Up or Down keeps moving the cursor. keyPressed does the first move.
+function repeatMenuMoves() {
+  const menu = activeVerticalMenu();
+  const upDown = menu !== null && (keyIsDown(UP_ARROW) || keyIsDown(87));
+  const downDown = menu !== null && (keyIsDown(DOWN_ARROW) || keyIsDown(83));
+  if (upRepeat.update(upDown)) {
+    menu.previous();
+  }
+  if (downRepeat.update(downDown)) {
+    menu.next();
+  }
+}
+
 function draw() {
   // p5 starts calling draw() while the async setup() is still loading images. If draw()
-  // throws, p5 stops its loop for good, so nothing is ever drawn (only the DOM buttons
-  // exist). Skip frames until setup() has finished.
+  // throws, p5 stops its loop for good, so skip frames until setup() has finished.
   if (!setupDone) {
     return;
   }
+  screenFade.watch(fadeScreenName());
+  repeatMenuMoves();
+  drawScreen();
+  if (confirmDialog.isOpen()) {
+    drawConfirmDialog(confirmDialog);
+  }
+  drawScreenFade(screenFade.alpha());
+  screenFade.update();
+}
+
+function drawScreen() {
   background(0);
   updateBackground();
   drawBackground();
-  if (game.isModelSelect()) {
-    drawModelMenu();
+  if (game.isTitle()) {
+    drawTitleScreen(titleMenu);
+    return;
+  }
+  if (game.isSettings()) {
+    drawSettingsScreen(settingsMenu, gameSettings);
+    return;
+  }
+  if (game.isCredits()) {
+    updateCreditsScroll();
+    drawCreditsScreen(creditsLines(), creditsScroll);
     return;
   }
   if (game.isMenu()) {
-    drawClassMenu();
+    drawClassMenu(classMenu, game.selectedModel);
+    return;
+  }
+  if (game.isPaused()) {
+    // Nothing below the menu updates, so enemies, shots and timers all stay where they were.
+    drawRoom(room, roomGraphic);
+    drawRunScene();
+    drawPauseMenu(pauseMenu);
     return;
   }
   if (game.isInventory()) {
@@ -286,7 +426,8 @@ function draw() {
       inventorySelection,
       inventoryInfoLines,
       pointer.x,
-      pointer.y
+      pointer.y,
+      inventoryCursorSlot(player.inventory, inventoryCursor)
     );
     drawInventoryHudButton(true);
     return;
@@ -317,7 +458,9 @@ function draw() {
   for (const drop of room.items) {
     drop.update();
   }
-  pickupItemDrops(player, room);
+  for (const drop of pickupItemDrops(player, room)) {
+    runStats.recordPickup(drop.item);
+  }
 
   if (!player.isDead()) {
     for (const e of room.enemies) {
@@ -353,23 +496,37 @@ function draw() {
     projectileHitsPlayer(p, player);
   }
   enemyProjectiles = enemyProjectiles.filter((p) => p.alive);
-  handleDeadEnemies(removeDeadEnemies(room));
+  const deadThisFrame = removeDeadEnemies(room);
+  handleDeadEnemies(deadThisFrame);
 
   drawRunScene();
   if (!room.cleared && room.enemies.every((e) => e.isDead())) {
     room.onClear();
+    // A room with no enemies at all is not counted, only one the player emptied.
+    if (deadThisFrame.length > 0) {
+      runStats.recordRoomCleared();
+    }
   }
   if (player.showDeathScreen()) {
     activeDialogue.close();
     game.playerDied();
   }
   if (game.isDead()) {
-    drawDeathScreen();
-    if (!restartShown) {
-      restartButton.show();
-      restartShown = true;
-    }
+    drawDeathScreen(runStats);
   }
+}
+
+// The credits drift up by themselves, and Up and Down scroll them faster or back.
+function updateCreditsScroll() {
+  const lastScroll = creditsLines().length * CREDITS_LINE_HEIGHT + 60;
+  creditsScroll += 0.6;
+  if (keyIsDown(DOWN_ARROW) || keyIsDown(83)) {
+    creditsScroll += 4;
+  }
+  if (keyIsDown(UP_ARROW) || keyIsDown(87)) {
+    creditsScroll -= 6;
+  }
+  creditsScroll = constrain(creditsScroll, 0, lastScroll);
 }
 
 // Points the camera at the player, kept inside the room.
@@ -408,7 +565,7 @@ function drawRunScene() {
   for (const npc of room.npcs) {
     drawNpc(npc, player, activeDialogue.isActive());
   }
-  drawDyingEnemies(!game.isInventory());
+  drawDyingEnemies(game.shouldSimulate());
   pop();
   drawHud(player);
   drawFirstBossBar();
@@ -443,6 +600,7 @@ function toggleInventoryMenu() {
 function handleDeadEnemies(dead) {
   for (const enemy of dead) {
     startEnemyDeath(enemy);
+    runStats.recordKill();
   }
   if (findDeadBosses(dead).length > 0) {
     room.bossDefeated = true;
@@ -500,28 +658,76 @@ function toggleTopRightNpc() {
   }
 }
 
+// Keys while the inventory is open: move the cursor, Enter uses, X drops, Esc closes.
+function handleInventoryKey() {
+  if (keyCode === ESCAPE) {
+    toggleInventoryMenu();
+    return;
+  }
+  if (moveInventoryCursorForKey(inventoryCursor, keyCode)) {
+    inventorySelection = null;
+    inventoryInfoLines = [];
+    return;
+  }
+  if (keyCode === ENTER) {
+    const result = useInventoryCursorItem(player.inventory, player, inventoryCursor);
+    inventorySelection = null;
+    inventoryInfoLines = result.infoLines;
+  } else if (key.toLowerCase() === "x") {
+    const drop = dropInventoryCursorItem(player.inventory, player, inventoryCursor);
+    inventorySelection = null;
+    inventoryInfoLines = [];
+    if (drop !== null) {
+      room.items.push(drop);
+    }
+  }
+}
+
 function keyPressed() {
   if (keyCode === 114) {
     debugOverlay = !debugOverlay;
     return false;
   }
-  if (game.isModelSelect()) {
-    chooseModel(getModelForKey(key));
-    return;
+  if (confirmDialog.isOpen()) {
+    handleMenuKey(confirmDialog.menu, keyCode, true);
+    return false;
+  }
+  if (game.isTitle()) {
+    handleMenuKey(titleMenu, keyCode);
+    return false;
+  }
+  if (game.isSettings()) {
+    handleMenuKey(settingsMenu, keyCode);
+    return false;
+  }
+  if (game.isCredits()) {
+    if (keyCode === ESCAPE) {
+      game.closeCredits();
+    }
+    return false;
   }
   if (game.isMenu()) {
-    chooseClass(getClassForKey(key));
-    return;
+    if (getClassForKey(key) !== null) {
+      chooseClass(getClassForKey(key));
+    } else {
+      handleMenuKey(classMenu, keyCode, true);
+    }
+    return false;
+  }
+  if (game.isPaused()) {
+    handleMenuKey(pauseMenu, keyCode);
+    return false;
   }
   if ((game.isPlaying() || game.isInventory()) && key.toLowerCase() === "i") {
     toggleInventoryMenu();
     return false;
   }
   if (game.isInventory()) {
-    if (keyCode === ESCAPE) {
-      inventorySelection = null;
-      inventoryInfoLines = [];
-    }
+    handleInventoryKey();
+    return false;
+  }
+  if (game.isPlaying() && keyCode === ESCAPE) {
+    pauseGame();
     return false;
   }
   if (game.isPlaying()) {
@@ -550,7 +756,7 @@ function keyPressed() {
     //player.takeDamage(1);
   //}
   if (game.isDead() && keyCode === ENTER) {
-    showMenu();
+    goToTitle();
   }
   if (
     keyCode === LEFT_ARROW || keyCode === RIGHT_ARROW ||

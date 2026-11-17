@@ -77,10 +77,24 @@ function drawInventoryHudButton(active = false) {
   drawPixelText(label, b.x + b.w / 2, b.y + b.h / 2 - 8, 16, UI_COLORS.white, "center");
 }
 
-// The Restart button is a p5 DOM button, made in sketch.js.
-function drawDeathScreen() {
+// Death screen with the run summary. Enter goes back to the title.
+function drawDeathScreen(stats) {
   noStroke();
   fill(0, 0, 0, 180);
   rect(0, 0, width, height);
-  drawPixelText("You died", width / 2, height / 2 - 96, 64, UI_COLORS.fire, "center");
+  drawPanel(width / 2 - 320, height / 2 - 220, 640, 400);
+  fill(220, 50, 50);
+  textAlign(CENTER, CENTER);
+  textSize(72);
+  text("You died", width / 2, height / 2 - 150);
+
+  fill(255);
+  textSize(28);
+  text("Rooms cleared: " + stats.roomsCleared, width / 2, height / 2 - 60);
+  text("Enemies killed: " + stats.enemiesKilled, width / 2, height / 2 - 20);
+  text("Best item found: " + stats.bestItemName(), width / 2, height / 2 + 20);
+  fill(255, 220, 90);
+  textSize(24);
+  text("Press Enter to return to the title", width / 2, height / 2 + 110);
+  drawFooterHint("Enter back to title");
 }

@@ -2,10 +2,13 @@
 // Tracks which screen the game is on, and the playermodel and mage class the player picked.
 
 const GAME_STATES = Object.freeze({
-  MODEL: "model", // character creator, step 1: pick a playermodel
-  MENU: "menu", // character creator, step 2: pick a class
+  TITLE: "title",
+  SETTINGS: "settings", // opened from the title or the pause menu
+  CREDITS: "credits",
+  MENU: "menu", // character select: pick a class
   PLAYING: "playing",
   INVENTORY: "inventory",
+  PAUSED: "paused",
   DEAD: "dead"
 });
 
@@ -14,16 +17,25 @@ const MAGE_CLASSES = Object.freeze(["Fire", "Ice", "Mind"]);
 
 class Game {
   constructor() {
-    this.state = GAME_STATES.MODEL;
+    this.state = GAME_STATES.TITLE;
     this.selectedModel = null;
     this.selectedClass = null;
+    this.settingsReturn = GAME_STATES.TITLE; // where Back from settings goes
   }
 
-  isModelSelect() {
-    return this.state === GAME_STATES.MODEL;
+  isTitle() {
+    return this.state === GAME_STATES.TITLE;
   }
 
-  // The class menu, the second step of the character creator.
+  isSettings() {
+    return this.state === GAME_STATES.SETTINGS;
+  }
+
+  isCredits() {
+    return this.state === GAME_STATES.CREDITS;
+  }
+
+  // The class menu.
   isMenu() {
     return this.state === GAME_STATES.MENU;
   }
@@ -36,8 +48,62 @@ class Game {
     return this.state === GAME_STATES.INVENTORY;
   }
 
+  isPaused() {
+    return this.state === GAME_STATES.PAUSED;
+  }
+
   isDead() {
     return this.state === GAME_STATES.DEAD;
+  }
+
+  // Enemies, shots and timers only move on these states. Pause, inventory and every menu
+  // freeze the world.
+  shouldSimulate() {
+    return this.isPlaying() || this.isDead();
+  }
+
+  // New Run on the title screen goes to the class menu. There is one playermodel for now, so
+  // the model is set here and kept in selectedModel for the player code.
+  startCharacterSelect() {
+    if (!this.isTitle()) {
+      return false;
+    }
+    this.selectedModel = PLAYER_MODEL_NAMES[0];
+    this.state = GAME_STATES.MENU;
+    return true;
+  }
+
+  openSettings() {
+    if (!this.isTitle() && !this.isPaused()) {
+      return false;
+    }
+    this.settingsReturn = this.state;
+    this.state = GAME_STATES.SETTINGS;
+    return true;
+  }
+
+  closeSettings() {
+    if (!this.isSettings()) {
+      return false;
+    }
+    this.state = this.settingsReturn;
+    return true;
+  }
+
+  openCredits() {
+    if (!this.isTitle()) {
+      return false;
+    }
+    this.state = GAME_STATES.CREDITS;
+    return true;
+  }
+
+  closeCredits() {
+    if (!this.isCredits()) {
+      return false;
+    }
+    this.state = GAME_STATES.TITLE;
+    return true;
   }
 
   openInventory() {
@@ -66,14 +132,30 @@ class Game {
     return false;
   }
 
-  // Picks a playermodel and moves on to the class menu. Only works on the model
-  // screen, and only for a real model.
-  selectModel(modelName) {
-    if (!this.isModelSelect() || !PLAYER_MODEL_NAMES.includes(modelName)) {
+  // Esc or the window losing focus during a run.
+  pause() {
+    if (!this.isPlaying()) {
       return false;
     }
-    this.selectedModel = modelName;
-    this.state = GAME_STATES.MENU;
+    this.state = GAME_STATES.PAUSED;
+    return true;
+  }
+
+  resume() {
+    if (!this.isPaused()) {
+      return false;
+    }
+    this.state = GAME_STATES.PLAYING;
+    return true;
+  }
+
+  // Restart Run on the pause menu keeps the picked model and class. The sketch builds the
+  // new dungeon.
+  restartRun() {
+    if (!this.isPaused()) {
+      return false;
+    }
+    this.state = GAME_STATES.PLAYING;
     return true;
   }
 
@@ -97,14 +179,16 @@ class Game {
     return true;
   }
 
-  // Starting a new run goes back to the start of the character creator.
-  newRun() {
-    if (!this.isDead()) {
+  // Leaving a run (death screen or Quit to Title) or backing out of character select.
+  // Clears the picked model and class.
+  backToTitle() {
+    const allowed = this.isMenu() || this.isPaused() || this.isDead();
+    if (!allowed) {
       return false;
     }
     this.selectedModel = null;
     this.selectedClass = null;
-    this.state = GAME_STATES.MODEL;
+    this.state = GAME_STATES.TITLE;
     return true;
   }
 }
