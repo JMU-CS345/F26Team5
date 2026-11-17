@@ -131,11 +131,11 @@ describe("input with bindings", function () {
     expect(aimFrom(player, classic, 65, 16)).toEqual([1, 0]); // strafe keeps the aim
   });
 
-  it("buffers melee and dash from key presses", function () {
+  it("records a melee press and buffers a dash press", function () {
     const player = new Player(0, 0, "Fire");
     pressCombatKey(player, "melee");
     pressCombatKey(player, "dash");
-    expect(player.meleeBuffer).toBe(MELEE_BUFFER_FRAMES);
+    expect(player.meleePressed).toBe(true); // the swing starts when the key comes up
     expect(player.dashBuffer).toBe(DASH_BUFFER_FRAMES);
   });
 

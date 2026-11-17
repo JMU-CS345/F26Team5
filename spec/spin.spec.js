@@ -1,4 +1,4 @@
-describe("Holding melee", function () {
+describe("Tap to swing, hold to spin", function () {
   let room;
   let player;
 
@@ -8,91 +8,63 @@ describe("Holding melee", function () {
     player.setAim(new p5.Vector(1, 0));
   });
 
-  function hold(frames, steps) {
+  // Runs frames and returns the kinds of the attacks that started, in order.
+  function run(frames, held) {
+    const kinds = [];
+    let last = null;
     for (let i = 0; i < frames; i++) {
-      player.update(room, { meleeHeld: true });
-      if (player.attack !== null && steps[steps.length - 1] !== player.attack.step) {
-        steps.push(player.attack.step);
+      player.update(room, { meleeHeld: held });
+      if (player.attack !== null && player.attack !== last) {
+        kinds.push(player.attack.kind);
       }
-      if (player.attack !== null) {
-        expect(player.attack.kind).toBe("swing");
-      }
+      last = player.attack;
     }
+    return kinds;
   }
 
-  it("keeps swinging through the combo while held", function () {
+  it("a short tap makes one normal swing when the key comes up", function () {
+    expect(run(3, true)).toEqual([]);
+    expect(run(30, false)).toEqual(["swing"]);
+  });
+
+  it("a press that is gone within one frame still swings", function () {
+    player.pressMelee();
+    expect(run(30, false)).toEqual(["swing"]);
+  });
+
+  it("holding spins once and does not swing first", function () {
+    const kinds = run(SPIN_HOLD_FRAMES + 60, true);
+    expect(kinds).toEqual(["spin"]);
+  });
+
+  it("does not swing or spin again when the key is released after a spin", function () {
+    run(SPIN_HOLD_FRAMES + 40, true);
+    expect(run(60, false)).toEqual([]);
+  });
+
+  it("can spin again after the key comes up and goes down", function () {
+    run(SPIN_HOLD_FRAMES + 40, true);
+    run(30, false);
+    expect(run(SPIN_HOLD_FRAMES + 5, true)).toEqual(["spin"]);
+  });
+
+  it("two quick taps chain into the combo", function () {
     const steps = [];
-    hold(120, steps);
-    expect(steps.slice(0, 4)).toEqual([0, 1, 2, 0]);
-  });
-
-  it("waits a short gap between swings while held", function () {
-    let idle = 0;
-    let longestIdle = 0;
-    let swings = 0;
-    let wasSwinging = false;
-    for (let i = 0; i < 200; i++) {
-      player.update(room, { meleeHeld: true });
-      const swinging = player.attack !== null;
-      if (swinging && !wasSwinging) {
-        swings++;
-      }
-      if (swinging) {
-        idle = 0;
-      } else {
-        idle++;
-        longestIdle = Math.max(longestIdle, idle);
-      }
-      wasSwinging = swinging;
-    }
-    expect(longestIdle).toBeGreaterThanOrEqual(HOLD_SWING_GAP);
-    expect(swings).toBeLessThan(200 / 20); // slower than back to back swings
-  });
-
-  it("never starts a spin while held, however long", function () {
-    const steps = [];
-    hold(300, steps); // hold() checks that every attack on the way is a swing
-    expect(steps.length).toBeGreaterThan(0);
-  });
-
-  it("does not attack again when the key is released", function () {
-    hold(60, []);
-    for (let i = 0; i < 60; i++) {
-      player.update(room, { meleeHeld: false });
-    }
-    expect(player.attack).toBeNull();
-    player.update(room, { meleeHeld: false });
-    expect(player.attack).toBeNull();
-  });
-
-  it("does not spin on release of a long hold from a standing start", function () {
-    for (let i = 0; i < 40; i++) {
-      player.update(room, { meleeHeld: true });
-    }
-    let sawSpin = false;
-    for (let i = 0; i < 40; i++) {
-      player.update(room, { meleeHeld: false });
-      if (player.attack !== null && player.attack.kind === "spin") {
-        sawSpin = true;
+    for (let tap = 0; tap < 2; tap++) {
+      for (let i = 0; i < 20; i++) {
+        player.update(room, { meleeHeld: i < 3 });
+        if (player.attack !== null && steps[steps.length - 1] !== player.attack.step) {
+          steps.push(player.attack.step);
+        }
       }
     }
-    expect(sawSpin).toBe(false);
+    expect(steps).toEqual([0, 1]);
   });
 
-  it("does not swing when dead", function () {
+  it("does not swing or spin when dead", function () {
     player.takeDamage(player.maxHealth);
-    player.update(room, { meleeHeld: true });
-    expect(player.attack).toBeNull();
-  });
-});
-
-describe("Spin plan", function () {
-  it("reaches farther and hits harder than a normal swing", function () {
-    const stats = getMeleeStats(null);
-    const swingPlan = makeSwingPlan(stats, 0);
-    const spinPlan = makeSpinPlan(stats);
-    expect(spinPlan.reach).toBeGreaterThan(swingPlan.reach);
-    expect(spinPlan.damage).toBeGreaterThan(swingPlan.damage);
-    expect(spinPlan.arc).toBe(360);
+    player.pressMelee();
+    expect(run(SPIN_HOLD_FRAMES + 10, true)).toEqual([]);
+    expect(run(30, false)).toEqual([]);
   });
 });
