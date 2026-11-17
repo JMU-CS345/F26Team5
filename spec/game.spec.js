@@ -4,6 +4,7 @@ describe("Game state", function () {
   // A game that has already picked a model, so it is on the class menu.
   function gameAtClassMenu() {
     const g = new Game();
+    g.startCharacterSelect();
     g.selectModel("Tall");
     return g;
   }
@@ -74,25 +75,25 @@ describe("Game state", function () {
     expect(game.isMenu()).toBe(true);
   });
 
-  it("goes back to the model screen when a new run starts", function () {
+  it("goes back to the title screen after dying", function () {
     game.selectClass("Fire");
     game.playerDied();
-    expect(game.newRun()).toBe(true);
-    expect(game.isModelSelect()).toBe(true);
+    expect(game.backToTitle()).toBe(true);
+    expect(game.isTitle()).toBe(true);
     expect(game.selectedClass).toBeNull();
   });
 
-  it("only starts a new run after dying", function () {
-    expect(game.newRun()).toBe(false);
+  it("cannot go back to the title in the middle of a run", function () {
     game.selectClass("Mind");
-    expect(game.newRun()).toBe(false);
+    expect(game.backToTitle()).toBe(false);
     expect(game.isPlaying()).toBe(true);
   });
 
   it("lets the player pick a different class on the next run", function () {
     game.selectClass("Fire");
     game.playerDied();
-    game.newRun();
+    game.backToTitle();
+    game.startCharacterSelect();
     game.selectModel("Tall");
     expect(game.selectClass("Mind")).toBe(true);
     expect(game.selectedClass).toBe("Mind");

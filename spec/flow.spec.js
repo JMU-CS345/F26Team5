@@ -4,6 +4,7 @@
 // A run the way the menu starts it: a class, a small room and a player.
 function makeRun(mageClass, modelName = "Tall") {
   const game = new Game();
+  game.startCharacterSelect();
   game.selectModel(modelName);
   game.selectClass(mageClass);
   const room = new NormalRoom(0, 0, 160, 160);
@@ -14,6 +15,7 @@ function makeRun(mageClass, modelName = "Tall") {
 describe("game flow", function () {
   it("starts a run when a model and a class are picked", function () {
     const game = new Game();
+    game.startCharacterSelect();
     game.selectModel(getModelForKey("1"));
     game.selectClass(getClassForKey("1"));
     expect(game.isPlaying()).toBe(true);
@@ -34,8 +36,8 @@ describe("game flow", function () {
     player.takeDamage(player.maxHealth);
     game.playerDied();
     expect(game.isDead()).toBe(true);
-    game.newRun();
-    expect(game.isModelSelect()).toBe(true);
+    game.backToTitle();
+    expect(game.isTitle()).toBe(true);
   });
 
   it("lets projectiles kill an enemy", function () {
@@ -64,6 +66,7 @@ describe("character creator", () => {
   let game;
   beforeEach(() => {
     game = new Game();
+    game.startCharacterSelect();
   });
 
   it("starts on the model screen", () => {
@@ -101,12 +104,12 @@ describe("character creator", () => {
     expect(game.selectedClass).toBe("Ice");
   });
 
-  it("goes back to the model screen and clears both choices on a new run", () => {
+  it("goes back to the title and clears both choices after a run", () => {
     game.selectModel("Short");
     game.selectClass("Ice");
     game.playerDied();
-    expect(game.newRun()).toBe(true);
-    expect(game.isModelSelect()).toBe(true);
+    expect(game.backToTitle()).toBe(true);
+    expect(game.isTitle()).toBe(true);
     expect(game.selectedModel).toBeNull();
     expect(game.selectedClass).toBeNull();
   });
