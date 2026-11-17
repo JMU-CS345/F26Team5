@@ -24,6 +24,7 @@ let titleMenu;
 let classMenu;
 let pauseMenu;
 let settingsMenu;
+let settingsSavedFrames = 0; // frames left to show the Saved message
 let confirmDialog;
 let screenFade = new ScreenFade();
 let upRepeat = new KeyRepeat();
@@ -208,9 +209,20 @@ function restartRun() {
   }
 }
 
-// Settings changes save right away.
+// Settings changes are stored right away, but the game only uses them after Save.
 function changeSetting() {
   saveSettings(gameSettings);
+}
+
+// Stores the settings and makes the running game use them now, not at the next run.
+function saveAndApplySettings() {
+  saveSettings(gameSettings);
+  refreshBindings();
+  gameFeel.refreshSettings();
+  if (musicAudio !== null) {
+    applyMusicVolume(musicAudio);
+  }
+  settingsSavedFrames = 90;
 }
 
 function stepVolume(volume, direction) {
@@ -281,6 +293,7 @@ function makeMenus() {
         changeSetting();
       }
     },
+    { label: "Save", action: saveAndApplySettings },
     { label: "Back", action: closeSettings }
   ], closeSettings);
 }
@@ -389,6 +402,18 @@ function draw() {
   screenFade.update();
 }
 
+function drawSavedMessage() {
+  if (settingsSavedFrames <= 0) {
+    return;
+  }
+  settingsSavedFrames -= 1;
+  noStroke();
+  fill(255, 220, 80, map(settingsSavedFrames, 0, 30, 0, 255, true));
+  textAlign(CENTER, CENTER);
+  textSize(24);
+  text("Settings saved", width / 2, height - 90);
+}
+
 function drawScreen() {
   background(0);
   updateBackground();
@@ -399,6 +424,7 @@ function drawScreen() {
   }
   if (game.isSettings()) {
     drawSettingsScreen(settingsMenu, gameSettings);
+    drawSavedMessage();
     return;
   }
   if (game.isCredits()) {
