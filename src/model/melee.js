@@ -28,6 +28,16 @@ function makeSwingPlan(stats, step) {
   return plan;
 }
 
+// A swing started right after a dash: no windup, harder hit, longer lunge. Changes plan.
+function applyDashStrike(plan) {
+  plan.total -= plan.windup;
+  plan.windup = 0;
+  plan.damage *= DASH_STRIKE_DAMAGE;
+  plan.lunge += DASH_STRIKE_LUNGE;
+  plan.strike = true;
+  return plan;
+}
+
 // The charged spin: all the way around, a little stronger and wider.
 function makeSpinPlan(stats) {
   return {

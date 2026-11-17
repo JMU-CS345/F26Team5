@@ -28,7 +28,13 @@ class Player {
     // Dash state.
     this.dashFrames = 0; // frames of dash movement left
     this.dashIFrames = 0; // frames of dash invulnerability left
-    this.dashCooldown = 0; // frames until the next dash can start
+    this.dashCharges = DASH_CHARGES; // dashes ready to use
+    this.dashRecharge = 0; // frames until the next charge is back
+    this.dashSpacing = 0; // frames until another dash can start
+    this.dashAge = 1000; // frames since the last dash began
+    this.dodgedThisDash = false; // a dash refunds a charge only once
+    this.dodgeSlow = 0; // frames enemies stay slow after a perfect dodge
+    this.dodgeFlash = 0; // frames left of the dodge flash
     this.dashBuffer = 0; // frames left of a dash press waiting for the cooldown
     this.dashDir = new p5.Vector(0, 0);
 
@@ -95,7 +101,12 @@ class Player {
       step = (this.comboStep + 1) % COMBO_LENGTH;
     }
     const stats = getMeleeStats(this.inventory.getEquipped("melee"));
-    this.beginAttack(new MeleeAttack(this, stats, makeSwingPlan(stats, step), this.aim));
+    const plan = makeSwingPlan(stats, step);
+    if (this.dashAge <= DASH_STRIKE_FRAMES) {
+      applyDashStrike(plan);
+      this.dashAge = 1000; // one strike per dash
+    }
+    this.beginAttack(new MeleeAttack(this, stats, plan, this.aim));
     this.comboStep = step;
     this.meleeBuffer = 0;
   }
@@ -164,8 +175,8 @@ class Player {
     if (this.meleeBuffer > 0) {
       if (this.canStartSwing()) {
         this.startSwing();
-      } else {
-        this.meleeBuffer--;
+      } else if (!this.isDashing()) {
+        this.meleeBuffer--; // a press made during a dash waits for the dash to end
       }
     }
     this.updateLunge(room); // after the swing starts, so the first step is this frame
@@ -193,6 +204,7 @@ class Player {
     }
     const stats = getRangedStats(this.inventory.getEquipped("projectile"));
     this.faceToward(dir);
+    this.cancelRecovery();
     this.fireCooldown = stats.fireRate;
     const element = stats.element || this.mageClass;
     const shots = [];
@@ -216,6 +228,14 @@ class Player {
       stats.onFire({ player: this, shots: shots, weapon: stats.weapon });
     }
     return shots;
+  }
+
+  // A shot ends the recovery of a swing early, so shooting out of a combo feels quick.
+  cancelRecovery() {
+    if (this.attack !== null && this.attack.phase() === "recovery") {
+      this.attack = null;
+      this.comboTimer = COMBO_RESET_FRAMES;
+    }
   }
 
   // One shot, or null. Kept for simple callers, fireAll gives the whole volley.
@@ -244,15 +264,19 @@ class Player {
     return this.dashFrames > 0;
   }
 
-  // A dash press. It waits in the buffer, so a press just before the cooldown ends works.
+  // A dash press. It waits in the buffer, so a press just before a charge is back works.
   bufferDash() {
     if (!this.isDead()) {
       this.dashBuffer = DASH_BUFFER_FRAMES;
     }
   }
 
+  canDash() {
+    return this.dashCharges > 0 && this.dashSpacing === 0 && !this.isDashing();
+  }
+
   // Starts a dash toward moveDir (or the facing when standing still). It does nothing
-  // against a wall, so you never waste the cooldown on a blocked dash.
+  // against a wall, so you never waste a charge on a blocked dash.
   startDash(moveDir, room) {
     let dir = moveDir;
     if (dir.magSq() === 0) {
@@ -269,28 +293,77 @@ class Player {
     this.dashDir = dir;
     this.dashFrames = DASH_FRAMES - 1; // this call was the first frame
     this.dashIFrames = DASH_IFRAMES;
-    this.dashCooldown = DASH_COOLDOWN;
+    this.dashCharges--;
+    if (this.dashRecharge === 0) {
+      this.dashRecharge = DASH_RECHARGE_FRAMES;
+    }
+    this.dashSpacing = DASH_SPACING_FRAMES;
+    this.dashAge = 0;
+    this.dodgedThisDash = false;
     this.dashBuffer = 0;
-    this.attack = null; // dashing cancels a swing
-    this.meleeBuffer = 0;
+    this.attack = null; // dashing cancels a swing, but a buffered press is kept
     playCombatSfx("dash");
     return true;
   }
 
+  // Brings charges back, one every DASH_RECHARGE_FRAMES.
+  rechargeDash() {
+    if (this.dashCharges >= DASH_CHARGES) {
+      return;
+    }
+    this.dashRecharge = Math.max(0, this.dashRecharge - 1);
+    if (this.dashRecharge === 0) {
+      this.dashCharges++;
+      if (this.dashCharges < DASH_CHARGES) {
+        this.dashRecharge = DASH_RECHARGE_FRAMES;
+      }
+    }
+  }
+
   // Runs the dash timers and movement for one frame.
   updateDash(room, moveDir) {
-    this.dashCooldown = Math.max(0, this.dashCooldown - 1);
+    this.dashSpacing = Math.max(0, this.dashSpacing - 1);
     this.dashIFrames = Math.max(0, this.dashIFrames - 1);
+    this.dashAge++;
+    this.rechargeDash();
     if (this.dashFrames > 0 && room) {
+      if (this.dashAge < DASH_STEER_FRAMES && moveDir.magSq() > 0) {
+        this.dashDir = moveDir.copy().normalize(); // the first frames can still turn
+      }
       moveWithCollision(this, this.dashDir.x * DASH_SPEED, this.dashDir.y * DASH_SPEED, room);
       this.dashFrames--;
     }
     if (this.dashBuffer > 0) {
       this.dashBuffer--;
-      if (this.dashCooldown === 0 && this.dashFrames === 0 && room) {
+      if (this.canDash() && room) {
         this.startDash(moveDir, room);
       }
     }
+  }
+
+  // A hit blocked early in the dash is a perfect dodge: enemies slow down and a charge
+  // comes back. It only happens once per dash.
+  checkPerfectDodge() {
+    const elapsed = DASH_IFRAMES - this.dashIFrames;
+    if (this.dodgedThisDash || elapsed >= PERFECT_DODGE_FRAMES) {
+      return;
+    }
+    this.dodgedThisDash = true;
+    this.dodgeSlow = DODGE_SLOW_FRAMES;
+    this.dodgeFlash = DODGE_FLASH_FRAMES;
+    this.dashCharges = Math.min(DASH_CHARGES, this.dashCharges + 1);
+    if (this.dashCharges === DASH_CHARGES) {
+      this.dashRecharge = 0;
+    }
+    playCombatSfx("dodge");
+  }
+
+  // How fast enemies run right now. 1 is normal, the sketch scales their update with it.
+  getEnemyTimeScale() {
+    if (this.dodgeSlow > 0) {
+      return DODGE_ENEMY_SPEED;
+    }
+    return 1;
   }
 
   // Total defense of the armor being worn.
@@ -308,8 +381,14 @@ class Player {
   // Enemies and hazards should call this instead of changing health directly.
   // fromDir is the way the hit travels, used for the shove. Returns true if damage landed.
   takeDamage(amount, fromDir) {
-    if (this.isDead() || this.isInvulnerable() || amount <= 0) {
+    if (this.isDead() || amount <= 0) {
       return false; // a negative hit must never heal
+    }
+    if (this.dashIFrames > 0 && this.iFrames === 0) {
+      this.checkPerfectDodge();
+    }
+    if (this.isInvulnerable()) {
+      return false;
     }
     const reduced = Math.max(MIN_HIT_DAMAGE, amount - this.getDefense());
     this.health = Math.max(0, this.health - Math.min(amount, reduced));
@@ -342,6 +421,8 @@ class Player {
     if (this.iFrames > 0) {
       this.iFrames--;
     }
+    this.dodgeSlow = Math.max(0, this.dodgeSlow - 1);
+    this.dodgeFlash = Math.max(0, this.dodgeFlash - 1);
     if (this.knockbackTimer > 0) {
       if (room) {
         moveWithCollision(this, this.knockback.x, this.knockback.y, room);

@@ -45,9 +45,21 @@ const DEATH_FRAMES = 48; // death animation length (0.8 s at 60 fps)
 // Dash
 const DASH_FRAMES = 8; // frames spent moving fast
 const DASH_SPEED = 6; // pixels per frame, so a dash covers 48 pixels
-const DASH_IFRAMES = 10; // invulnerable frames from the start of a dash
-const DASH_COOLDOWN = 40; // frames from one dash start to the next
+const DASH_IFRAMES = 12; // invulnerable frames from the start of a dash
 const DASH_BUFFER_FRAMES = 8; // a dash press this early still counts
+const DASH_CHARGES = 2; // dashes stored before the player has to wait
+const DASH_RECHARGE_FRAMES = 50; // one charge comes back this often
+const DASH_SPACING_FRAMES = 10; // frames from one dash start to the next
+const DASH_STEER_FRAMES = 3; // the first frames of a dash can still turn
+const DASH_STRIKE_FRAMES = 10; // melee this soon after a dash starts is a dash strike
+const DASH_STRIKE_DAMAGE = 1.2;
+const DASH_STRIKE_LUNGE = 6; // extra pixels on top of the swing lunge
+
+// Perfect dodge: a hit blocked early in the dash slows every enemy for a moment.
+const PERFECT_DODGE_FRAMES = 8; // damage blocked in the first frames of the i-frames
+const DODGE_SLOW_FRAMES = 30;
+const DODGE_ENEMY_SPEED = 0.35; // share of normal enemy speed while slowed
+const DODGE_FLASH_FRAMES = 12; // how long the view flashes the player
 
 // Game feel
 const HITSTOP_MELEE_FRAMES = 3;
