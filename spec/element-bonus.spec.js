@@ -55,6 +55,7 @@ describe("Class-match bonus", function () {
   describe("on enemies", function () {
     function hit(element, classMatch) {
       const enemy = new Enemy(100, 100, "Zombie");
+      enemy.rng = () => 0; // force the proc so the status is applied
       const shot = new Projectile(enemy.pos.x + 10, enemy.pos.y + 10, right);
       shot.element = element;
       shot.classMatch = classMatch;
@@ -72,9 +73,10 @@ describe("Class-match bonus", function () {
       expect(enemy.status.slow).toBe(STATUS_SLOW_FRAMES);
     });
 
-    it("lengthens a matched stun too", function () {
+    it("lengthens a matched stun too (24 to 30 frames)", function () {
       const enemy = hit("Mind", true);
       expect(enemy.status.stun).toBeCloseTo(STATUS_STUN_FRAMES * CLASS_MATCH_DURATION_MULT, 5);
+      expect(enemy.status.stun).toBe(30);
     });
 
     it("gives a mismatched burn the normal duration", function () {

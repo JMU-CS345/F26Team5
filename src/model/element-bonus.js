@@ -2,7 +2,7 @@
 // Load this after player-stats.js in index.html.
 
 const CLASS_MATCH_DAMAGE_MULT = 1.25; // damage multiplier when the element matches the class
-const CLASS_MATCH_DURATION_MULT = 1.5; // status duration multiplier when it matches
+const CLASS_MATCH_DURATION_MULT = 1.25; // status duration multiplier when it matches
 
 // True only when an element is set and equals the player's class element.
 function isClassMatch(element, mageClass) {

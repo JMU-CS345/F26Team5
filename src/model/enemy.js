@@ -266,7 +266,10 @@ class Enemy {
       return false;
     }
     this.takeDamage(projectile.damage, projectile.vel);
-    applyStatusEffect(this, projectile.element, projectile.classMatch);
+    // Only some shots proc; rng is injected so specs can force the roll.
+    if (projectile.element && this.rng() < STATUS_PROC_CHANCE) {
+      applyStatusEffect(this, projectile.element, projectile.classMatch);
+    }
     projectile.alive = false;
     return true;
   }
