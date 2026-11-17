@@ -17,7 +17,10 @@ class Hitbox {
     this.arc = options.arc || 360;
     this.dir = options.dir || new p5.Vector(1, 0);
     this.damage = options.damage || 0;
-    this.knockback = options.knockback === undefined ? 1 : options.knockback; // shove power
+    this.knockback = 1; // shove power, 1 is normal
+    if (options.knockback !== undefined) {
+      this.knockback = options.knockback;
+    }
     this.life = options.life || 1; // frames it stays active
     this.alive = true;
     this.hitTargets = [];

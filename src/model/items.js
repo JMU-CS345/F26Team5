@@ -83,11 +83,20 @@ class Weapon extends Item {
     this.element = this.elementalType;
     this.attackType = options.attackType === undefined ? "Weapon" : options.attackType;
     requireNonEmptyString(this.attackType, "attackType");
-    this.rarity = options.rarity === undefined ? "common" : options.rarity;
-    this.affixes = Array.isArray(options.affixes) ? options.affixes.slice() : [];
+    this.rarity = options.rarity || "common";
+    this.affixes = [];
+    if (Array.isArray(options.affixes)) {
+      this.affixes = options.affixes.slice();
+    }
     // Optional hooks, called with a context object only if they are functions.
-    this.onHit = typeof options.onHit === "function" ? options.onHit : null;
-    this.onFire = typeof options.onFire === "function" ? options.onFire : null;
+    this.onHit = null;
+    if (typeof options.onHit === "function") {
+      this.onHit = options.onHit;
+    }
+    this.onFire = null;
+    if (typeof options.onFire === "function") {
+      this.onFire = options.onFire;
+    }
   }
 }
 

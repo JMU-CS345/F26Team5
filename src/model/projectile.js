@@ -15,7 +15,10 @@ class Projectile {
     this.pos = new p5.Vector(x - this.length / 2, y - this.width / 2);
     this.vel = dir.copy().setMag(speed);
     this.alive = true;
-    this.range = options.range === undefined ? Infinity : options.range;
+    this.range = Infinity;
+    if (options.range !== undefined) {
+      this.range = options.range;
+    }
     this.pierce = options.pierce || 0;
     this.onHit = options.onHit || null;
     this.weapon = options.weapon || null;
