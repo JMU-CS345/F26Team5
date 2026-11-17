@@ -10,6 +10,7 @@ class GameFeel {
     this.shakeStrength = 0;
     this.shakeDir = null; // unit vector for a directional shake, or null for a random one
     this.numbers = []; // { x, y, text, age }
+    this.sparks = []; // { x, y, dir, big, age } a burst of sparks where a hit landed
   }
 
   // Call when a run starts, so changes made in the settings menu apply.
@@ -23,6 +24,7 @@ class GameFeel {
     this.shakeStrength = 0;
     this.shakeDir = null;
     this.numbers = [];
+    this.sparks = [];
   }
 
   // hit is { target, damage }, and from a swing also { attack, finisher, dir }.
@@ -43,6 +45,18 @@ class GameFeel {
       this.hitstop = Math.max(this.hitstop, HITSTOP_RANGED_FRAMES);
       this.startShake(SHAKE_RANGED);
     }
+    const spot = hit.target.getBounds();
+    let sparkDir = new p5.Vector(0, -1);
+    if (hit.dir) {
+      sparkDir = hit.dir.copy();
+    }
+    this.sparks.push({
+      x: spot.x + spot.w / 2,
+      y: spot.y + spot.h / 2,
+      dir: sparkDir,
+      big: hit.finisher === true || hit.attack === "spin",
+      age: 0
+    });
     if (this.settings.damageNumbers) {
       const bounds = hit.target.getBounds();
       this.numbers.push({
@@ -108,6 +122,10 @@ class GameFeel {
       n.age++;
     }
     this.numbers = this.numbers.filter((n) => n.age < NUMBER_FRAMES);
+    for (const s of this.sparks) {
+      s.age++;
+    }
+    this.sparks = this.sparks.filter((s) => s.age < SPARK_FRAMES);
   }
 }
 

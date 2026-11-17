@@ -143,3 +143,36 @@ describe("GameFeel", function () {
     expect(feel.shakeFrames).toBe(0);
   });
 });
+
+describe("GameFeel hit sparks", function () {
+  const on = { controls: "classic", musicVolume: 0.5, sfxVolume: 0.7, screenShake: true,
+    damageNumbers: true };
+
+  it("adds a spark burst at the target and drops it after SPARK_FRAMES", function () {
+    const feel = new GameFeel({ ...on });
+    const enemy = new Enemy(100, 100, "Jelly");
+    feel.onHit({ target: enemy, damage: 1, attack: "swing", dir: new p5.Vector(1, 0) }, "melee");
+    expect(feel.sparks.length).toBe(1);
+    expect(feel.sparks[0].x).toBe(enemy.getCenter().x);
+    for (let i = 0; i < SPARK_FRAMES; i++) {
+      feel.update();
+    }
+    expect(feel.sparks.length).toBe(0);
+  });
+
+  it("makes finisher and spin sparks bigger", function () {
+    const feel = new GameFeel({ ...on });
+    const enemy = new Enemy(100, 100, "Jelly");
+    feel.onHit({ target: enemy, damage: 1, attack: "swing", finisher: true }, "melee");
+    feel.onHit({ target: enemy, damage: 1, attack: "swing", finisher: false }, "melee");
+    expect(feel.sparks[0].big).toBe(true);
+    expect(feel.sparks[1].big).toBe(false);
+  });
+
+  it("still shows sparks with shake and numbers off", function () {
+    const feel = new GameFeel({ ...on, screenShake: false, damageNumbers: false });
+    feel.onHit({ target: new Enemy(0, 0, "Jelly"), damage: 1 }, "ranged");
+    expect(feel.sparks.length).toBe(1);
+    expect(feel.shakeFrames).toBe(0);
+  });
+});

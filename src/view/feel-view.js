@@ -13,3 +13,32 @@ function drawDamageNumbers(feel) {
   }
   pop();
 }
+
+// A few short lines fly out of the hit, mostly the way the swing went. If the effect
+// sprites are loaded they are drawn on top.
+function drawHitSparks(feel) {
+  push();
+  strokeCap(SQUARE);
+  for (const s of feel.sparks) {
+    const t = s.age / SPARK_FRAMES;
+    let count = 5;
+    if (s.big) {
+      count = 8;
+    }
+    stroke(255, 240, 160, lerp(255, 0, t));
+    strokeWeight(2);
+    for (let i = 0; i < count; i++) {
+      const angle = s.dir.heading() + map(i, 0, count - 1, -1.2, 1.2);
+      const from = lerp(3, 10, t);
+      const to = lerp(8, 18, t);
+      line(
+        s.x + cos(angle) * from, s.y + sin(angle) * from,
+        s.x + cos(angle) * to, s.y + sin(angle) * to
+      );
+    }
+    if (typeof drawEffect === "function") {
+      drawEffect("hitSpark", s.x, s.y, frameCount - s.age, 2, s.dir.heading());
+    }
+  }
+  pop();
+}

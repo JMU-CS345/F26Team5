@@ -46,7 +46,7 @@ function drawEnemySprite(enemy, sprite, alpha = 255) {
     -ax * pixelSize, -ay * pixelSize, w * pixelSize, h * pixelSize,
     frame.x, frame.y, w, h
   );
-  if (enemy.hurtTimer > 0) {
+  if (enemy.hurtTimer > 0 || shotFlashOn(enemy)) {
     // Adding the sprite to itself washes it out to white for a moment.
     blendMode(ADD);
     tint(255, min(alpha, 200));
@@ -60,9 +60,29 @@ function drawEnemySprite(enemy, sprite, alpha = 255) {
   pop();
 }
 
+// The shot flash blinks white on every other frame.
+function shotFlashOn(enemy) {
+  return enemy.shotFlash > 0 && Math.floor(frameCount / 2) % 2 === 0;
+}
+
+// A melee windup shows the square the swing will cover, in front of the enemy.
+function drawSwingTelegraph(enemy) {
+  const attack = enemy.getAttack();
+  if (enemy.state !== "windup" || !attack || attack.kind !== "melee") {
+    return;
+  }
+  const box = enemy.getSwingBox(attack.reach);
+  const strength = map(enemy.stateTimer, attack.windup, 0, 40, 130);
+  push();
+  noStroke();
+  fill(255, 80, 60, strength);
+  rect(box.x, box.y, box.w, box.h);
+  pop();
+}
+
 function drawEnemySquare(enemy, alpha = 255) {
   let c = enemy.type.color;
-  if (enemy.hurtTimer > 0) {
+  if (enemy.hurtTimer > 0 || shotFlashOn(enemy)) {
     c = [255, 255, 255]; // white flash
   }
   noStroke();
@@ -123,6 +143,7 @@ function drawEnemy(enemy) {
     drawEnemyBody(enemy, map(enemy.spawnTimer, ENEMY_SPAWN_FRAMES, 0, 40, 255));
     return;
   }
+  drawSwingTelegraph(enemy);
   drawEnemyBody(enemy);
 }
 

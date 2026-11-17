@@ -58,6 +58,22 @@ function drawPlayer(player) {
   tint(255, alpha);
   image(playerSheets[player.modelName], left, top, w, h, f.col * sw, f.row * sh, sw, sh);
   noTint();
+  drawDodgeFlash(player);
+}
+
+// A ring spreads out from the player after a perfect dodge.
+function drawDodgeFlash(player) {
+  if (player.dodgeFlash <= 0) {
+    return;
+  }
+  const t = 1 - player.dodgeFlash / DODGE_FLASH_FRAMES;
+  const center = player.getCenter();
+  push();
+  noFill();
+  stroke(140, 220, 255, lerp(255, 0, t));
+  strokeWeight(lerp(4, 1, t));
+  circle(center.x, center.y, lerp(16, 56, t));
+  pop();
 }
 
 // The slash is a simple arc that sweeps across the swing. Final art can replace it.
@@ -79,6 +95,11 @@ function drawMeleeAttack(player) {
     if (attack.kind === "spin") {
       from = heading;
       to = heading + TWO_PI * attack.getSweep();
+    }
+    if (typeof drawEffect === "function" && attack.kind === "swing") {
+      const tip = p5.Vector.fromAngle(heading, attack.plan.reach * 0.7);
+      const started = frameCount - (attack.frame - attack.plan.windup);
+      drawEffect("slash", center.x + tip.x, center.y + tip.y, started, 2, heading);
     }
     noStroke();
     fill(255, 255, 255, fade * 0.35);

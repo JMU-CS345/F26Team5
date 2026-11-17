@@ -429,6 +429,7 @@ function drawWorldScene() {
     drawNpc(npc, player, activeDialogue.isActive());
   }
   drawDyingEnemies(!game.isInventory());
+  drawHitSparks(gameFeel);
   drawDamageNumbers(gameFeel);
 }
 

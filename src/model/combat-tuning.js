@@ -76,6 +76,7 @@ const SHAKE_FINISHER = 4;
 const SHAKE_RANGED = 1;
 const SHAKE_HURT = 3;
 const NUMBER_FRAMES = 40; // how long a damage number floats
+const SPARK_FRAMES = 10; // how long hit sparks last
 
 // Enemies
 const ENEMY_DAMAGE_COOLDOWN = 30; // frames at 60 fps
