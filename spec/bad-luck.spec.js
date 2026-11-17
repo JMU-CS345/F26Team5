@@ -34,7 +34,7 @@ describe("bad-luck protection", function () {
     expect(run.chestsWithoutRare).toBe(0);
   });
 
-  it("never lets more than the limit of gear pieces in a row miss rare, whatever the seed", function () {
+  it("never lets more than the limit of gear pieces in a row miss rare", function () {
     for (let seed = 1; seed <= 300; seed++) {
       const run = new LootRun(seed, []);
       let misses = 0;
