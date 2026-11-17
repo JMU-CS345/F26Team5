@@ -22,6 +22,7 @@ let inventorySelection = null;
 let inventoryInfoLines = [];
 let resumeInputBlocked = false;
 let activeDialogue;
+let setupDone = false; // draw() waits for this, because setup() loads art with await
 //temp
 const ROOM_WIDTH = 640;
 const ROOM_HEIGHT = 400;
@@ -226,6 +227,7 @@ async function setup() {
     button.hide(); // the class menu comes after the model screen
   }
   makeModelButtons();
+  setupDone = true;
 }
 
 // Scales the whole page (canvas and buttons) to fit the window and centers it.
@@ -250,6 +252,12 @@ function canvasPointer() {
 }
 
 function draw() {
+  // p5 starts calling draw() while the async setup() is still loading images. If draw()
+  // throws, p5 stops its loop for good, so nothing is ever drawn (only the DOM buttons
+  // exist). Skip frames until setup() has finished.
+  if (!setupDone) {
+    return;
+  }
   background(0);
   updateBackground();
   drawBackground();
