@@ -3,6 +3,14 @@
 const DEFAULT_MAX_STACK_SIZE = 99;
 let nextItemInstanceId = 1;
 
+// The value, or the fallback when the value is undefined.
+function valueOr(value, fallback) {
+  if (value === undefined) {
+    return fallback;
+  }
+  return value;
+}
+
 function itemOptions(idOrOptions, name, value, maxStackSize) {
   if (typeof idOrOptions === "object" && idOrOptions !== null) {
     return { ...idOrOptions };
@@ -46,6 +54,7 @@ class Item {
     if (typeof this.description !== "string") {
       throw new TypeError("description must be a string");
     }
+    this.locked = false; // a locked item is kept: it is never sold in bulk or dropped
     this.instanceId = resolvedMax === 1 ? `item-instance-${nextItemInstanceId++}` : null;
   }
 
@@ -66,39 +75,7 @@ class Item {
   }
 }
 
-class Weapon extends Item {
-  constructor(options = {}) {
-    const resolved = { ...options, maxStackSize: 1 };
-    super(resolved);
-    const damage = options.damage === undefined ? 0 : options.damage;
-    requireNonNegativeNumber(damage, "damage");
-    const elementalType = options.elementalType === undefined
-      ? options.element
-      : options.elementalType;
-    if (elementalType !== undefined && elementalType !== null) {
-      requireNonEmptyString(elementalType, "elementalType");
-    }
-    this.damage = damage;
-    this.elementalType = elementalType === undefined ? null : elementalType;
-    this.element = this.elementalType;
-    this.attackType = options.attackType === undefined ? "Weapon" : options.attackType;
-    requireNonEmptyString(this.attackType, "attackType");
-    this.rarity = options.rarity || "common";
-    this.affixes = [];
-    if (Array.isArray(options.affixes)) {
-      this.affixes = options.affixes.slice();
-    }
-    // Optional hooks, called with a context object only if they are functions.
-    this.onHit = null;
-    if (typeof options.onHit === "function") {
-      this.onHit = options.onHit;
-    }
-    this.onFire = null;
-    if (typeof options.onFire === "function") {
-      this.onFire = options.onFire;
-    }
-  }
-}
+const WEAPON_ELEMENTS = Object.freeze(["Fire", "Ice", "Mind"]);
 
 // What a weapon does when it leaves a stat out. The starter dagger is exactly this.
 const MELEE_DEFAULTS = Object.freeze({
@@ -120,29 +97,95 @@ const RANGED_DEFAULTS = Object.freeze({
   pierce: 0 // extra enemies a shot passes through
 });
 
-// Copies each stat the options give, so a missing one stays undefined and gets its default
-// later. Bad numbers are rejected here, where the weapon is made.
-function copyWeaponStats(target, options, names) {
-  for (const name of names) {
-    if (options[name] !== undefined) {
-      requireNonNegativeNumber(options[name], name);
-      target[name] = options[name];
+// Reads a number option, falls back to a default, and rejects bad values.
+function weaponNumber(options, key, fallback, min, max) {
+  const value = valueOr(options[key], fallback);
+  if (typeof value !== "number" || !Number.isFinite(value) || value < min || value > max) {
+    throw new TypeError(`${key} must be a number from ${min} to ${max}`);
+  }
+  return value;
+}
+
+function weaponInteger(options, key, fallback, min) {
+  const value = weaponNumber(options, key, fallback, min, 1000);
+  if (!Number.isInteger(value)) {
+    throw new TypeError(`${key} must be a whole number`);
+  }
+  return value;
+}
+
+// Fields shared by every weapon: damage, element, rarity, affixes and optional hooks.
+// onHit(ctx) and onFire(ctx) are only set when given. The combat code calls them if present
+// and each returns a list of effects (see legendaries.js for the ctx shape).
+class Weapon extends Item {
+  constructor(options = {}) {
+    const resolved = { ...options, maxStackSize: 1 };
+    super(resolved);
+    const damage = options.damage === undefined ? 0 : options.damage;
+    requireNonNegativeNumber(damage, "damage");
+    const elementalType = options.elementalType === undefined
+      ? options.element
+      : options.elementalType;
+    if (elementalType !== undefined && elementalType !== null) {
+      requireNonEmptyString(elementalType, "elementalType");
+      if (!WEAPON_ELEMENTS.includes(elementalType)) {
+        throw new TypeError(`element must be one of ${WEAPON_ELEMENTS.join(", ")} or null`);
+      }
     }
+    this.damage = damage;
+    this.elementalType = elementalType === undefined ? null : elementalType;
+    this.element = this.elementalType;
+    this.attackType = options.attackType === undefined ? "Weapon" : options.attackType;
+    requireNonEmptyString(this.attackType, "attackType");
+
+    const rarity = valueOr(options.rarity, "common");
+    if (!RARITY_IDS.includes(rarity)) {
+      throw new TypeError(`rarity must be one of ${RARITY_IDS.join(", ")}`);
+    }
+    this.rarity = rarity;
+    const affixes = valueOr(options.affixes, []);
+    if (!Array.isArray(affixes) || affixes.some((id) => typeof id !== "string")) {
+      throw new TypeError("affixes must be a list of affix ids");
+    }
+    this.affixes = affixes.slice();
+    this.onHit = null;
+    this.onFire = null;
+    for (const hook of ["onHit", "onFire"]) {
+      if (options[hook] !== undefined) {
+        if (typeof options[hook] !== "function") {
+          throw new TypeError(`${hook} must be a function`);
+        }
+        this[hook] = options[hook];
+      }
+    }
+    // Which base (Sword, Wand...) and handmade weapon this came from, for the card and art.
+    this.baseId = valueOr(options.baseId, null);
+    this.uniqueId = valueOr(options.uniqueId, null);
   }
 }
 
+// Melee stats: reach (px), swingFrames, knockback, arc (degrees).
 class MeleeWeapon extends Weapon {
   constructor(options = {}) {
     super({ ...options, attackType: options.attackType || "Melee" });
-    copyWeaponStats(this, options, ["reach", "swingFrames", "knockback", "arc"]);
+    this.reach = weaponNumber(options, "reach", MELEE_DEFAULTS.reach, 0, 400);
+    this.swingFrames = weaponInteger(options, "swingFrames", MELEE_DEFAULTS.swingFrames, 1);
+    this.knockback = weaponNumber(options, "knockback", MELEE_DEFAULTS.knockback, 0, 100);
+    this.arc = weaponNumber(options, "arc", MELEE_DEFAULTS.arc, 1, 360);
   }
 }
 
+// Ranged stats: fireRate (frames between shots), shotSpeed (px per frame), range (px),
+// projectileCount, spread (degrees across all shots), pierce (extra enemies a shot passes).
 class ProjectileWeapon extends Weapon {
   constructor(options = {}) {
     super({ ...options, attackType: options.attackType || "Projectile" });
-    copyWeaponStats(this, options,
-      ["fireRate", "shotSpeed", "range", "projectileCount", "spread", "pierce"]);
+    this.fireRate = weaponInteger(options, "fireRate", RANGED_DEFAULTS.fireRate, 1);
+    this.shotSpeed = weaponNumber(options, "shotSpeed", RANGED_DEFAULTS.shotSpeed, 0.1, 100);
+    this.range = weaponNumber(options, "range", RANGED_DEFAULTS.range, 1, 2000);
+    this.projectileCount = weaponInteger(options, "projectileCount", RANGED_DEFAULTS.projectileCount, 1);
+    this.spread = weaponNumber(options, "spread", RANGED_DEFAULTS.spread, 0, 360);
+    this.pierce = weaponInteger(options, "pierce", RANGED_DEFAULTS.pierce, 0);
   }
 }
 

@@ -3,7 +3,9 @@
 const INVENTORY_PANEL = Object.freeze({ x: 140, y: 50, w: 1000, h: 620 });
 const INVENTORY_SLOT_SIZE = 76;
 const INVENTORY_SLOT_GAP = 16;
-const INVENTORY_BAG_COLUMNS = 4;
+const INVENTORY_BAG_SLOT_SIZE = 56; // bag slots are smaller so 6 columns fit
+const INVENTORY_BAG_SLOT_GAP = 8;
+const INVENTORY_BAG_COLUMNS = 6;
 const INVENTORY_BAG_ROWS = 4;
 const INVENTORY_DRAG_THRESHOLD = 5;
 const INVENTORY_CONTEXT_WIDTH = 210;
@@ -47,7 +49,7 @@ function inventoryUiLayout(inventory) {
   const bagSlots = [];
   const bagX = 650;
   const bagY = 245;
-  const slotStep = INVENTORY_SLOT_SIZE + INVENTORY_SLOT_GAP;
+  const slotStep = INVENTORY_BAG_SLOT_SIZE + INVENTORY_BAG_SLOT_GAP;
   const slotCount = INVENTORY_BAG_COLUMNS * INVENTORY_BAG_ROWS;
   for (let index = 0; index < slotCount; index++) {
     const entry = contents[index] === undefined ? null : contents[index];
@@ -59,8 +61,8 @@ function inventoryUiLayout(inventory) {
       quantity: entry === null ? 0 : entry.quantity,
       x: bagX + (index % INVENTORY_BAG_COLUMNS) * slotStep,
       y: bagY + Math.floor(index / INVENTORY_BAG_COLUMNS) * slotStep,
-      w: INVENTORY_SLOT_SIZE,
-      h: INVENTORY_SLOT_SIZE
+      w: INVENTORY_BAG_SLOT_SIZE,
+      h: INVENTORY_BAG_SLOT_SIZE
     });
   }
   return { equipmentSlots, bagSlots };
@@ -132,6 +134,7 @@ function inventorySelectionFromSlot(slot) {
   }
   return Object.freeze({
     sourceKind: slot.kind,
+    index: slot.index,
     equipmentName: slot.equipmentName || null,
     item: slot.item,
     quantity: slot.quantity || 1,
@@ -184,11 +187,14 @@ function inventoryContextActions(inventory, player, selection) {
 function inventoryItemInformation(item) {
   const lines = [item.name];
   if (item instanceof Weapon) {
+    lines.push(`Rarity: ${getRarity(item.rarity).label}`);
     lines.push(`Damage: ${item.damage}`);
     lines.push(`Element: ${item.elementalType || "None"}`);
     lines.push(`Attack: ${item.attackType}`);
+    lines.push(`Sell value: ${item.value} gold`);
   } else if (item instanceof Armor) {
     lines.push(`Defense: ${item.defense}`);
+    lines.push(`Sell value: ${item.value} gold`);
     const equipmentName = equipmentNameForItem(item);
     if (equipmentName !== null) {
       lines.push(`Slot: ${PLAYER_EQUIPMENT_LABELS[equipmentName]}`);
@@ -200,6 +206,7 @@ function inventoryItemInformation(item) {
     if (item.healthRestore > 0) {
       lines.push(`Restores ${item.healthRestore} health`);
     }
+    lines.push(`Sell value: ${item.value} gold`);
   } else {
     if (item.description !== "") {
       lines.push(item.description);

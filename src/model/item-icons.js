@@ -7,9 +7,9 @@ const ITEM_ICON_SHEET = "assets/item/item-icons.png";
 const RARITY_FRAME_SHEET = "assets/item/rarity-frames.png";
 
 // Weapon base ids in sheet order, one icon each.
-const MELEE_BASES = Object.freeze(["dagger", "sword", "spear", "axe", "hammer"]);
-const RANGED_BASES = Object.freeze(["wand", "staff", "tome", "orb", "scepter"]);
-const WEAPON_BASES = Object.freeze(MELEE_BASES.concat(RANGED_BASES));
+const ICON_MELEE_BASES = Object.freeze(["dagger", "sword", "spear", "axe", "hammer"]);
+const ICON_RANGED_BASES = Object.freeze(["wand", "staff", "tome", "orb", "scepter"]);
+const ICON_WEAPON_BASES = Object.freeze(ICON_MELEE_BASES.concat(ICON_RANGED_BASES));
 
 // Non-weapon kinds in sheet order.
 const ITEM_KINDS = Object.freeze(["potion", "coin", "armor"]);
@@ -23,7 +23,7 @@ function iconCell(sheet, index) {
 
 // Icon cell for a weapon base id such as "dagger", or null for an unknown id.
 function weaponIconCell(baseId) {
-  const index = WEAPON_BASES.indexOf(baseId);
+  const index = ICON_WEAPON_BASES.indexOf(baseId);
   if (index < 0) {
     return null;
   }
@@ -51,10 +51,10 @@ function rarityFrameCell(rarity) {
 // The base id of a weapon: its baseId, else a base name found in its id, else a default
 // by attack type.
 function weaponBaseId(weapon) {
-  if (WEAPON_BASES.includes(weapon.baseId)) {
+  if (ICON_WEAPON_BASES.includes(weapon.baseId)) {
     return weapon.baseId;
   }
-  for (const base of WEAPON_BASES) {
+  for (const base of ICON_WEAPON_BASES) {
     if (weapon.id.includes(base)) {
       return base;
     }

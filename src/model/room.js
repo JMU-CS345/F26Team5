@@ -16,6 +16,7 @@ class Room {
     this.enemies = [];
     this.npcs = [];
     this.items = [];
+    this.chests = [];
     this.exits = [];
     this.cleared = false;
 

@@ -8,6 +8,7 @@
 //   #  wall            .  floor           o  pit        x  interior wall (an obstacle)
 //   +  a door (on the outer wall only, always 2 tiles side by side)
 //   J  Jelly   Z  Zombie   S  Skeleton   B  Bat   E  Eyeball   D  Demon (on floor)
+//   C  a treasure chest (on floor; press E next to it to open)
 //   @  where the player starts (start rooms only, exactly one)
 //
 // Doors: draw as many as you like, on any wall. A door only opens when another room is placed

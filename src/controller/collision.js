@@ -18,12 +18,22 @@ function projectileHitsPlayer(projectile, player) {
   return true;
 }
 
-// Collects every overlapping drop that fits. Uncollected drops remain in the room.
+// Collects every overlapping drop that fits. Uncollected drops remain in the room. Melee and
+// projectile weapons are never collected here: the player swaps them in with E.
 function pickupItemDrops(player, room) {
   const collected = [];
   const remaining = [];
   for (const drop of room.items) {
     const overlaps = rectsOverlap(player.getBounds(), drop.getBounds());
+    if (drop.justDropped) {
+      drop.justDropped = overlaps; // free to pick up again once the player steps off it
+      remaining.push(drop);
+      continue;
+    }
+    if (isEquippableWeapon(drop.item)) {
+      remaining.push(drop); // weapons wait for E (see weapon-swap.js)
+      continue;
+    }
     if (!overlaps || drop.pickupDelay > 0 || !player.inventory.canAdd(drop.item, drop.quantity)) {
       remaining.push(drop);
       continue;

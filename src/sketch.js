@@ -10,6 +10,7 @@ let enemyProjectiles = [];
 let debugOverlay = false; // F3 toggles hitboxes and detection circles for enemies
 let nextSpawnIndex = 0;
 let dungeon;
+let lootRun; // loot rng and counters for this run
 let room; // the room the player is in right now
 let roomGraphic; // the picture of that room
 let roomGraphics = new Map(); // room id -> picture, built the first time the room is entered
@@ -106,6 +107,8 @@ function startRun() {
     screenY: ROOM_Y
   });
   console.log("Dungeon seed:", dungeon.seed); // pass this as seed to replay a dungeon
+  lootRun = new LootRun(dungeon.seed + 1, doorDistances(dungeon.rooms, 0));
+  lootRun.assign(dungeon);
   enterRoom(dungeon.start);
   const spawn = room.getPlayerSpawn(); // the @ in the start room's drawing
   player = new Player(
@@ -114,28 +117,16 @@ function startRun() {
     game.selectedClass,
     game.selectedModel
   );
+  giveLoadout(player, lootRun.rng);
   // Placeholder pickups until room data supplies item placement.
   room.items = [
-    new ItemDrop(spawn.x - 48, spawn.y - 48, new ProjectileWeapon({
-      id: "training-wand",
-      name: "Training Wand",
-      damage: 2,
-      element: game.selectedClass,
-      description: "A simple wand for apprentice mages."
-    })),
     new ItemDrop(spawn.x + 48, spawn.y - 48, new ChestArmor({
       id: "apprentice-robe",
       name: "Apprentice Robe",
       defense: 1,
       description: "A light robe with basic protection."
     })),
-    new ItemDrop(spawn.x - 48, spawn.y + 48, new Consumable({
-      id: "health-potion",
-      name: "Health Potion",
-      maxStackSize: 5,
-      healthRestore: 2,
-      description: "A small restorative potion."
-    })),
+    new ItemDrop(spawn.x - 48, spawn.y + 48, makePotion()),
     new ItemDrop(spawn.x + 48, spawn.y + 48, new Gold(), 25)
   ];
   lastPlayerHealth = player.health;
@@ -470,6 +461,9 @@ function drawScreen() {
   for (const drop of room.items) {
     drop.update();
   }
+  for (const chest of room.chests) {
+    chest.update();
+  }
   for (const drop of pickupItemDrops(player, room)) {
     runStats.recordPickup(drop.item);
   }
@@ -529,6 +523,7 @@ function drawScreen() {
     if (deadThisFrame.length > 0) {
       runStats.recordRoomCleared();
     }
+    room.items.push(...rollClearDrops(room, lootRun));
   }
   if (player.showDeathScreen()) {
     activeDialogue.close();
@@ -583,6 +578,13 @@ function drawWorldScene() {
   scale(WORLD_ZOOM);
   translate(-worldCamera.x, -worldCamera.y);
   drawRoom(room, roomGraphic);
+  for (const chest of room.chests) {
+    drawChest(chest);
+  }
+  const nearChest = findOpenableChest(player, room);
+  if (nearChest !== null && game.isPlaying()) {
+    drawChestPrompt(nearChest);
+  }
   for (const drop of room.items) {
     drawItemDrop(drop);
   }
@@ -611,6 +613,14 @@ function drawWorldScene() {
 
 function drawRunHud() {
   drawHud(player);
+  const underPlayer = findWeaponDropUnderPlayer(player, room);
+  if (underPlayer !== null && game.isPlaying()) {
+    drawWeaponCard(
+      underPlayer.item,
+      player.inventory.getEquipped(weaponSlotName(underPlayer.item)),
+      !player.inventory.canAdd(underPlayer.item)
+    );
+  }
   drawFirstBossBar();
   drawClassLabel(player.mageClass);
   drawMinimap(dungeon, room);
@@ -638,12 +648,12 @@ function toggleInventoryMenu() {
   return true;
 }
 
-// Vincent's room code hooks door unlock and exit here, and Nick's loot hooks
-// enemy.type.lootTable here.
+// Vincent's room code hooks door unlock and exit here.
 function handleDeadEnemies(dead) {
   for (const enemy of dead) {
     startEnemyDeath(enemy);
     runStats.recordKill();
+    room.items.push(...rollEnemyDrops(enemy, lootRun, room));
   }
   if (findDeadBosses(dead).length > 0) {
     room.bossDefeated = true;
@@ -701,7 +711,8 @@ function toggleTopRightNpc() {
   }
 }
 
-// Keys while the inventory is open: move the cursor, Enter uses, X drops, Esc closes.
+// Keys while the inventory is open: move the cursor, Enter uses, R sorts, L locks, X drops,
+// Esc closes. The cursor is the one keyboard selection.
 function handleInventoryKey() {
   if (keyCode === ESCAPE) {
     toggleInventoryMenu();
@@ -712,15 +723,29 @@ function handleInventoryKey() {
     inventoryInfoLines = [];
     return;
   }
+  const atCursor = inventorySelectionFromSlot(
+    inventoryCursorSlot(player.inventory, inventoryCursor)
+  );
   if (keyCode === ENTER) {
     const result = useInventoryCursorItem(player.inventory, player, inventoryCursor);
     inventorySelection = null;
     inventoryInfoLines = result.infoLines;
-  } else if (key.toLowerCase() === "x") {
-    const drop = dropInventoryCursorItem(player.inventory, player, inventoryCursor);
+  } else if (key.toLowerCase() === "r") {
+    player.inventory.sortBag();
     inventorySelection = null;
     inventoryInfoLines = [];
+  } else if (key.toLowerCase() === "l") {
+    toggleLock(atCursor);
+    inventoryInfoLines = [];
+  } else if (key.toLowerCase() === "x") {
+    inventorySelection = null;
+    inventoryInfoLines = [];
+    if (atCursor !== null && atCursor.item.locked) {
+      return;
+    }
+    const drop = dropInventoryCursorItem(player.inventory, player, inventoryCursor);
     if (drop !== null) {
+      drop.justDropped = true;
       room.items.push(drop);
     }
   }
@@ -795,6 +820,15 @@ function keyPressed() {
       const nearbyNpc = room.npcs.find((n) => n.isPlayerNear(player));
       if (nearbyNpc) {
         activeDialogue.start(nearbyNpc);
+        return false;
+      }
+      // E opens a chest, or picks up the weapon under the player.
+      if (tryOpenChest(player, room, lootRun)) {
+        return false;
+      }
+      const floorWeapon = findWeaponDropUnderPlayer(player, room);
+      if (floorWeapon !== null) {
+        useWeaponDrop(player, room, floorWeapon);
         return false;
       }
     }

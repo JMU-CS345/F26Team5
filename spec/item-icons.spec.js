@@ -12,8 +12,8 @@ describe("item icons", () => {
   });
 
   it("gives each weapon base its own cell", () => {
-    const xs = WEAPON_BASES.map((base) => weaponIconCell(base).x);
-    expect(new Set(xs).size).toBe(WEAPON_BASES.length);
+    const xs = ICON_WEAPON_BASES.map((base) => weaponIconCell(base).x);
+    expect(new Set(xs).size).toBe(ICON_WEAPON_BASES.length);
   });
 
   it("has an icon for the potion, coin and armor kinds", () => {
