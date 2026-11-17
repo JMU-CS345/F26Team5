@@ -43,7 +43,7 @@ class Player {
     this.comboStep = 0; // the combo step of the last swing
     this.comboTimer = 0; // frames left to keep the combo going after a swing
     this.meleeBuffer = 0; // frames left of a melee press waiting for a swing to end
-    this.aim = new p5.Vector(0, 1); // the way melee and Twin-stick shots point
+    this.aim = new p5.Vector(0, 1); // the way melee and Twin-stick shots point, starts facing
     this.lastHits = []; // melee hits made in the latest update, for the game feel code
 
     // Animation state. The view reads these to pick a sprite frame.
