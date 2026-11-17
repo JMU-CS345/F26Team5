@@ -54,6 +54,7 @@ class Item {
     if (typeof this.description !== "string") {
       throw new TypeError("description must be a string");
     }
+    this.locked = false; // a locked item is kept: it is never sold in bulk or dropped
     this.instanceId = resolvedMax === 1 ? `item-instance-${nextItemInstanceId++}` : null;
   }
 
