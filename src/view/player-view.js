@@ -6,12 +6,21 @@ const FACING_ROW = { down: 0, up: 1, right: 2, left: 3 };
 const WEAPON_ROW_OFFSET = 4;
 const STEP_TIME = 8; // game frames per walk frame
 
-const playerSheets = {}; // model name -> loaded image
+const playerSheets = {}; // model name -> default image, used by the model menu
+const playerClassSheets = {}; // sheet path -> loaded image
 
 // Call once in setup(), with await.
 async function loadPlayerSheets() {
   for (const name of PLAYER_MODEL_NAMES) {
-    playerSheets[name] = await loadImageFile(PLAYER_MODELS[name].sheet);
+    const model = PLAYER_MODELS[name];
+    playerSheets[name] = await loadImageFile(model.sheet);
+    playerClassSheets[model.sheet] = playerSheets[name];
+    for (const mageClass of Object.keys(model.classSheets)) {
+      const path = model.classSheets[mageClass];
+      if (!playerClassSheets[path]) {
+        playerClassSheets[path] = await loadImageFile(path);
+      }
+    }
   }
 }
 
@@ -49,7 +58,8 @@ function drawPlayer(player) {
   const top = player.pos.y - (sh - player.width) + (sh - h) / 2;
 
   tint(255, lerp(255, 0, t));
-  image(playerSheets[player.modelName], left, top, w, h, f.col * sw, f.row * sh, sw, sh);
+  const sheet = playerClassSheets[playerSheetPath(player.modelName, player.mageClass)];
+  image(sheet, left, top, w, h, f.col * sw, f.row * sh, sw, sh);
   noTint();
 }
 
