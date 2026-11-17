@@ -31,6 +31,7 @@ const ROOM_Y = (CANVAS_HEIGHT - ROOM_HEIGHT) / 2;
 const NPC_TOP_RIGHT_X = ROOM_X + ROOM_WIDTH - 48;
 const NPC_TOP_RIGHT_Y = ROOM_Y + 32;
 const DUNGEON_ROOM_COUNT = 10;
+let worldCamera = { x: 0, y: 0 }; // world position of the screen's top-left corner
 let pageScale = 1; // set by fitToWindow(), also used to line up the page background
 let pageLeft = 0;
 let pageTop = 0;
@@ -273,7 +274,6 @@ function draw() {
   }
   if (game.isInventory()) {
     const pointer = canvasPointer();
-    drawRoom(room, roomGraphic);
     drawRunScene();
     drawInventoryMenu(
       player.inventory,
@@ -297,7 +297,6 @@ function draw() {
       useExit(exit);
     }
   }
-  drawRoom(room, roomGraphic);
 
   const heldInputBlocked = resumeInputBlocked && isGameplayInputHeld(keyIsDown);
   if (resumeInputBlocked && !heldInputBlocked) {
@@ -369,7 +368,23 @@ function draw() {
   }
 }
 
+// Points the camera at the player, kept inside the room.
+function updateCamera() {
+  const viewW = CANVAS_WIDTH / WORLD_ZOOM;
+  const viewH = CANVAS_HEIGHT / WORLD_ZOOM;
+  const center = player.getCenter();
+  const bounds = { x: room.x, y: room.y, w: room.width, h: room.height };
+  worldCamera = cameraFor(center.x, center.y, viewW, viewH, bounds);
+}
+
+// The world (room, items, shots, characters) draws zoomed and follows the camera. The HUD,
+// minimap and dialogue come after pop(), so they stay in fixed screen space.
 function drawRunScene() {
+  updateCamera();
+  push();
+  scale(WORLD_ZOOM);
+  translate(-worldCamera.x, -worldCamera.y);
+  drawRoom(room, roomGraphic);
   for (const drop of room.items) {
     drawItemDrop(drop);
   }
@@ -390,6 +405,7 @@ function drawRunScene() {
     drawNpc(npc, player, activeDialogue.isActive());
   }
   drawDyingEnemies(!game.isInventory());
+  pop();
   drawHealthBar(player);
   drawGoldHud(player.inventory);
   drawFirstBossBar();
@@ -398,7 +414,7 @@ function drawRunScene() {
   if (game.isPlaying() || game.isInventory()) {
     drawInventoryHudButton(game.isInventory());
   }
-  drawDialogueBox(activeDialogue, room.x, room.y, room.width, room.height);
+  drawDialogueBox(activeDialogue, ROOM_X, 0, ROOM_WIDTH, CANVAS_HEIGHT);
 }
 
 function clearInventoryUiState() {
