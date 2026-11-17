@@ -209,6 +209,7 @@ async function setup() {
   await loadTileImages();
   await loadEnemySheets();
   await loadItemSprites();
+  pixelDensity(1); // one canvas pixel per art pixel, even on high-DPI screens
   createCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);
   fitToWindow();
   noSmooth();
@@ -232,8 +233,9 @@ async function setup() {
 
 // Scales the whole page (canvas and buttons) to fit the window and centers it.
 // Runs on load and whenever the window changes size, which includes browser zoom.
+// The scale is a whole number when the window allows it, so pixels stay square.
 function fitToWindow() {
-  pageScale = min(window.innerWidth / CANVAS_WIDTH, window.innerHeight / CANVAS_HEIGHT);
+  pageScale = integerScale(window.innerWidth, window.innerHeight, CANVAS_WIDTH, CANVAS_HEIGHT);
   pageLeft = (window.innerWidth - CANVAS_WIDTH * pageScale) / 2;
   pageTop = (window.innerHeight - CANVAS_HEIGHT * pageScale) / 2;
   document.body.style.transform =
