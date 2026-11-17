@@ -12,6 +12,7 @@ function makeSwingPlan(stats, step) {
     reach: stats.reach,
     arc: stats.arc,
     knockback: 1, // shove power, 1 is normal
+    lunge: LUNGE_SWING,
     windup: Math.max(1, Math.round(total * 0.25)),
     active: Math.max(1, Math.round(total * 0.35))
   };
@@ -20,6 +21,7 @@ function makeSwingPlan(stats, step) {
     plan.damage *= FINISHER_DAMAGE;
     plan.reach *= FINISHER_REACH;
     plan.knockback = FINISHER_KNOCKBACK;
+    plan.lunge = LUNGE_FINISHER;
   }
   plan.knockback *= stats.knockback / MELEE_DEFAULTS.knockback;
   plan.total = Math.max(total, plan.windup + plan.active + 1);
@@ -35,6 +37,7 @@ function makeSpinPlan(stats) {
     reach: stats.reach * SPIN_REACH,
     arc: 360,
     knockback: SPIN_KNOCKBACK * stats.knockback / MELEE_DEFAULTS.knockback,
+    lunge: LUNGE_SPIN,
     windup: SPIN_WINDUP,
     active: SPIN_ACTIVE,
     total: SPIN_WINDUP + SPIN_ACTIVE + SPIN_RECOVERY

@@ -141,7 +141,9 @@ describe("Room collision integration", function () {
 
   it("stops the player at the right wall", function () {
     const player = new Player(576, 100);
-    player.move(new p5.Vector(1, 0), room);
+    for (let i = 0; i < 5; i++) {
+      player.move(new p5.Vector(1, 0), room);
+    }
     expect(player.pos.x).toBe(576);
   });
 

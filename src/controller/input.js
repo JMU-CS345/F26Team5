@@ -42,19 +42,22 @@ function getFireDirection(isDown, bindings = getBindings(), facing = null) {
     }
     return new p5.Vector(0, 0);
   }
-  if (isDown(bindings.fireUp)) {
-    return new p5.Vector(0, -1);
-  }
-  if (isDown(bindings.fireDown)) {
-    return new p5.Vector(0, 1);
-  }
+  // Two arrows at once aim diagonally.
+  let x = 0;
+  let y = 0;
   if (isDown(bindings.fireLeft)) {
-    return new p5.Vector(-1, 0);
+    x -= 1;
   }
   if (isDown(bindings.fireRight)) {
-    return new p5.Vector(1, 0);
+    x += 1;
   }
-  return new p5.Vector(0, 0);
+  if (isDown(bindings.fireUp)) {
+    y -= 1;
+  }
+  if (isDown(bindings.fireDown)) {
+    y += 1;
+  }
+  return new p5.Vector(x, y);
 }
 
 // Any key that moves, shoots, swings or dashes. Used to wait for a release after a menu.

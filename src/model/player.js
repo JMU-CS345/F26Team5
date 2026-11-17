@@ -22,6 +22,8 @@ class Player {
     this.iFrames = 0; // frames left of invulnerability after a hit
     this.knockback = new p5.Vector(0, 0); // pixels per frame, shrinks as the shove fades
     this.knockbackTimer = 0;
+    this.velocity = new p5.Vector(0, 0); // walking speed this frame, eased by move()
+    this.lunge = new p5.Vector(0, 0); // forward distance a swing still has to cover
 
     // Dash state.
     this.dashFrames = 0; // frames of dash movement left
@@ -48,9 +50,15 @@ class Player {
   // Sets facing from a direction vector. On an exact diagonal, faces up/down.
   faceToward(dir) {
     if (Math.abs(dir.x) > Math.abs(dir.y)) {
-      this.facing = dir.x > 0 ? "right" : "left";
+      this.facing = "left";
+      if (dir.x > 0) {
+        this.facing = "right";
+      }
     } else {
-      this.facing = dir.y > 0 ? "down" : "up";
+      this.facing = "up";
+      if (dir.y > 0) {
+        this.facing = "down";
+      }
     }
   }
 
@@ -101,8 +109,38 @@ class Player {
 
   beginAttack(attack) {
     this.attack = attack;
+    this.lunge = attack.dir.copy().setMag(attack.plan.lunge);
     this.faceToward(attack.dir);
     playCombatSfx("swing");
+  }
+
+  // Steps forward a share of the remaining lunge. A wall ends it early.
+  updateLunge(room) {
+    if (this.lunge.magSq() === 0 || !room) {
+      return;
+    }
+    const step = p5.Vector.lerp(new p5.Vector(0, 0), this.lunge, LUNGE_EASE);
+    const before = this.pos.copy();
+    moveWithCollision(this, step.x, step.y, room);
+    this.lunge.sub(step);
+    if (this.lunge.mag() < LUNGE_STOP || this.pos.dist(before) < step.mag() * 0.5) {
+      this.lunge.set(0, 0);
+    }
+  }
+
+  // Share of the walking speed allowed in the current swing phase.
+  getSpeedFactor() {
+    if (this.attack === null) {
+      return 1;
+    }
+    const phase = this.attack.phase();
+    if (phase === "windup") {
+      return SWING_SPEED_WINDUP;
+    }
+    if (phase === "active") {
+      return SWING_SPEED_ACTIVE;
+    }
+    return SWING_SPEED_RECOVERY;
   }
 
   // Runs the swing, the buffer, the combo timer and the spin charge for one frame.
@@ -130,6 +168,7 @@ class Player {
         this.meleeBuffer--;
       }
     }
+    this.updateLunge(room); // after the swing starts, so the first step is this frame
     // Letting go of a full charge spins. An early release already swung on the press.
     if (meleeHeld) {
       this.chargeFrames++;
@@ -317,22 +356,31 @@ class Player {
     return this.deathFrames >= DEATH_FRAMES;
   }
 
-  // lockFacing keeps the facing while walking (Classic strafe).
+  // lockFacing keeps the facing while walking (Classic strafe). Speed eases toward the
+  // held direction, so starting and stopping take a few frames.
   move(dir, room, lockFacing = false) {
-    if (this.isDead() || dir.magSq() === 0 || this.knockbackTimer > 0 || this.isDashing()) {
+    if (this.isDead() || this.knockbackTimer > 0 || this.isDashing()) {
+      this.velocity.set(0, 0);
       this.walkFrames = 0;
       return;
     }
-    if (!this.isArmUp() && !lockFacing) {
-      this.faceToward(dir); // keep the shot direction while the arm is up
+    let target = new p5.Vector(0, 0);
+    let rate = MOVE_BRAKE;
+    if (dir.magSq() > 0) {
+      target = dir.copy().setMag(this.speed * this.getSpeedFactor());
+      rate = MOVE_ACCEL;
+      if (!this.isArmUp() && !lockFacing) {
+        this.faceToward(dir); // keep the shot direction while the arm is up
+      }
+    }
+    this.velocity = p5.Vector.lerp(this.velocity, target, rate);
+    if (this.velocity.mag() < MOVE_STOP_SPEED) {
+      this.velocity.set(0, 0);
+      this.walkFrames = 0;
+      return;
     }
     this.walkFrames++;
-    let speed = this.speed;
-    if (this.attack !== null) {
-      speed = speed / 2; // swinging slows you down
-    }
-    const step = dir.copy().setMag(speed);
-    moveWithCollision(this, step.x, step.y, room);
+    moveWithCollision(this, this.velocity.x, this.velocity.y, room);
   }
 
   getBounds() {

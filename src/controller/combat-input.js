@@ -20,13 +20,20 @@ function readPlayerInput(isDown, player, blocked, bindings = getBindings()) {
   return input;
 }
 
-// Classic aims where the player faces. Twin-stick aims with the arrows and remembers the
-// last one, so a melee swing goes the way you last shot.
+// Classic aims along the held movement keys (8 ways) and keeps that aim while standing,
+// strafing or shooting. Twin-stick aims with the arrows and remembers the last one, so a
+// melee swing goes the way you last shot. Either way a shot goes where the player aims.
 function aimPlayer(player, input, bindings = getBindings()) {
-  if (bindings.fire !== undefined) {
-    player.setAim(facingToVector(player.facing));
-  } else {
+  if (bindings.fire === undefined) {
     player.setAim(input.fireDir);
+    return;
+  }
+  const shooting = input.fireDir.magSq() > 0;
+  if (input.move && input.move.magSq() > 0 && !input.strafe && !shooting) {
+    player.setAim(input.move);
+  }
+  if (shooting) {
+    input.fireDir = player.aim.copy();
   }
 }
 

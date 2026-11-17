@@ -19,6 +19,21 @@ const SPIN_WINDUP = 2;
 const SPIN_ACTIVE = 5;
 const SPIN_RECOVERY = 8;
 
+// Walking. Speed is a share of the class speed, by swing phase.
+const MOVE_ACCEL = 0.45; // share of the gap to full speed closed each frame
+const MOVE_BRAKE = 0.55; // same, when no key is held
+const MOVE_STOP_SPEED = 0.05; // below this the player counts as standing still
+const SWING_SPEED_WINDUP = 0.8;
+const SWING_SPEED_ACTIVE = 0.8;
+const SWING_SPEED_RECOVERY = 1;
+
+// Lunge: a small step forward when a swing starts, eased out over a few frames.
+const LUNGE_SWING = 5;
+const LUNGE_FINISHER = 9;
+const LUNGE_SPIN = 0;
+const LUNGE_EASE = 0.5; // share of the remaining lunge taken each frame
+const LUNGE_STOP = 0.3; // below this much left the lunge ends
+
 // Player hurt and shove
 const HIT_IFRAMES = 45; // invulnerable frames after being hurt
 const MIN_HIT_DAMAGE = 0.5; // armor never cuts a hit below this

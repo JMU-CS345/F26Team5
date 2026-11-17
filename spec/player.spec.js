@@ -7,16 +7,44 @@ describe("Player movement", function () {
     player = new Player(50, 50);
   });
 
+  // The first frame of a walk covers the accelerate share of the speed.
+  function firstStep(dir) {
+    player.velocity.set(0, 0);
+    const before = player.pos.copy();
+    player.move(dir, room);
+    return player.pos.copy().sub(before);
+  }
+
   it("moves in the direction it is given", function () {
-    player.move(new p5.Vector(1, 0), room);
-    expect(player.pos.x).toBe(50 + player.speed);
-    expect(player.pos.y).toBe(50);
-    player.move(new p5.Vector(0, 1), room);
-    expect(player.pos.y).toBe(50 + player.speed);
-    player.move(new p5.Vector(-1, 0), room);
-    expect(player.pos.x).toBe(50);
-    player.move(new p5.Vector(0, -1), room);
-    expect(player.pos.y).toBe(50);
+    expect(firstStep(new p5.Vector(1, 0)).x).toBeCloseTo(player.speed * MOVE_ACCEL, 5);
+    expect(firstStep(new p5.Vector(0, 1)).y).toBeCloseTo(player.speed * MOVE_ACCEL, 5);
+    expect(firstStep(new p5.Vector(-1, 0)).x).toBeCloseTo(-player.speed * MOVE_ACCEL, 5);
+    expect(firstStep(new p5.Vector(0, -1)).y).toBeCloseTo(-player.speed * MOVE_ACCEL, 5);
+  });
+
+  it("reaches full speed in about four frames", function () {
+    for (let i = 0; i < 4; i++) {
+      player.move(new p5.Vector(1, 0), room);
+    }
+    expect(player.velocity.x).toBeGreaterThan(player.speed * 0.9);
+    for (let i = 0; i < 8; i++) {
+      player.move(new p5.Vector(1, 0), room);
+    }
+    expect(player.velocity.x).toBeCloseTo(player.speed, 1);
+  });
+
+  it("brakes over a few frames instead of stopping dead", function () {
+    for (let i = 0; i < 10; i++) {
+      player.move(new p5.Vector(1, 0), room);
+    }
+    const full = player.velocity.x;
+    player.move(new p5.Vector(0, 0), room);
+    expect(player.velocity.x).toBeCloseTo(full * (1 - MOVE_BRAKE), 5);
+    expect(player.velocity.x).toBeGreaterThan(0);
+    for (let i = 0; i < 10; i++) {
+      player.move(new p5.Vector(0, 0), room);
+    }
+    expect(player.velocity.magSq()).toBe(0);
   });
 
   it("does not move with no direction", function () {
@@ -26,9 +54,8 @@ describe("Player movement", function () {
   });
 
   it("moves diagonals at the same speed as straight lines", function () {
-    player.move(new p5.Vector(1, 1), room);
-    const distance = Math.hypot(player.pos.x - 50, player.pos.y - 50);
-    expect(distance).toBeCloseTo(player.speed, 5);
+    const step = firstStep(new p5.Vector(1, 1));
+    expect(step.mag()).toBeCloseTo(player.speed * MOVE_ACCEL, 5);
   });
 
   it("does not change the direction vector it is given", function () {
@@ -51,7 +78,9 @@ describe("Player movement", function () {
 
   it("slides along a wall when moving diagonally into it", function () {
     player.pos.set(128, 50);          // already squished against the right wall
-    player.move(new p5.Vector(1, 1), room);
+    for (let i = 0; i < 3; i++) {
+      player.move(new p5.Vector(1, 1), room);
+    }
     expect(player.pos.x).toBe(128);   // blocked on x
     expect(player.pos.y).toBeGreaterThan(50); // still free on y
   });
@@ -126,7 +155,9 @@ describe("Player animation state", () => {
     player.move(right, room);
     player.move(right, room);
     expect(player.walkFrames).toBe(2);
-    player.move(none, room);
+    for (let i = 0; i < 10; i++) {
+      player.move(none, room);
+    }
     expect(player.walkFrames).toBe(0);
   });
 
@@ -188,13 +219,17 @@ describe("getFireDirection", function () {
     expect(getFireDirection(held(87, 65, 83, 68), twin).magSq()).toBe(0);
   });
 
-  it("never fires diagonally, even with several arrows held", function () {
-    const combos = [[38, 39], [38, 37], [40, 39], [40, 37], [38, 40], [37, 39], [37, 38, 39, 40]];
-    for (const combo of combos) {
-      const dir = getFireDirection(held(...combo), twin);
-      expect(dir.x * dir.y).toBe(0);
-      expect(dir.magSq()).toBe(1);
-    }
+  it("aims diagonally with two arrows held", function () {
+    expect(getFireDirection(held(38, 39), twin)).toEqual(new p5.Vector(1, -1));
+    expect(getFireDirection(held(38, 37), twin)).toEqual(new p5.Vector(-1, -1));
+    expect(getFireDirection(held(40, 39), twin)).toEqual(new p5.Vector(1, 1));
+    expect(getFireDirection(held(40, 37), twin)).toEqual(new p5.Vector(-1, 1));
+  });
+
+  it("cancels opposite arrows", function () {
+    expect(getFireDirection(held(38, 40), twin).magSq()).toBe(0);
+    expect(getFireDirection(held(37, 39), twin).magSq()).toBe(0);
+    expect(getFireDirection(held(37, 38, 39, 40), twin).magSq()).toBe(0);
   });
 });
 

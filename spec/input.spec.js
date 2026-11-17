@@ -58,11 +58,35 @@ describe("input with bindings", function () {
     expect(input.meleeHeld).toBe(false);
   });
 
-  it("aims where Classic faces and where Twin-stick last shot", function () {
+  it("aims Classic along the held movement keys in 8 ways", function () {
     const player = new Player(0, 0, "Fire");
-    player.facing = "left";
-    aimPlayer(player, { fireDir: new p5.Vector(0, 0) }, classic);
+    const none = new p5.Vector(0, 0);
+    aimPlayer(player, { move: new p5.Vector(-1, 0), fireDir: none }, classic);
     expect(player.aim).toEqual(new p5.Vector(-1, 0));
+    aimPlayer(player, { move: new p5.Vector(1, -1), fireDir: none }, classic);
+    expect(player.aim.x).toBeCloseTo(Math.SQRT1_2, 5);
+    expect(player.aim.y).toBeCloseTo(-Math.SQRT1_2, 5);
+    aimPlayer(player, { move: none, fireDir: none }, classic);
+    expect(player.aim.y).toBeCloseTo(-Math.SQRT1_2, 5); // kept while standing
+  });
+
+  it("keeps the Classic aim while strafing or shooting", function () {
+    const player = new Player(0, 0, "Fire");
+    player.setAim(new p5.Vector(0, -1));
+    aimPlayer(player, { move: new p5.Vector(1, 0), strafe: true, fireDir: new p5.Vector(0, 0) },
+      classic);
+    expect(player.aim).toEqual(new p5.Vector(0, -1));
+    const input = { move: new p5.Vector(1, 0), fireDir: new p5.Vector(0, -1) };
+    aimPlayer(player, input, classic);
+    expect(player.aim).toEqual(new p5.Vector(0, -1));
+    expect(input.fireDir).toEqual(new p5.Vector(0, -1));
+  });
+
+  it("aims Twin-stick along two arrows and remembers the last one", function () {
+    const player = new Player(0, 0, "Fire");
+    aimPlayer(player, { fireDir: new p5.Vector(1, 1) }, twin);
+    expect(player.aim.x).toBeCloseTo(Math.SQRT1_2, 5);
+    expect(player.aim.y).toBeCloseTo(Math.SQRT1_2, 5);
     aimPlayer(player, { fireDir: new p5.Vector(0, -1) }, twin);
     expect(player.aim).toEqual(new p5.Vector(0, -1));
     aimPlayer(player, { fireDir: new p5.Vector(0, 0) }, twin);
