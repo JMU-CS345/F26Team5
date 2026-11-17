@@ -12,6 +12,7 @@ let nextSpawnIndex = 0;
 let restartButton;
 let classButtons = [];
 let dungeon;
+let lootRun; // loot rng and counters for this run
 let room; // the room the player is in right now
 let roomGraphic; // the picture of that room
 let roomGraphics = new Map(); // room id -> picture, built the first time the room is entered
@@ -91,6 +92,7 @@ function startRun() {
     screenY: ROOM_Y
   });
   console.log("Dungeon seed:", dungeon.seed); // pass this as seed to replay a dungeon
+  lootRun = new LootRun(dungeon.seed + 1, doorDistances(dungeon.rooms, 0));
   enterRoom(dungeon.start);
   const spawn = room.getPlayerSpawn(); // the @ in the start room's drawing
   player = new Player(
@@ -312,6 +314,9 @@ function draw() {
   for (const drop of room.items) {
     drop.update();
   }
+  for (const chest of room.chests) {
+    chest.update();
+  }
   pickupItemDrops(player, room);
 
   if (!player.isDead()) {
@@ -368,6 +373,13 @@ function draw() {
 }
 
 function drawRunScene() {
+  for (const chest of room.chests) {
+    drawChest(chest);
+  }
+  const nearChest = findOpenableChest(player, room);
+  if (nearChest !== null && game.isPlaying()) {
+    drawChestPrompt(nearChest);
+  }
   for (const drop of room.items) {
     drawItemDrop(drop);
   }
@@ -521,6 +533,9 @@ function keyPressed() {
       }
     }
     if (key.toLowerCase() === "e") {
+      if (tryOpenChest(player, room, lootRun)) {
+        return false;
+      }
       spawnNextEnemy();
     }
   }

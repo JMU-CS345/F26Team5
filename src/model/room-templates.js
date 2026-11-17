@@ -8,6 +8,7 @@
 //   #  wall            .  floor           o  pit        x  interior wall (an obstacle)
 //   +  a door (on the outer wall only, always 2 tiles side by side)
 //   J  Jelly   Z  Zombie   S  Skeleton   B  Bat   E  Eyeball   D  Demon (on floor)
+//   C  a treasure chest (on floor; press E next to it to open)
 //   @  where the player starts (start rooms only, exactly one)
 //
 // Doors: draw as many as you like, on any wall. A door only opens when another room is placed
@@ -338,11 +339,11 @@ const ROOM_TEMPLATES = [
   {
     name: "dead-end-west",
     role: "normal",
-    // A small chamber with one door, on the west wall.
+    // A small chamber with one door, on the west wall. A chest at the far end.
     rows: [
       "################",
       "#..............#",
-      "#..............#",
+      "#.............C#",
       "#..............#",
       "+........Z.....#",
       "+..............#",
@@ -356,11 +357,11 @@ const ROOM_TEMPLATES = [
   {
     name: "dead-end-east",
     role: "normal",
-    // A small chamber with one door, on the east wall.
+    // A small chamber with one door, on the east wall. A chest at the far end.
     rows: [
       "################",
       "#..............#",
-      "#..............#",
+      "#C.............#",
       "#..............#",
       "#..............+",
       "#....J....J....+",
@@ -374,7 +375,7 @@ const ROOM_TEMPLATES = [
   {
     name: "dead-end-north",
     role: "normal",
-    // A small chamber with one door, on the north wall.
+    // A small chamber with one door, on the north wall. A chest at the far end.
     rows: [
       "#######++#######",
       "#..............#",
@@ -385,17 +386,17 @@ const ROOM_TEMPLATES = [
       "#..............#",
       "#..............#",
       "#..............#",
-      "#..............#",
+      "#.......C......#",
       "################"
     ]
   },
   {
     name: "dead-end-south",
     role: "normal",
-    // A small chamber with one door, on the south wall.
+    // A small chamber with one door, on the south wall. A chest at the far end.
     rows: [
       "################",
-      "#..............#",
+      "#.......C......#",
       "#..............#",
       "#..............#",
       "#..............#",
