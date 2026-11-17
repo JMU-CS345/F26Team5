@@ -192,3 +192,11 @@ class Game {
     return true;
   }
 }
+
+// True on the one frame the death screen starts, so the death sound plays once per death.
+function playerJustDied(game, player) {
+  if (!player.showDeathScreen()) {
+    return false;
+  }
+  return game.playerDied();
+}

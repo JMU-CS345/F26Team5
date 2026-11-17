@@ -561,9 +561,8 @@ function drawScreen() {
     }
     room.items.push(...rollClearDrops(room, lootRun));
   }
-  if (player.showDeathScreen()) {
+  if (playerJustDied(game, player)) {
     activeDialogue.close();
-    game.playerDied();
     playSfx("death");
   }
   if (game.isDead()) {
