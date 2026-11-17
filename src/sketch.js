@@ -92,6 +92,7 @@ function startRun() {
   });
   console.log("Dungeon seed:", dungeon.seed); // pass this as seed to replay a dungeon
   enterRoom(dungeon.start);
+  playMusic();
   const spawn = room.getPlayerSpawn(); // the @ in the start room's drawing
   player = new Player(
     spawn.x - PLAYER_LENGTH / 2,
@@ -144,6 +145,7 @@ function startRun() {
 // Picks a class on the menu and starts the run.
 function chooseClass(mageClass) {
   if (game.selectClass(mageClass)) {
+    playSfx("menu");
     startRun();
   }
 }
@@ -151,6 +153,7 @@ function chooseClass(mageClass) {
 // Picks a playermodel in the character creator and moves on to the class menu.
 function chooseModel(modelName) {
   if (game.selectModel(modelName)) {
+    playSfx("menu");
     for (const button of modelButtons) {
       button.hide();
     }
@@ -312,8 +315,11 @@ function draw() {
   for (const drop of room.items) {
     drop.update();
   }
-  pickupItemDrops(player, room);
+  if (pickupItemDrops(player, room).length > 0) {
+    playSfx("pickup");
+  }
 
+  const healthBeforeHits = player.health;
   if (!player.isDead()) {
     for (const e of room.enemies) {
       e.update(player, room);
@@ -331,6 +337,7 @@ function draw() {
     );
     if (proj) {
       projectiles.push(proj);
+      playSfx("shoot");
     }
   }
   player.update();
@@ -348,6 +355,9 @@ function draw() {
     projectileHitsPlayer(p, player);
   }
   enemyProjectiles = enemyProjectiles.filter((p) => p.alive);
+  if (player.health < healthBeforeHits) {
+    playSfx("hurt");
+  }
   handleDeadEnemies(removeDeadEnemies(room));
 
   drawRunScene();
@@ -357,6 +367,7 @@ function draw() {
   if (player.showDeathScreen()) {
     activeDialogue.close();
     game.playerDied();
+    playSfx("death");
   }
   if (game.isDead()) {
     drawDeathScreen();
@@ -423,6 +434,9 @@ function handleDeadEnemies(dead) {
   for (const enemy of dead) {
     startEnemyDeath(enemy);
   }
+  if (dead.length > 0) {
+    playSfx("death");
+  }
   if (findDeadBosses(dead).length > 0) {
     room.bossDefeated = true;
   }
@@ -480,6 +494,7 @@ function toggleTopRightNpc() {
 }
 
 function keyPressed() {
+  playMusic(); // browsers only allow audio after a key press, so the first one starts the loop
   if (keyCode === 114) {
     debugOverlay = !debugOverlay;
     return false;
