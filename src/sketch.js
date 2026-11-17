@@ -17,6 +17,10 @@ let roomGraphic; // the picture of that room
 let roomGraphics = new Map(); // room id -> picture, built the first time the room is entered
 let restartShown = false;
 let modelButtons = [];
+let inventoryDrag = null;
+let inventorySelection = null;
+let inventoryInfoLines = [];
+let resumeInputBlocked = false;
 let activeDialogue;
 //temp
 const ROOM_WIDTH = 640;
@@ -94,10 +98,39 @@ function startRun() {
     game.selectedClass,
     game.selectedModel
   );
+  // Placeholder pickups until room data supplies item placement.
+  room.items = [
+    new ItemDrop(spawn.x - 48, spawn.y - 48, new ProjectileWeapon({
+      id: "training-wand",
+      name: "Training Wand",
+      damage: 2,
+      element: game.selectedClass,
+      description: "A simple wand for apprentice mages."
+    })),
+    new ItemDrop(spawn.x + 48, spawn.y - 48, new ChestArmor({
+      id: "apprentice-robe",
+      name: "Apprentice Robe",
+      defense: 1,
+      description: "A light robe with basic protection."
+    })),
+    new ItemDrop(spawn.x - 48, spawn.y + 48, new Consumable({
+      id: "health-potion",
+      name: "Health Potion",
+      maxStackSize: 5,
+      healthRestore: 2,
+      description: "A small restorative potion."
+    })),
+    new ItemDrop(spawn.x + 48, spawn.y + 48, new Gold(), 25)
+  ];
   nextSpawnIndex = ENEMY_TYPE_NAMES.indexOf("Demon");
   projectiles = [];
   enemyProjectiles = [];
   clearDyingEnemies();
+  inventoryDrag = null;
+  inventorySelection = null;
+  inventoryInfoLines = [];
+  resumeInputBlocked = false;
+  activeDialogue.close();
   room.cleared = false;
   room.bossDefeated = false;
   restartShown = false;
@@ -174,6 +207,7 @@ async function setup() {
   await loadPlayerSheets();
   await loadTileImages();
   await loadEnemySheets();
+  await loadItemSprites();
   createCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);
   fitToWindow();
   noSmooth();
@@ -208,6 +242,13 @@ function windowResized() {
   fitToWindow();
 }
 
+// This p5 build reports pointer offsets after the page's CSS scale is applied.
+// Convert them back to the fixed 1280x720 canvas coordinates used by every HUD layout.
+function canvasPointer() {
+  const scale = pageScale > 0 ? pageScale : 1;
+  return { x: mouseX / scale, y: mouseY / scale };
+}
+
 function draw() {
   background(0);
   updateBackground();
@@ -220,6 +261,23 @@ function draw() {
     drawClassMenu();
     return;
   }
+  if (game.isInventory()) {
+    const pointer = canvasPointer();
+    drawRoom(room, roomGraphic);
+    drawRunScene();
+    drawInventoryMenu(
+      player.inventory,
+      player,
+      inventoryDrag,
+      inventorySelection,
+      inventoryInfoLines,
+      pointer.x,
+      pointer.y
+    );
+    drawInventoryHudButton(true);
+    return;
+  }
+
   // Standing in a door tile means the player is leaving the room. This is checked before
   // drawing, so the new room is drawn on the same frame the player arrives.
   if (!player.isDead()) {
@@ -231,11 +289,22 @@ function draw() {
   }
   drawRoom(room, roomGraphic);
 
+  const heldInputBlocked = resumeInputBlocked && isGameplayInputHeld(keyIsDown);
+  if (resumeInputBlocked && !heldInputBlocked) {
+    resumeInputBlocked = false;
+  }
   if (!activeDialogue.isActive()) {
-    player.move(getMoveDirection(keyIsDown), room);
+    player.move(
+      heldInputBlocked ? new p5.Vector(0, 0) : getMoveDirection(keyIsDown),
+      room
+    );
   } else {
     player.walkFrames = 0;
   }
+  for (const drop of room.items) {
+    drop.update();
+  }
+  pickupItemDrops(player, room);
 
   if (!player.isDead()) {
     for (const e of room.enemies) {
@@ -249,7 +318,9 @@ function draw() {
   }
 
   if (!activeDialogue.isActive()) {
-    const proj = player.fire(getFireDirection(keyIsDown));
+    const proj = player.fire(
+      heldInputBlocked ? new p5.Vector(0, 0) : getFireDirection(keyIsDown)
+    );
     if (proj) {
       projectiles.push(proj);
     }
@@ -271,6 +342,27 @@ function draw() {
   enemyProjectiles = enemyProjectiles.filter((p) => p.alive);
   handleDeadEnemies(removeDeadEnemies(room));
 
+  drawRunScene();
+  if (!room.cleared && room.enemies.every((e) => e.isDead())) {
+    room.onClear();
+  }
+  if (player.showDeathScreen()) {
+    activeDialogue.close();
+    game.playerDied();
+  }
+  if (game.isDead()) {
+    drawDeathScreen();
+    if (!restartShown) {
+      restartButton.show();
+      restartShown = true;
+    }
+  }
+}
+
+function drawRunScene() {
+  for (const drop of room.items) {
+    drawItemDrop(drop);
+  }
   for (const p of projectiles) {
     drawProjectile(p);
   }
@@ -287,25 +379,34 @@ function draw() {
   for (const npc of room.npcs) {
     drawNpc(npc, player, activeDialogue.isActive());
   }
-  drawDyingEnemies();
-  if (!room.cleared && room.enemies.every((e) => e.isDead())) {
-    room.onClear();
-  }
+  drawDyingEnemies(!game.isInventory());
   drawHealthBar(player);
+  drawGoldHud(player.inventory);
   drawFirstBossBar();
   drawClassLabel(player.mageClass);
   drawMinimap(dungeon, room);
-  if (player.showDeathScreen()) {
-    activeDialogue.close();
-    game.playerDied();
+  if (game.isPlaying() || game.isInventory()) {
+    drawInventoryHudButton(game.isInventory());
   }
-  if (game.isDead()) {
-    drawDeathScreen();
-    if (!restartShown) {
-      restartButton.show();
-      restartShown = true;
-    }
+  drawDialogueBox(activeDialogue, room.x, room.y, room.width, room.height);
+}
+
+function clearInventoryUiState() {
+  inventoryDrag = null;
+  inventorySelection = null;
+  inventoryInfoLines = [];
+}
+
+function toggleInventoryMenu() {
+  const wasInventoryOpen = game.isInventory();
+  if (!toggleInventoryFromControl(game)) {
+    return false;
   }
+  clearInventoryUiState();
+  if (wasInventoryOpen) {
+    resumeInputBlocked = true;
+  }
+  return true;
 }
 
 // Vincent's room code hooks door unlock and exit here, and Nick's loot hooks
@@ -383,6 +484,17 @@ function keyPressed() {
     chooseClass(getClassForKey(key));
     return;
   }
+  if ((game.isPlaying() || game.isInventory()) && key.toLowerCase() === "i") {
+    toggleInventoryMenu();
+    return false;
+  }
+  if (game.isInventory()) {
+    if (keyCode === ESCAPE) {
+      inventorySelection = null;
+      inventoryInfoLines = [];
+    }
+    return false;
+  }
   if (game.isPlaying()) {
     if (key.toLowerCase() === "n") {
       toggleTopRightNpc();
@@ -418,4 +530,67 @@ function keyPressed() {
   ) {
     return false;
   }
+}
+
+function mousePressed() {
+  const pointer = canvasPointer();
+  if ((game.isPlaying() || game.isInventory())
+      && inventoryHudButtonAt(pointer.x, pointer.y)) {
+    toggleInventoryMenu();
+    return false;
+  }
+  if (!game.isInventory()) {
+    return;
+  }
+
+  const contextAction = inventoryContextActionAt(
+    player.inventory,
+    player,
+    inventorySelection,
+    pointer.x,
+    pointer.y
+  );
+  if (contextAction !== null) {
+    const result = performInventoryContextAction(
+      player.inventory,
+      player,
+      inventorySelection,
+      contextAction.id
+    );
+    inventoryInfoLines = result.infoLines;
+    if (result.success && contextAction.id !== "view") {
+      inventorySelection = null;
+    }
+    inventoryDrag = null;
+    return false;
+  }
+
+  if (inventorySelectionAt(player.inventory, pointer.x, pointer.y) === null) {
+    inventorySelection = null;
+    inventoryInfoLines = [];
+  }
+  inventoryDrag = beginInventoryDrag(player.inventory, pointer.x, pointer.y);
+  return false;
+}
+
+function mouseReleased() {
+  if (!game.isInventory() || inventoryDrag === null) {
+    inventoryDrag = null;
+    return;
+  }
+  const pointer = canvasPointer();
+  if (inventoryDragMoved(inventoryDrag, pointer.x, pointer.y)) {
+    finishInventoryDrag(player.inventory, inventoryDrag, pointer.x, pointer.y);
+    inventorySelection = null;
+    inventoryInfoLines = [];
+  } else {
+    inventorySelection = inventorySelectionAt(
+      player.inventory,
+      inventoryDrag.startX,
+      inventoryDrag.startY
+    );
+    inventoryInfoLines = [];
+  }
+  inventoryDrag = null;
+  return false;
 }

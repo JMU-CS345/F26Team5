@@ -65,6 +65,41 @@ function drawHealthBar(player) {
   text(player.health + " / " + player.maxHealth, 276, 34);
 }
 
+function goldHudText(inventory) {
+  return `Gold: ${inventory.gold}`;
+}
+
+function drawGoldHud(inventory) {
+  noStroke();
+  fill(255);
+  textSize(24);
+  textAlign(LEFT, CENTER);
+  text(goldHudText(inventory), 400, 34);
+}
+
+function drawInventoryHudButton(active = false) {
+  push();
+  fill(0);
+  stroke(255);
+  strokeWeight(active ? 2 : 1);
+  rect(
+    INVENTORY_HUD_BUTTON.x,
+    INVENTORY_HUD_BUTTON.y,
+    INVENTORY_HUD_BUTTON.w,
+    INVENTORY_HUD_BUTTON.h
+  );
+  noStroke();
+  fill(255);
+  textAlign(CENTER, CENTER);
+  textSize(20);
+  text(
+    active ? "Close Inventory" : "Inventory [I]",
+    INVENTORY_HUD_BUTTON.x + INVENTORY_HUD_BUTTON.w / 2,
+    INVENTORY_HUD_BUTTON.y + INVENTORY_HUD_BUTTON.h / 2
+  );
+  pop();
+}
+
 // The Restart button is a p5 DOM button, made in sketch.js.
 function drawDeathScreen() {
   noStroke();

@@ -130,7 +130,7 @@ function clearDyingEnemies() {
 }
 
 // Draws each dead enemy where it fell, fading out and shrinking toward its center.
-function drawDyingEnemies() {
+function drawDyingEnemies(advance = true) {
   for (const ghost of dyingEnemies) {
     const enemy = ghost.enemy;
     const center = enemy.getCenter();
@@ -142,7 +142,12 @@ function drawDyingEnemies() {
     translate(-center.x, -center.y);
     drawEnemyBody(enemy, alpha);
     pop();
-    ghost.age++;
+    if (advance) {
+      ghost.age++;
+    }
+  }
+  if (!advance) {
+    return;
   }
   // Keep only the ghosts that still have frames left.
   for (let i = dyingEnemies.length - 1; i >= 0; i--) {

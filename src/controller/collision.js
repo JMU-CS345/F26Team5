@@ -15,3 +15,24 @@ function projectileHitsPlayer(projectile, player) {
   projectile.alive = false;
   return true;
 }
+
+// Collects every overlapping drop that fits. Uncollected drops remain in the room.
+function pickupItemDrops(player, room) {
+  const collected = [];
+  const remaining = [];
+  for (const drop of room.items) {
+    const overlaps = rectsOverlap(player.getBounds(), drop.getBounds());
+    if (!overlaps || !player.inventory.canAdd(drop.item, drop.quantity)) {
+      remaining.push(drop);
+      continue;
+    }
+    try {
+      player.inventory.add(drop.item, drop.quantity);
+      collected.push(drop);
+    } catch (error) {
+      remaining.push(drop);
+    }
+  }
+  room.items = remaining;
+  return collected;
+}

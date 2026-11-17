@@ -44,6 +44,25 @@ describe("Game state", function () {
     expect(game.selectedClass).toBe("Fire");
   });
 
+  it("opens and closes the inventory menu only during a run", function () {
+    expect(game.openInventory()).toBe(false);
+    game.selectClass("Fire");
+
+    expect(game.openInventory()).toBe(true);
+    expect(game.isInventory()).toBe(true);
+    expect(game.isPlaying()).toBe(false);
+    expect(game.closeInventory()).toBe(true);
+    expect(game.isPlaying()).toBe(true);
+  });
+
+  it("toggles between playing and the paused inventory state", function () {
+    game.selectClass("Ice");
+    expect(game.toggleInventory()).toBe(true);
+    expect(game.state).toBe(GAME_STATES.INVENTORY);
+    expect(game.toggleInventory()).toBe(true);
+    expect(game.state).toBe(GAME_STATES.PLAYING);
+  });
+
   it("moves to dead when the player dies during a run", function () {
     game.selectClass("Ice");
     expect(game.playerDied()).toBe(true);

@@ -70,6 +70,12 @@ describe("Player movement", function () {
     expect(p.getCenter().x).toBe(10 + p.length / 2);
     expect(p.getCenter().y).toBe(20 + p.width / 2);
   });
+
+  it("owns an independent player inventory", function () {
+    const other = new Player(60, 60);
+    expect(player.inventory instanceof PlayerInventory).toBe(true);
+    expect(other.inventory).not.toBe(player.inventory);
+  });
 });
 
 describe("getMoveDirection", function () {

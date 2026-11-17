@@ -5,6 +5,7 @@ const GAME_STATES = Object.freeze({
   MODEL: "model", // character creator, step 1: pick a playermodel
   MENU: "menu", // character creator, step 2: pick a class
   PLAYING: "playing",
+  INVENTORY: "inventory",
   DEAD: "dead"
 });
 
@@ -31,8 +32,38 @@ class Game {
     return this.state === GAME_STATES.PLAYING;
   }
 
+  isInventory() {
+    return this.state === GAME_STATES.INVENTORY;
+  }
+
   isDead() {
     return this.state === GAME_STATES.DEAD;
+  }
+
+  openInventory() {
+    if (!this.isPlaying()) {
+      return false;
+    }
+    this.state = GAME_STATES.INVENTORY;
+    return true;
+  }
+
+  closeInventory() {
+    if (!this.isInventory()) {
+      return false;
+    }
+    this.state = GAME_STATES.PLAYING;
+    return true;
+  }
+
+  toggleInventory() {
+    if (this.isPlaying()) {
+      return this.openInventory();
+    }
+    if (this.isInventory()) {
+      return this.closeInventory();
+    }
+    return false;
   }
 
   // Picks a playermodel and moves on to the class menu. Only works on the model

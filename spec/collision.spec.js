@@ -54,3 +54,57 @@ describe("projectileHitsPlayer", function () {
     expect(shot.alive).toBe(true);
   });
 });
+
+describe("pickupItemDrops", function () {
+  let player;
+  let room;
+
+  beforeEach(function () {
+    player = new Player(50, 50);
+    room = new NormalRoom(0, 0, 160, 160);
+  });
+
+  it("collects one of each supported item type on contact", function () {
+    const weapon = new ProjectileWeapon({ id: "wand", name: "Wand" });
+    const armor = new ChestArmor({ id: "robe", name: "Robe" });
+    const potion = new Consumable({ id: "potion", name: "Potion" });
+    room.items = [
+      new ItemDrop(52, 52, weapon),
+      new ItemDrop(52, 52, armor),
+      new ItemDrop(52, 52, potion, 2),
+      new ItemDrop(52, 52, new Gold(), 10)
+    ];
+
+    const collected = pickupItemDrops(player, room);
+
+    expect(collected.length).toBe(4);
+    expect(room.items.length).toBe(0);
+    expect(player.inventory.quantityOf(weapon)).toBe(1);
+    expect(player.inventory.quantityOf(armor)).toBe(1);
+    expect(player.inventory.quantityOf("potion")).toBe(2);
+    expect(player.inventory.gold).toBe(10);
+  });
+
+  it("leaves drops that do not overlap the player", function () {
+    const drop = new ItemDrop(100, 100, new Gold(), 10);
+    room.items = [drop];
+
+    expect(pickupItemDrops(player, room)).toEqual([]);
+    expect(room.items).toEqual([drop]);
+    expect(player.inventory.gold).toBe(0);
+  });
+
+  it("leaves a drop in place when the inventory cannot accept it", function () {
+    const drop = new ItemDrop(
+      52,
+      52,
+      new Consumable({ id: "potion", name: "Potion" })
+    );
+    player.inventory = new PlayerInventory(0);
+    room.items = [drop];
+
+    expect(pickupItemDrops(player, room)).toEqual([]);
+    expect(room.items).toEqual([drop]);
+    expect(player.inventory.quantityOf("potion")).toBe(0);
+  });
+});
