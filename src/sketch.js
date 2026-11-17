@@ -101,15 +101,9 @@ function startRun() {
     game.selectedClass,
     game.selectedModel
   );
+  giveLoadout(player, lootRun.rng);
   // Placeholder pickups until room data supplies item placement.
   room.items = [
-    new ItemDrop(spawn.x - 48, spawn.y - 48, new ProjectileWeapon({
-      id: "training-wand",
-      name: "Training Wand",
-      damage: 2,
-      element: game.selectedClass,
-      description: "A simple wand for apprentice mages."
-    })),
     new ItemDrop(spawn.x + 48, spawn.y - 48, new ChestArmor({
       id: "apprentice-robe",
       name: "Apprentice Robe",
