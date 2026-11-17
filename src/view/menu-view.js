@@ -86,31 +86,7 @@ function drawSelectionBox(centerX, topY, w, h) {
   noStroke();
 }
 
-// Character creator step 1. The menu holds one item per playermodel.
-function drawModelMenu(menu) {
-  drawGameTitle(height / 2 - 250);
-  noStroke();
-  fill(255);
-  textAlign(CENTER, CENTER);
-  textSize(28);
-  text("Choose your playermodel", width / 2, height / 2 - 180);
-
-  const count = PLAYER_MODEL_NAMES.length;
-  PLAYER_MODEL_NAMES.forEach((name, i) => {
-    const x = cardCenterX(i, count);
-    drawModelPreview(name, x, height / 2 + 100);
-    if (i === menu.index) {
-      drawSelectionBox(x, height / 2 - 130, 220, 280);
-    }
-    noStroke();
-    fill(255);
-    textSize(24);
-    text(i + 1 + ". " + name, x, height / 2 + 140);
-  });
-  drawMenuHint("Left and Right to choose, Enter to confirm, Esc for title");
-}
-
-// Character creator step 2. The menu holds one item per class.
+// The class screen. The menu holds one item per class.
 function drawClassMenu(menu, modelName) {
   drawGameTitle(height / 2 - 250);
   noStroke();

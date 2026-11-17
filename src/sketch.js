@@ -20,7 +20,6 @@ let inventoryCursor = new InventoryCursor();
 let gameSettings; // loaded from localStorage in setup()
 let runStats = new RunStats();
 let titleMenu;
-let modelMenu;
 let classMenu;
 let pauseMenu;
 let settingsMenu;
@@ -150,13 +149,6 @@ function chooseClass(mageClass) {
   }
 }
 
-// Picks a playermodel in the character creator and moves on to the class menu.
-function chooseModel(modelName) {
-  if (game.selectModel(modelName)) {
-    classMenu.reset();
-  }
-}
-
 // Goes back to the title screen from character select, pause or the death screen.
 function goToTitle() {
   activeDialogue.close();
@@ -179,7 +171,7 @@ function openCredits() {
 
 function startCharacterSelect() {
   if (game.startCharacterSelect()) {
-    modelMenu.reset();
+    classMenu.reset();
   }
 }
 
@@ -224,17 +216,9 @@ function makeMenus() {
     { label: "Settings", action: openSettings },
     { label: "Credits", action: openCredits }
   ]);
-  modelMenu = new Menu(
-    PLAYER_MODEL_NAMES.map((name) => ({ label: name, action: () => chooseModel(name) })),
-    goToTitle
-  );
   classMenu = new Menu(
     MAGE_CLASSES.map((name) => ({ label: name, action: () => chooseClass(name) })),
-    () => {
-      if (game.backToModelSelect()) {
-        modelMenu.reset();
-      }
-    }
+    goToTitle
   );
   pauseMenu = new Menu([
     { label: "Resume", action: resumeGame },
@@ -348,10 +332,6 @@ function draw() {
   if (game.isCredits()) {
     updateCreditsScroll();
     drawCreditsScreen(creditsLines(), creditsScroll);
-    return;
-  }
-  if (game.isModelSelect()) {
-    drawModelMenu(modelMenu);
     return;
   }
   if (game.isMenu()) {
@@ -634,15 +614,6 @@ function keyPressed() {
   if (game.isCredits()) {
     if (keyCode === ESCAPE) {
       game.closeCredits();
-    }
-    return false;
-  }
-  if (game.isModelSelect()) {
-    // The 1 and 2 keys still pick a model straight away.
-    if (getModelForKey(key) !== null) {
-      chooseModel(getModelForKey(key));
-    } else {
-      handleMenuKey(modelMenu, keyCode, true);
     }
     return false;
   }

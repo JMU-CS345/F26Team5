@@ -5,8 +5,7 @@ const GAME_STATES = Object.freeze({
   TITLE: "title",
   SETTINGS: "settings", // opened from the title or the pause menu
   CREDITS: "credits",
-  MODEL: "model", // character creator, step 1: pick a playermodel
-  MENU: "menu", // character creator, step 2: pick a class
+  MENU: "menu", // character select: pick a class
   PLAYING: "playing",
   INVENTORY: "inventory",
   PAUSED: "paused",
@@ -36,11 +35,7 @@ class Game {
     return this.state === GAME_STATES.CREDITS;
   }
 
-  isModelSelect() {
-    return this.state === GAME_STATES.MODEL;
-  }
-
-  // The class menu, the second step of the character creator.
+  // The class menu.
   isMenu() {
     return this.state === GAME_STATES.MENU;
   }
@@ -67,12 +62,14 @@ class Game {
     return this.isPlaying() || this.isDead();
   }
 
-  // New Run on the title screen goes to the character creator.
+  // New Run on the title screen goes to the class menu. There is one playermodel for now, so
+  // the model is set here and kept in selectedModel for the player code.
   startCharacterSelect() {
     if (!this.isTitle()) {
       return false;
     }
-    this.state = GAME_STATES.MODEL;
+    this.selectedModel = PLAYER_MODEL_NAMES[0];
+    this.state = GAME_STATES.MENU;
     return true;
   }
 
@@ -162,27 +159,6 @@ class Game {
     return true;
   }
 
-  // Picks a playermodel and moves on to the class menu. Only works on the model
-  // screen, and only for a real model.
-  selectModel(modelName) {
-    if (!this.isModelSelect() || !PLAYER_MODEL_NAMES.includes(modelName)) {
-      return false;
-    }
-    this.selectedModel = modelName;
-    this.state = GAME_STATES.MENU;
-    return true;
-  }
-
-  // Esc on the class menu goes back to the model screen.
-  backToModelSelect() {
-    if (!this.isMenu()) {
-      return false;
-    }
-    this.selectedModel = null;
-    this.state = GAME_STATES.MODEL;
-    return true;
-  }
-
   // Picks a class and starts the run. Only works from the class menu, and only for a
   // real class, so a stray key press cannot start a run mid-game.
   selectClass(mageClass) {
@@ -206,7 +182,7 @@ class Game {
   // Leaving a run (death screen or Quit to Title) or backing out of character select.
   // Clears the picked model and class.
   backToTitle() {
-    const allowed = this.isModelSelect() || this.isMenu() || this.isPaused() || this.isDead();
+    const allowed = this.isMenu() || this.isPaused() || this.isDead();
     if (!allowed) {
       return false;
     }

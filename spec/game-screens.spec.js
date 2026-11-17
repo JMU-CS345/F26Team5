@@ -4,7 +4,6 @@ describe("Game title, pause, settings and credits", function () {
   function playingGame() {
     const g = new Game();
     g.startCharacterSelect();
-    g.selectModel("Tall");
     g.selectClass("Fire");
     return g;
   }
@@ -18,26 +17,23 @@ describe("Game title, pause, settings and credits", function () {
     expect(game.isTitle()).toBe(true);
   });
 
-  it("goes from New Run to the model screen only from the title", function () {
+  it("goes from New Run to the class menu only from the title", function () {
     expect(game.startCharacterSelect()).toBe(true);
-    expect(game.isModelSelect()).toBe(true);
+    expect(game.isMenu()).toBe(true);
+    expect(game.selectedModel).toBe("Tall");
     expect(game.startCharacterSelect()).toBe(false);
   });
 
-  it("cannot pick a model or class from the title", function () {
-    expect(game.selectModel("Tall")).toBe(false);
+  it("cannot pick a class from the title", function () {
     expect(game.selectClass("Fire")).toBe(false);
     expect(game.isTitle()).toBe(true);
   });
 
-  it("backs out of the class menu to the model screen, then to the title", function () {
+  it("backs out of the class menu to the title and clears the model", function () {
     game.startCharacterSelect();
-    game.selectModel("Short");
-    expect(game.backToModelSelect()).toBe(true);
-    expect(game.isModelSelect()).toBe(true);
-    expect(game.selectedModel).toBeNull();
     expect(game.backToTitle()).toBe(true);
     expect(game.isTitle()).toBe(true);
+    expect(game.selectedModel).toBeNull();
   });
 
   it("opens credits from the title and returns to it", function () {

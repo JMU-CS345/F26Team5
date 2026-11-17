@@ -1,11 +1,10 @@
 describe("Game state", function () {
   let game;
 
-  // A game that has already picked a model, so it is on the class menu.
+  // A game on the class menu, with the default model already set.
   function gameAtClassMenu() {
     const g = new Game();
     g.startCharacterSelect();
-    g.selectModel("Tall");
     return g;
   }
 
@@ -13,7 +12,7 @@ describe("Game state", function () {
     game = gameAtClassMenu();
   });
 
-  it("is on the class menu with no class chosen once a model is picked", function () {
+  it("is on the class menu with no class chosen after New Run", function () {
     expect(game.state).toBe(GAME_STATES.MENU);
     expect(game.isMenu()).toBe(true);
     expect(game.selectedClass).toBeNull();
@@ -94,7 +93,6 @@ describe("Game state", function () {
     game.playerDied();
     game.backToTitle();
     game.startCharacterSelect();
-    game.selectModel("Tall");
     expect(game.selectClass("Mind")).toBe(true);
     expect(game.selectedClass).toBe("Mind");
   });
