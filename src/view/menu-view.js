@@ -12,11 +12,12 @@ const CLASS_BLURBS = {
   Ice: "Hardy and steady. Damage scales with Constitution.",
   Mind: "Sharp thinker. Damage scales with Intelligence."
 };
-const MENU_HIGHLIGHT = [255, 220, 90];
-const MENU_ROW_HEIGHT = 56;
 const CREDITS_LINE_HEIGHT = 34;
 const CREDITS_TOP = 110;
-const CREDITS_BOTTOM = 640;
+const CREDITS_BOTTOM = 630;
+const SETTINGS_TOP = 130;
+const SETTINGS_LEFT_W = 600;
+const TABLE_ROW_H = 32;
 
 function drawGameTitle(y) {
   noStroke();
@@ -24,45 +25,6 @@ function drawGameTitle(y) {
   textAlign(CENTER, CENTER);
   textSize(64);
   text("Mage Quest", width / 2, y);
-}
-
-function drawMenuHint(message) {
-  noStroke();
-  fill(180);
-  textAlign(CENTER, CENTER);
-  textSize(18);
-  text(message, width / 2, height - 50);
-}
-
-// A vertical list centered on the screen. The selected row gets a box and a bright color.
-function drawMenuList(menu, topY) {
-  textAlign(CENTER, CENTER);
-  textSize(30);
-  menu.items.forEach((item, i) => {
-    const y = topY + i * MENU_ROW_HEIGHT;
-    const selected = i === menu.index;
-    if (selected) {
-      noFill();
-      stroke(...MENU_HIGHLIGHT);
-      strokeWeight(2);
-      rect(width / 2 - 230, y - 22, 460, 44);
-    }
-    noStroke();
-    if (!menu.isEnabled(item)) {
-      fill(90);
-    } else if (selected) {
-      fill(...MENU_HIGHLIGHT);
-    } else {
-      fill(230);
-    }
-    text(menu.labelOf(item), width / 2, y);
-  });
-}
-
-function drawTitleScreen(menu) {
-  drawGameTitle(height / 2 - 170);
-  drawMenuList(menu, height / 2 - 20);
-  drawMenuHint("Up and Down to move, Enter to choose");
 }
 
 // Center x of the nth of count cards, spread across the screen.
@@ -78,42 +40,46 @@ function drawModelPreview(name, centerX, footY) {
   image(playerSheets[name], centerX - w / 2, footY - h, w, h, 0, 0, model.spriteW, model.spriteH);
 }
 
-function drawSelectionBox(centerX, topY, w, h) {
-  noFill();
-  stroke(...MENU_HIGHLIGHT);
-  strokeWeight(3);
-  rect(centerX - w / 2, topY, w, h);
-  noStroke();
+function drawTitleScreen(menu) {
+  drawGameTitle(150);
+  drawMenuPanel(menu, 260, 440);
+  drawFooterHint("Up/Down move, Enter pick");
 }
 
 // The class screen. The menu holds one item per class.
 function drawClassMenu(menu, modelName) {
-  drawGameTitle(height / 2 - 250);
-  noStroke();
-  fill(255);
-  textAlign(CENTER, CENTER);
-  textSize(28);
-  text("Choose your class", width / 2, height / 2 - 180);
-  drawModelPreview(modelName, width / 2, height / 2 - 20);
+  const panelX = width / 2 - 440;
+  drawPanel(panelX, 90, 880, 470);
+  drawPanelTitle("Choose your class", 140);
+  drawModelPreview(modelName, width / 2, 330);
 
   const count = MAGE_CLASSES.length;
   MAGE_CLASSES.forEach((mageClass, i) => {
     const x = cardCenterX(i, count);
     noStroke();
     fill(...CLASS_COLORS[mageClass]);
-    rect(x - 110, height / 2 + 20, 220, 90);
+    rect(x - 110, 375, 220, 90);
     fill(255);
     textAlign(CENTER, CENTER);
     textSize(28);
-    text(i + 1 + ". " + mageClass, x, height / 2 + 65);
+    text(i + 1 + ". " + mageClass, x, 420);
     if (i === menu.index) {
-      drawSelectionBox(x, height / 2 + 14, 232, 102);
+      noFill();
+      stroke(...SKIN_GOLD);
+      strokeWeight(4);
+      rect(x - 114, 371, 228, 98);
+      noStroke();
+      fill(...SKIN_GOLD);
+      triangle(x - 12, 346, x + 12, 346, x, 364);
       fill(255);
       textSize(20);
-      text(CLASS_BLURBS[mageClass], width / 2, height / 2 + 150);
+      text(CLASS_BLURBS[mageClass], width / 2, 515);
+    } else {
+      fill(0, 0, 0, 110);
+      rect(x - 110, 375, 220, 90);
     }
   });
-  drawMenuHint("Left and Right to choose, Enter to confirm, Esc to go back");
+  drawFooterHint("Left/Right move, Enter pick, 1-3 quick pick, Esc back");
 }
 
 // Shows the chosen class during a run, top right.
@@ -129,40 +95,76 @@ function drawPauseMenu(menu) {
   noStroke();
   fill(0, 0, 0, 180);
   rect(0, 0, width, height);
-  fill(255);
-  textAlign(CENTER, CENTER);
-  textSize(56);
-  text("Paused", width / 2, height / 2 - 170);
-  drawMenuList(menu, height / 2 - 60);
-  drawMenuHint("Up and Down to move, Enter to choose, Esc to resume");
+  drawPanelTitle("Paused", 190);
+  drawMenuPanel(menu, 250, 420);
+  drawFooterHint("Up/Down move, Enter pick, Esc resume");
 }
 
-// Settings rows are menu items with function labels. Below them, the controls in use.
-function drawSettingsScreen(menu, settings) {
+// A settings row: the name on the left, a bar, box or value on the right.
+function drawSettingsRow(menu, i, x, y, w) {
+  drawMenuRow(menu, i, x, y, w, LEFT);
+  const item = menu.items[i];
+  const selected = i === menu.index;
+  const midY = y + (SKIN_ROW_H - 4) / 2;
+  const rightX = x + w - 16;
+  if (item.kind === "volume") {
+    drawVolumeBar(rightX - 270, midY, 200, item.value(), selected);
+    noStroke();
+    fill(...rowTextColor(menu, i));
+    textAlign(RIGHT, CENTER);
+    textSize(20);
+    text(round(item.value() * 100) + "%", rightX, midY);
+  } else if (item.kind === "toggle") {
+    drawToggle(rightX, midY, item.value(), selected);
+  } else if (item.kind === "choice") {
+    noStroke();
+    fill(...rowTextColor(menu, i));
+    textAlign(RIGHT, CENTER);
+    textSize(24);
+    text("< " + item.value() + " >", rightX, midY);
+  }
+}
+
+// The current preset's keys as two columns.
+function drawControlsTable(preset, x, y, w) {
+  const rows = controlRows(preset);
+  drawPanel(x, y, w, SKIN_PAD * 2 + 40 + rows.length * TABLE_ROW_H);
   noStroke();
   fill(255);
-  textAlign(CENTER, CENTER);
-  textSize(48);
-  text("Settings", width / 2, 70);
-  const listTop = 150;
-  drawMenuList(menu, listTop);
-
-  const presetTop = listTop + menu.items.length * MENU_ROW_HEIGHT + 10;
-  const preset = CONTROL_PRESETS[settings.controls];
-  noStroke();
-  fill(200);
-  textSize(20);
-  text(preset.name + " controls", width / 2, presetTop);
-  fill(160);
-  textSize(18);
-  preset.lines.forEach((line, i) => {
-    text(line, width / 2, presetTop + 32 + i * 26);
+  textAlign(LEFT, CENTER);
+  textSize(24);
+  text(preset.name + " controls", x + SKIN_PAD, y + SKIN_PAD + 12);
+  rows.forEach((row, i) => {
+    const rowY = y + SKIN_PAD + 40 + i * TABLE_ROW_H;
+    if (i % 2 === 0) {
+      fill(255, 255, 255, 14);
+      rect(x + 8, rowY, w - 16, TABLE_ROW_H);
+    }
+    fill(...SKIN_GOLD);
+    textSize(20);
+    text(row.key, x + SKIN_PAD, rowY + TABLE_ROW_H / 2);
+    fill(...SKIN_TEXT);
+    text(row.action, x + SKIN_PAD + 130, rowY + TABLE_ROW_H / 2);
   });
-  drawMenuHint("Up and Down to move, Left and Right to change, Esc to go back");
+}
+
+// Settings rows are menu items. Beside them, the controls in use.
+function drawSettingsScreen(menu, settings) {
+  drawPanelTitle("Settings", 62);
+  const leftX = 70;
+  drawPanel(leftX, SETTINGS_TOP, SETTINGS_LEFT_W, menuPanelHeight(menu.items.length));
+  menu.items.forEach((item, i) => {
+    const rowY = SETTINGS_TOP + SKIN_PAD + i * SKIN_ROW_H;
+    drawSettingsRow(menu, i, leftX + SKIN_PAD, rowY, SETTINGS_LEFT_W - SKIN_PAD * 2);
+  });
+  const tableX = leftX + SETTINGS_LEFT_W + 40;
+  drawControlsTable(CONTROL_PRESETS[settings.controls], tableX, SETTINGS_TOP, width - tableX - 70);
+  drawFooterHint("Up/Down move, Left/Right change, Esc back");
 }
 
 // The credits scroll up from the bottom. scroll is how many pixels they have moved.
 function drawCreditsScreen(lines, scroll) {
+  drawPanel(width / 2 - 380, 20, 760, height - SKIN_HINT_H - 40);
   noStroke();
   textAlign(CENTER, CENTER);
   lines.forEach((line, i) => {
@@ -170,12 +172,14 @@ function drawCreditsScreen(lines, scroll) {
     if (y < CREDITS_TOP || y > CREDITS_BOTTOM || line.text === "") {
       return;
     }
-    const alpha = map(y, CREDITS_TOP, CREDITS_TOP + 60, 0, 255, true);
+    const fadeIn = map(y, CREDITS_TOP, CREDITS_TOP + 60, 0, 255, true);
+    const fadeOut = map(y, CREDITS_BOTTOM - 40, CREDITS_BOTTOM, 255, 0, true);
+    const alpha = min(fadeIn, fadeOut);
     if (line.style === "title") {
       fill(255, alpha);
       textSize(48);
     } else if (line.style === "heading") {
-      fill(...MENU_HIGHLIGHT, alpha);
+      fill(...SKIN_GOLD, alpha);
       textSize(28);
     } else if (line.style === "small") {
       fill(170, alpha);
@@ -186,11 +190,8 @@ function drawCreditsScreen(lines, scroll) {
     }
     text(line.text, width / 2, y);
   });
-  fill(0);
-  rect(0, 0, width, CREDITS_TOP - 20);
-  rect(0, CREDITS_BOTTOM + 20, width, height);
   fill(255);
   textSize(32);
-  text("Credits", width / 2, 50);
-  drawMenuHint("Up and Down to scroll, Esc to go back");
+  text("Credits", width / 2, 60);
+  drawFooterHint("Up/Down scroll, Esc back");
 }

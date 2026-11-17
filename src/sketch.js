@@ -23,6 +23,10 @@ let titleMenu;
 let classMenu;
 let pauseMenu;
 let settingsMenu;
+let confirmDialog;
+let screenFade = new ScreenFade();
+let upRepeat = new KeyRepeat();
+let downRepeat = new KeyRepeat();
 let creditsScroll = 0; // pixels the credits have scrolled
 let resumeInputBlocked = false;
 let activeDialogue;
@@ -140,6 +144,7 @@ function startRun() {
   room.cleared = false;
   room.bossDefeated = false;
   runStats.reset();
+  pauseMenu.reset(); // a new run starts the pause menu on Resume again
 }
 
 // Picks a class on the menu and starts the run.
@@ -153,13 +158,13 @@ function chooseClass(mageClass) {
 function goToTitle() {
   activeDialogue.close();
   if (game.backToTitle()) {
-    titleMenu.reset();
+    titleMenu.reopen();
   }
 }
 
 function openSettings() {
   if (game.openSettings()) {
-    settingsMenu.reset();
+    settingsMenu.reopen();
   }
 }
 
@@ -171,14 +176,14 @@ function openCredits() {
 
 function startCharacterSelect() {
   if (game.startCharacterSelect()) {
-    classMenu.reset();
+    classMenu.reopen();
   }
 }
 
 // Esc during a run, or the window losing focus.
 function pauseGame() {
   if (game.pause()) {
-    pauseMenu.reset();
+    pauseMenu.reopen();
   }
 }
 
@@ -186,6 +191,14 @@ function resumeGame() {
   if (game.resume()) {
     resumeInputBlocked = true; // keys still held from before the pause do nothing
   }
+}
+
+function askRestartRun() {
+  confirmDialog.show("Restart this run?", restartRun);
+}
+
+function askQuitToTitle() {
+  confirmDialog.show("Quit to title? This run is lost.", goToTitle);
 }
 
 function restartRun() {
@@ -203,14 +216,8 @@ function stepVolume(volume, direction) {
   return constrain(round((volume + direction * 0.1) * 10) / 10, 0, 1);
 }
 
-function onOff(value) {
-  if (value) {
-    return "On";
-  }
-  return "Off";
-}
-
 function makeMenus() {
+  confirmDialog = new ConfirmDialog();
   titleMenu = new Menu([
     { label: "New Run", action: startCharacterSelect },
     { label: "Settings", action: openSettings },
@@ -223,12 +230,14 @@ function makeMenus() {
   pauseMenu = new Menu([
     { label: "Resume", action: resumeGame },
     { label: "Settings", action: openSettings },
-    { label: "Restart Run", action: restartRun },
-    { label: "Quit to Title", action: goToTitle }
+    { label: "Restart Run", action: askRestartRun },
+    { label: "Quit to Title", action: askQuitToTitle }
   ], resumeGame);
   settingsMenu = new Menu([
     {
-      label: () => "Controls: " + CONTROL_PRESETS[gameSettings.controls].name,
+      label: "Controls",
+      kind: "choice",
+      value: () => CONTROL_PRESETS[gameSettings.controls].name,
       adjust: () => {
         const other = CONTROL_PRESET_IDS.find((id) => id !== gameSettings.controls);
         gameSettings.controls = other;
@@ -236,28 +245,36 @@ function makeMenus() {
       }
     },
     {
-      label: () => "Music volume: " + round(gameSettings.musicVolume * 100) + "%",
+      label: "Music volume",
+      kind: "volume",
+      value: () => gameSettings.musicVolume,
       adjust: (direction) => {
         gameSettings.musicVolume = stepVolume(gameSettings.musicVolume, direction);
         changeSetting();
       }
     },
     {
-      label: () => "Sound effects: " + round(gameSettings.sfxVolume * 100) + "%",
+      label: "Sound effects",
+      kind: "volume",
+      value: () => gameSettings.sfxVolume,
       adjust: (direction) => {
         gameSettings.sfxVolume = stepVolume(gameSettings.sfxVolume, direction);
         changeSetting();
       }
     },
     {
-      label: () => "Screen shake: " + onOff(gameSettings.screenShake),
+      label: "Screen shake",
+      kind: "toggle",
+      value: () => gameSettings.screenShake,
       adjust: () => {
         gameSettings.screenShake = !gameSettings.screenShake;
         changeSetting();
       }
     },
     {
-      label: () => "Damage numbers: " + onOff(gameSettings.damageNumbers),
+      label: "Damage numbers",
+      kind: "toggle",
+      value: () => gameSettings.damageNumbers,
       adjust: () => {
         gameSettings.damageNumbers = !gameSettings.damageNumbers;
         changeSetting();
@@ -311,13 +328,60 @@ function canvasPointer() {
   return { x: mouseX / scale, y: mouseY / scale };
 }
 
+// The name the fade watches. Playing and the inventory count as one screen.
+function fadeScreenName() {
+  if (game.isPlaying() || game.isInventory()) {
+    return "run";
+  }
+  return game.state;
+}
+
+function activeVerticalMenu() {
+  if (confirmDialog.isOpen()) {
+    return null;
+  }
+  if (game.isTitle()) {
+    return titleMenu;
+  }
+  if (game.isSettings()) {
+    return settingsMenu;
+  }
+  if (game.isPaused()) {
+    return pauseMenu;
+  }
+  return null;
+}
+
+// Holding Up or Down keeps moving the cursor. keyPressed does the first move.
+function repeatMenuMoves() {
+  const menu = activeVerticalMenu();
+  const upDown = menu !== null && (keyIsDown(UP_ARROW) || keyIsDown(87));
+  const downDown = menu !== null && (keyIsDown(DOWN_ARROW) || keyIsDown(83));
+  if (upRepeat.update(upDown)) {
+    menu.previous();
+  }
+  if (downRepeat.update(downDown)) {
+    menu.next();
+  }
+}
+
 function draw() {
   // p5 starts calling draw() while the async setup() is still loading images. If draw()
-  // throws, p5 stops its loop for good, so nothing is ever drawn (only the DOM buttons
-  // exist). Skip frames until setup() has finished.
+  // throws, p5 stops its loop for good, so skip frames until setup() has finished.
   if (!setupDone) {
     return;
   }
+  screenFade.watch(fadeScreenName());
+  repeatMenuMoves();
+  drawScreen();
+  if (confirmDialog.isOpen()) {
+    drawConfirmDialog(confirmDialog);
+  }
+  drawScreenFade(screenFade.alpha());
+  screenFade.update();
+}
+
+function drawScreen() {
   background(0);
   updateBackground();
   drawBackground();
@@ -601,6 +665,10 @@ function handleInventoryKey() {
 function keyPressed() {
   if (keyCode === 114) {
     debugOverlay = !debugOverlay;
+    return false;
+  }
+  if (confirmDialog.isOpen()) {
+    handleMenuKey(confirmDialog.menu, keyCode, true);
     return false;
   }
   if (game.isTitle()) {

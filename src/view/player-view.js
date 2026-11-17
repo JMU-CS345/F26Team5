@@ -105,6 +105,7 @@ function drawDeathScreen(stats) {
   noStroke();
   fill(0, 0, 0, 180);
   rect(0, 0, width, height);
+  drawPanel(width / 2 - 320, height / 2 - 220, 640, 400);
   fill(220, 50, 50);
   textAlign(CENTER, CENTER);
   textSize(72);
@@ -118,4 +119,5 @@ function drawDeathScreen(stats) {
   fill(255, 220, 90);
   textSize(24);
   text("Press Enter to return to the title", width / 2, height / 2 + 110);
+  drawFooterHint("Enter back to title");
 }
