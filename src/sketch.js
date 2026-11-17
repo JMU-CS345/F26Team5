@@ -326,10 +326,7 @@ function draw() {
     }
   }
 
-  const proj = player.fire(input.fireDir);
-  if (proj) {
-    projectiles.push(proj);
-  }
+  projectiles.push(...player.fireAll(input.fireDir));
   player.update(room, input);
 
   for (const p of projectiles) {

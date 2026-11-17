@@ -2,7 +2,7 @@
 
 const PLAYER_LENGTH = 16;
 const PLAYER_WIDTH = 16;
-const FIRE_COOLDOWN = 30; // frames between default shots, slower than melee on purpose
+const FIRE_COOLDOWN = RANGED_DEFAULTS.fireRate; // default shots are slower than melee
 const HIT_IFRAMES = 45; // invulnerable frames after being hurt
 const MIN_HIT_DAMAGE = 0.5; // armor never cuts a hit below this
 const PLAYER_KNOCKBACK_SPEED = 4; // pixels per frame at the start of a shove
@@ -141,19 +141,47 @@ class Player {
     return this.chargeFrames >= SPIN_CHARGE_FRAMES;
   }
 
-  fire(dir) {
+  // Fires the equipped projectile weapon (or the default shot). Returns the whole volley as
+  // an array, empty when nothing was fired.
+  fireAll(dir) {
     this.holding = !this.isDead() && dir.magSq() > 0;
     if (this.isDead() || this.fireCooldown > 0 || dir.magSq() === 0) {
-      return null; // can't shoot yet, so don't turn either
+      return []; // can't shoot yet, so don't turn either
     }
+    const stats = getRangedStats(this.inventory.getEquipped("projectile"));
     this.faceToward(dir);
-    this.fireCooldown = FIRE_COOLDOWN;
-    return new Projectile(
-      this.pos.x + this.length / 2,
-      this.pos.y + this.width / 2,
-      dir,
-      this.getDamage(PROJECTILE_DAMAGE, this.mageClass)
-    );
+    this.fireCooldown = stats.fireRate;
+    const element = stats.element || this.mageClass;
+    const shots = [];
+    for (let i = 0; i < stats.projectileCount; i++) {
+      let offset = 0;
+      if (stats.projectileCount > 1) {
+        offset = stats.spread * (i / (stats.projectileCount - 1) - 0.5);
+      }
+      shots.push(new Projectile(
+        this.pos.x + this.length / 2,
+        this.pos.y + this.width / 2,
+        dir.copy().rotate(offset * Math.PI / 180),
+        this.getDamage(stats.damage, element),
+        stats.shotSpeed,
+        { range: stats.range, pierce: stats.pierce, onHit: stats.onHit, weapon: stats.weapon,
+          owner: this }
+      ));
+    }
+    playCombatSfx("shoot");
+    if (typeof stats.onFire === "function") {
+      stats.onFire({ player: this, shots: shots, weapon: stats.weapon });
+    }
+    return shots;
+  }
+
+  // One shot, or null. Kept for simple callers, fireAll gives the whole volley.
+  fire(dir) {
+    const shots = this.fireAll(dir);
+    if (shots.length === 0) {
+      return null;
+    }
+    return shots[0];
   }
 
   // Damage for an attack of the given element, scaled by the matching stat.

@@ -271,14 +271,14 @@ class Enemy {
   }
 
   damageFromProjectile(projectile) {
-    if (this.isDead() || this.isSpawning() || !projectile.alive) {
+    if (this.isDead() || this.isSpawning() || !projectile.canHit(this)) {
       return false;
     }
     if (!this.isTouchingProjectile(projectile)) {
       return false;
     }
     this.takeDamage(projectile.damage, projectile.vel);
-    projectile.alive = false;
+    projectile.registerHit(this);
     return true;
   }
 }
