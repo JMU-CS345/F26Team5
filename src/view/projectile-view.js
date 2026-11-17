@@ -3,6 +3,6 @@
 
 function drawProjectile(p) {
   noStroke();
-  fill(255, 220, 80);
+  fill(PALETTE.goldLight);
   rect(p.pos.x, p.pos.y, p.length, p.width);
 }

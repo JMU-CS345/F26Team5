@@ -55,11 +55,11 @@ function drawPlayer(player) {
 
 function drawHealthBar(player) {
   noStroke();
-  fill(60);
+  fill(PALETTE.panel);
   rect(20, 20, 240, 28);
-  fill(220, 50, 50);
+  fill(PALETTE.fire);
   rect(20, 20, map(player.health, 0, player.maxHealth, 0, 240), 28);
-  fill(255);
+  fill(PALETTE.white);
   textSize(24);
   textAlign(LEFT, CENTER);
   text(player.health + " / " + player.maxHealth, 276, 34);
@@ -71,7 +71,7 @@ function goldHudText(inventory) {
 
 function drawGoldHud(inventory) {
   noStroke();
-  fill(255);
+  fill(PALETTE.white);
   textSize(24);
   textAlign(LEFT, CENTER);
   text(goldHudText(inventory), 400, 34);
@@ -79,8 +79,8 @@ function drawGoldHud(inventory) {
 
 function drawInventoryHudButton(active = false) {
   push();
-  fill(0);
-  stroke(255);
+  fill(PALETTE.ink);
+  stroke(PALETTE.white);
   strokeWeight(active ? 2 : 1);
   rect(
     INVENTORY_HUD_BUTTON.x,
@@ -89,7 +89,7 @@ function drawInventoryHudButton(active = false) {
     INVENTORY_HUD_BUTTON.h
   );
   noStroke();
-  fill(255);
+  fill(PALETTE.white);
   textAlign(CENTER, CENTER);
   textSize(20);
   text(
@@ -105,7 +105,7 @@ function drawDeathScreen() {
   noStroke();
   fill(0, 0, 0, 180);
   rect(0, 0, width, height);
-  fill(220, 50, 50);
+  fill(PALETTE.fire);
   textAlign(CENTER, CENTER);
   textSize(72);
   text("You died", width / 2, height / 2 - 60);
