@@ -64,7 +64,7 @@ describe("pickupItemDrops", function () {
     room = new NormalRoom(0, 0, 160, 160);
   });
 
-  it("collects one of each supported item type on contact", function () {
+  it("collects armor, consumables and gold on contact but leaves weapons for E", function () {
     const weapon = new ProjectileWeapon({ id: "wand", name: "Wand" });
     const armor = new ChestArmor({ id: "robe", name: "Robe" });
     const potion = new Consumable({ id: "potion", name: "Potion" });
@@ -77,9 +77,10 @@ describe("pickupItemDrops", function () {
 
     const collected = pickupItemDrops(player, room);
 
-    expect(collected.length).toBe(4);
-    expect(room.items.length).toBe(0);
-    expect(player.inventory.quantityOf(weapon)).toBe(1);
+    expect(collected.length).toBe(3);
+    expect(room.items.length).toBe(1);
+    expect(room.items[0].item).toBe(weapon);
+    expect(player.inventory.quantityOf(weapon)).toBe(0);
     expect(player.inventory.quantityOf(armor)).toBe(1);
     expect(player.inventory.quantityOf("potion")).toBe(2);
     expect(player.inventory.gold).toBe(10);

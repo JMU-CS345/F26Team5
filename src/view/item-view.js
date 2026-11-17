@@ -54,7 +54,13 @@ function drawItemSprite(item, x, y, size) {
     const drawHeight = Math.max(1, Math.round(sprite.height * scale));
     const drawX = Math.round(x + (size - drawWidth) / 2);
     const drawY = Math.round(y + (size - drawHeight) / 2);
+    // Generated weapons share one icon, so the rarity color tells them apart.
+    push();
+    if (item instanceof Weapon && item.rarity !== "common") {
+      tint(...getRarity(item.rarity).color);
+    }
     image(sprite, drawX, drawY, drawWidth, drawHeight);
+    pop();
     return;
   }
 

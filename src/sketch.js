@@ -383,6 +383,13 @@ function drawRunScene() {
   for (const drop of room.items) {
     drawItemDrop(drop);
   }
+  const floorWeapon = findWeaponDropUnderPlayer(player, room);
+  if (floorWeapon !== null && game.isPlaying()) {
+    drawWeaponCard(
+      floorWeapon.item,
+      player.inventory.getEquipped(weaponSlotName(floorWeapon.item))
+    );
+  }
   for (const p of projectiles) {
     drawProjectile(p);
   }
@@ -534,6 +541,11 @@ function keyPressed() {
     }
     if (key.toLowerCase() === "e") {
       if (tryOpenChest(player, room, lootRun)) {
+        return false;
+      }
+      const floorWeapon = findWeaponDropUnderPlayer(player, room);
+      if (floorWeapon !== null) {
+        swapWeaponDrop(player, room, floorWeapon);
         return false;
       }
       spawnNextEnemy();
