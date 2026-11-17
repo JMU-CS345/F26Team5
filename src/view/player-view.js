@@ -120,25 +120,6 @@ function drawMeleeAttack(player) {
     arc(center.x, center.y, size, size, min(from, to), max(from, to));
     pop();
   }
-  drawSpinCharge(player);
-}
-
-// A ring grows around the player while melee is held, and flashes when the spin is ready.
-function drawSpinCharge(player) {
-  if (player.chargeFrames < 8) {
-    return;
-  }
-  const center = player.getCenter();
-  const fraction = min(1, player.chargeFrames / SPIN_CHARGE_FRAMES);
-  push();
-  noFill();
-  strokeWeight(2);
-  stroke(255, 255, 255, 200);
-  if (player.isCharged() && Math.floor(frameCount / 4) % 2 === 0) {
-    stroke(255, 220, 80);
-  }
-  arc(center.x, center.y, 40, 40, -HALF_PI, -HALF_PI + TWO_PI * fraction);
-  pop();
 }
 
 function goldHudText(inventory) {

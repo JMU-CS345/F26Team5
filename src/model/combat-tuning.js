@@ -10,8 +10,7 @@ const FINISHER_KNOCKBACK = 2;
 const FINISHER_REACH = 1.15;
 const FINISHER_EXTRA_FRAMES = 3;
 
-// Spin
-const SPIN_CHARGE_FRAMES = 30; // hold melee this long, then let go for a spin
+// Spin (no input starts it yet: a plain hold only repeats swings)
 const SPIN_DAMAGE = 1.5;
 const SPIN_KNOCKBACK = 1.5;
 const SPIN_REACH = 1.3;

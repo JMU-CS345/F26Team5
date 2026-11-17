@@ -43,7 +43,6 @@ class Player {
     this.comboStep = 0; // the combo step of the last swing
     this.comboTimer = 0; // frames left to keep the combo going after a swing
     this.meleeBuffer = 0; // frames left of a melee press waiting for a swing to end
-    this.chargeFrames = 0; // frames melee has been held, for the spin
     this.aim = new p5.Vector(0, 1); // the way melee and Twin-stick shots point
     this.lastHits = []; // melee hits made in the latest update, for the game feel code
 
@@ -111,13 +110,6 @@ class Player {
     this.meleeBuffer = 0;
   }
 
-  startSpin() {
-    const stats = getMeleeStats(this.inventory.getEquipped("melee"));
-    this.beginAttack(new MeleeAttack(this, stats, makeSpinPlan(stats), this.aim));
-    this.comboStep = 0;
-    this.meleeBuffer = 0;
-  }
-
   beginAttack(attack) {
     this.attack = attack;
     this.lunge = attack.dir.copy().setMag(attack.plan.lunge);
@@ -154,7 +146,7 @@ class Player {
     return SWING_SPEED_RECOVERY;
   }
 
-  // Runs the swing, the buffer, the combo timer and the spin charge for one frame.
+  // Runs the swing, the buffer and the combo timer for one frame.
   updateMelee(room, meleeHeld) {
     const targets = [];
     if (room) {
@@ -180,19 +172,10 @@ class Player {
       }
     }
     this.updateLunge(room); // after the swing starts, so the first step is this frame
-    // Letting go of a full charge spins. An early release already swung on the press.
+    // Holding melee keeps swinging, so a plain hold runs the combo. Letting go does nothing.
     if (meleeHeld) {
-      this.chargeFrames++;
-    } else {
-      if (this.chargeFrames >= SPIN_CHARGE_FRAMES) {
-        this.startSpin();
-      }
-      this.chargeFrames = 0;
+      this.bufferMelee();
     }
-  }
-
-  isCharged() {
-    return this.chargeFrames >= SPIN_CHARGE_FRAMES;
   }
 
   // Fires the equipped projectile weapon (or the default shot). Returns the whole volley as
