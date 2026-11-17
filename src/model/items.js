@@ -83,18 +83,57 @@ class Weapon extends Item {
     this.element = this.elementalType;
     this.attackType = options.attackType === undefined ? "Weapon" : options.attackType;
     requireNonEmptyString(this.attackType, "attackType");
+    this.rarity = options.rarity === undefined ? "common" : options.rarity;
+    this.affixes = Array.isArray(options.affixes) ? options.affixes.slice() : [];
+    // Optional hooks, called with a context object only if they are functions.
+    this.onHit = typeof options.onHit === "function" ? options.onHit : null;
+    this.onFire = typeof options.onFire === "function" ? options.onFire : null;
+  }
+}
+
+// What a weapon does when it leaves a stat out. The starter dagger is exactly this.
+const MELEE_DEFAULTS = Object.freeze({
+  damage: 2,
+  reach: 28, // pixels from the player's center
+  swingFrames: 12,
+  knockback: 12, // pixels the target slides
+  arc: 100 // degrees
+});
+
+// Shots are weaker and slower than melee on purpose.
+const RANGED_DEFAULTS = Object.freeze({
+  damage: 1,
+  fireRate: 30, // frames between shots
+  shotSpeed: 5, // pixels per frame
+  range: 200, // pixels before the shot fades
+  projectileCount: 1,
+  spread: 0, // degrees across all shots in one volley
+  pierce: 0 // extra enemies a shot passes through
+});
+
+// Copies each stat the options give, so a missing one stays undefined and gets its default
+// later. Bad numbers are rejected here, where the weapon is made.
+function copyWeaponStats(target, options, names) {
+  for (const name of names) {
+    if (options[name] !== undefined) {
+      requireNonNegativeNumber(options[name], name);
+      target[name] = options[name];
+    }
   }
 }
 
 class MeleeWeapon extends Weapon {
   constructor(options = {}) {
     super({ ...options, attackType: options.attackType || "Melee" });
+    copyWeaponStats(this, options, ["reach", "swingFrames", "knockback", "arc"]);
   }
 }
 
 class ProjectileWeapon extends Weapon {
   constructor(options = {}) {
     super({ ...options, attackType: options.attackType || "Projectile" });
+    copyWeaponStats(this, options,
+      ["fireRate", "shotSpeed", "range", "projectileCount", "spread", "pierce"]);
   }
 }
 
