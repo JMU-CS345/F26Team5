@@ -163,22 +163,24 @@ function drawPauseMenu(menu) {
 
 // Settings rows are menu items with function labels. Below them, the controls in use.
 function drawSettingsScreen(menu, settings) {
-  drawGameTitle(110);
   noStroke();
   fill(255);
   textAlign(CENTER, CENTER);
-  textSize(28);
-  text("Settings", width / 2, 175);
-  drawMenuList(menu, 250);
+  textSize(48);
+  text("Settings", width / 2, 70);
+  const listTop = 150;
+  drawMenuList(menu, listTop);
 
+  const presetTop = listTop + menu.items.length * MENU_ROW_HEIGHT + 10;
   const preset = CONTROL_PRESETS[settings.controls];
+  noStroke();
   fill(200);
   textSize(20);
-  text(preset.name + " controls", width / 2, 250 + menu.items.length * MENU_ROW_HEIGHT + 10);
+  text(preset.name + " controls", width / 2, presetTop);
   fill(160);
   textSize(18);
   preset.lines.forEach((line, i) => {
-    text(line, width / 2, 250 + menu.items.length * MENU_ROW_HEIGHT + 42 + i * 26);
+    text(line, width / 2, presetTop + 32 + i * 26);
   });
   drawMenuHint("Up and Down to move, Left and Right to change, Esc to go back");
 }

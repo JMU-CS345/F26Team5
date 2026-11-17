@@ -28,6 +28,7 @@ const CREDITS = Object.freeze({
 function creditsLines() {
   const lines = [
     { text: CREDITS.game, style: "title" },
+    { text: "", style: "" },
     { text: CREDITS.course, style: "text" },
     { text: "Instructor: " + CREDITS.instructor, style: "text" },
     { text: "", style: "" },

@@ -62,10 +62,17 @@ function cleanSettings(raw) {
   return settings;
 }
 
+function storageOrDefault(storage) {
+  if (storage === null) {
+    return window.localStorage;
+  }
+  return storage;
+}
+
 // The storage argument is only for tests. The game uses the browser's localStorage.
 function loadSettings(storage = null) {
   try {
-    const store = storage === null ? window.localStorage : storage;
+    const store = storageOrDefault(storage);
     const text = store.getItem(SETTINGS_KEY);
     if (text === null || text === undefined) {
       return defaultSettings();
@@ -79,7 +86,7 @@ function loadSettings(storage = null) {
 // Returns false when the browser refuses to save, so the game keeps running either way.
 function saveSettings(settings, storage = null) {
   try {
-    const store = storage === null ? window.localStorage : storage;
+    const store = storageOrDefault(storage);
     store.setItem(SETTINGS_KEY, JSON.stringify(cleanSettings(settings)));
     return true;
   } catch (error) {
