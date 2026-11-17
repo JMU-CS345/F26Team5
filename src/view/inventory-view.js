@@ -1,6 +1,7 @@
 // Slot-based inventory overlay. Reads inventory and drag state without changing them.
 
-function drawInventorySlot(slot, drag, selection = null) {
+function drawInventorySlot(slot, drag, selection = null, cursorSlot = null) {
+  const hasCursor = cursorSlot !== null && cursorSlot.x === slot.x && cursorSlot.y === slot.y;
   const isDragged = drag !== null
     && drag.item === slot.item
     && drag.sourceKind === slot.kind
@@ -15,6 +16,12 @@ function drawInventorySlot(slot, drag, selection = null) {
   strokeWeight(isSelected ? 3 : 1);
   fill(0);
   rect(slot.x, slot.y, slot.w, slot.h);
+  if (hasCursor) {
+    noFill();
+    stroke(255, 220, 90);
+    strokeWeight(4);
+    rect(slot.x - 3, slot.y - 3, slot.w + 6, slot.h + 6);
+  }
   if (slot.item === null || isDragged) {
     pop();
     return;
@@ -94,7 +101,8 @@ function drawInventoryMenu(
   selection = null,
   infoLines = [],
   pointerX = 0,
-  pointerY = 0
+  pointerY = 0,
+  cursorSlot = null
 ) {
   noStroke();
   fill(0, 0, 0, 210);
@@ -116,7 +124,8 @@ function drawInventoryMenu(
   text("Inventory", panelX + 40, panelY + 28);
   textSize(18);
   fill(255);
-  text("Press I to resume", panelX + 40, panelY + 82);
+  text("Arrows or WASD move, Enter equip or use, X drop, Esc or I close",
+    panelX + 40, panelY + 82);
 
   fill(255);
   textAlign(RIGHT, TOP);
@@ -135,7 +144,7 @@ function drawInventoryMenu(
     textAlign(CENTER, BOTTOM);
     textSize(18);
     text(slot.label, slot.x + slot.w / 2, slot.y - 12);
-    drawInventorySlot(slot, visibleDrag, selection);
+    drawInventorySlot(slot, visibleDrag, selection, cursorSlot);
   }
 
   fill(255);
@@ -146,7 +155,7 @@ function drawInventoryMenu(
   textSize(16);
   text("Drag to equip, or click for options", 650, panelY + 176);
   for (const slot of layout.bagSlots) {
-    drawInventorySlot(slot, visibleDrag, selection);
+    drawInventorySlot(slot, visibleDrag, selection, cursorSlot);
   }
   drawInventoryInformation(infoLines);
   drawInventoryContextMenu(inventory, player, selection);
