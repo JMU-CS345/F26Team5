@@ -9,8 +9,9 @@ function drawMinimap(dungeon, currentRoom) {
   const width = Math.max(...rooms.map((r) => r.worldCol + r.cols)) - minCol;
   const height = Math.max(...rooms.map((r) => r.worldRow + r.rows)) - minRow;
   const scale = Math.min(2, MINIMAP_MAX / Math.max(width, height)); // pixels per tile
-  const left = CANVAS_WIDTH - 20 - width * scale;
-  const top = 20;
+  const left = CANVAS_WIDTH - 40 - width * scale;
+  const top = 40;
+  drawPanel(left - 20, top - 20, width * scale + 40, height * scale + 40);
 
   push();
   noStroke();

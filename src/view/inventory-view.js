@@ -11,24 +11,25 @@ function drawInventorySlot(slot, drag, selection = null) {
     && (slot.kind !== "equipment" || selection.equipmentName === slot.equipmentName);
 
   push();
-  stroke(255);
-  strokeWeight(isSelected ? 3 : 1);
-  fill(0);
+  stroke(UI_COLORS.stoneLight);
+  strokeWeight(2);
+  if (isSelected) {
+    stroke(UI_COLORS.goldLight);
+    strokeWeight(4);
+  }
+  fill(UI_COLORS.void);
   rect(slot.x, slot.y, slot.w, slot.h);
+  pop();
   if (slot.item === null || isDragged) {
-    pop();
     return;
   }
 
   drawItemSprite(slot.item, slot.x + 10, slot.y + 8, slot.w - 20);
   if (slot.quantity > 1) {
-    noStroke();
-    fill(255);
-    textAlign(RIGHT, BOTTOM);
-    textSize(16);
-    text(slot.quantity, slot.x + slot.w - 5, slot.y + slot.h - 3);
+    drawPixelText(
+      slot.quantity, slot.x + slot.w - 6, slot.y + slot.h - 22, 16, UI_COLORS.white, "right"
+    );
   }
-  pop();
 }
 
 function drawDraggedInventoryItem(drag, pointerX, pointerY) {
@@ -49,42 +50,39 @@ function drawInventoryContextMenu(inventory, player, selection) {
     return;
   }
   push();
-  fill(0);
-  stroke(255);
-  strokeWeight(1);
+  fill(UI_COLORS.panel);
+  stroke(UI_COLORS.stoneLight);
+  strokeWeight(2);
   rect(menu.x, menu.y, menu.w, menu.h);
   for (const action of menu.actions) {
     if (action.y > menu.y) {
+      stroke(UI_COLORS.stoneDark);
       line(action.x, action.y, action.x + action.w, action.y);
     }
-    noStroke();
-    fill(action.enabled ? 255 : 110);
-    textAlign(LEFT, CENTER);
-    textSize(16);
-    text(action.label, action.x + 12, action.y + action.h / 2);
-    stroke(255);
   }
   pop();
+  for (const action of menu.actions) {
+    let labelColor = UI_COLORS.stoneMid;
+    if (action.enabled) {
+      labelColor = UI_COLORS.white;
+    }
+    drawPixelText(action.label, action.x + 12, action.y + action.h / 2 - 8, 16, labelColor);
+  }
 }
 
 function drawInventoryInformation(infoLines) {
   if (infoLines.length === 0) {
     return;
   }
-  const box = { x: 210, y: 500, w: 316, h: 140 };
-  push();
-  fill(0);
-  stroke(255);
-  strokeWeight(1);
-  rect(box.x, box.y, box.w, box.h);
-  noStroke();
-  fill(255);
-  textAlign(LEFT, TOP);
-  textSize(16);
-  for (let index = 0; index < infoLines.length; index++) {
-    text(infoLines[index], box.x + 12, box.y + 12 + index * 24, box.w - 24);
+  const box = { x: 210, y: 490, w: 316, h: 160 };
+  drawPanel(box.x, box.y, box.w, box.h);
+  const inner = panelContentRect(box.x, box.y, box.w, box.h);
+  let lineY = inner.y;
+  for (const infoLine of infoLines) {
+    if (lineY + 16 <= inner.y + inner.h) {
+      lineY += (drawPixelParagraph(infoLine, inner.x, lineY, inner.w, 16, UI_COLORS.white) * 20);
+    }
   }
-  pop();
 }
 
 function drawInventoryMenu(
@@ -104,47 +102,29 @@ function drawInventoryMenu(
   const panelY = INVENTORY_PANEL.y;
   const panelWidth = INVENTORY_PANEL.w;
   const panelHeight = INVENTORY_PANEL.h;
-  fill(0);
-  stroke(255);
-  strokeWeight(1);
-  rect(panelX, panelY, panelWidth, panelHeight);
-  noStroke();
+  drawPanel(panelX, panelY, panelWidth, panelHeight);
 
-  fill(255);
-  textAlign(LEFT, TOP);
-  textSize(42);
-  text("Inventory", panelX + 40, panelY + 28);
-  textSize(18);
-  fill(255);
-  text("Press I to resume", panelX + 40, panelY + 82);
-
-  fill(255);
-  textAlign(RIGHT, TOP);
-  textSize(24);
-  text(`Gold: ${inventory.gold}`, panelX + panelWidth - 40, panelY + 42);
-
-  fill(255);
-  textAlign(LEFT, TOP);
-  textSize(26);
-  text("Equipment", 210, panelY + 138);
+  drawPixelText("Inventory", panelX + 40, panelY + 36, 32, UI_COLORS.goldLight);
+  drawPixelText("Press I to resume", panelX + 40, panelY + 82, 16, UI_COLORS.stoneLight);
+  drawPixelText(
+    "Gold: " + inventory.gold, panelX + panelWidth - 40, panelY + 42, 16, UI_COLORS.goldLight,
+    "right"
+  );
+  drawPixelText("Equipment", 210, panelY + 138, 24, UI_COLORS.white);
 
   const layout = inventoryUiLayout(inventory);
   const visibleDrag = inventoryDragMoved(drag, pointerX, pointerY) ? drag : null;
   for (const slot of layout.equipmentSlots) {
-    fill(255);
-    textAlign(CENTER, BOTTOM);
-    textSize(18);
-    text(slot.label, slot.x + slot.w / 2, slot.y - 12);
+    drawPixelText(
+      slot.label, slot.x + slot.w / 2, slot.y - 16, 8, UI_COLORS.stoneLight, "center"
+    );
     drawInventorySlot(slot, visibleDrag, selection);
   }
 
-  fill(255);
-  textAlign(LEFT, TOP);
-  textSize(26);
-  text("Bag", 650, panelY + 138);
-  fill(255);
-  textSize(16);
-  text("Drag to equip, or click for options", 650, panelY + 176);
+  drawPixelText("Bag", 650, panelY + 138, 24, UI_COLORS.white);
+  drawPixelText(
+    "Drag to equip, or click", 650, panelY + 172, 16, UI_COLORS.stoneLight
+  );
   for (const slot of layout.bagSlots) {
     drawInventorySlot(slot, visibleDrag, selection);
   }
