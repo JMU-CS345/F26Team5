@@ -78,13 +78,13 @@ describe("character creator", () => {
 
   it("starts on the class menu with the default model", () => {
     expect(game.isMenu()).toBe(true);
-    expect(game.selectedModel).toBe("Tall");
+    expect(game.selectedModel).toBe("Wizard");
   });
 
   it("keeps the picked model when a class is picked", () => {
     game.selectClass("Ice");
     expect(game.isPlaying()).toBe(true);
-    expect(game.selectedModel).toBe("Tall");
+    expect(game.selectedModel).toBe("Wizard");
     expect(game.selectedClass).toBe("Ice");
   });
 
@@ -98,34 +98,12 @@ describe("character creator", () => {
   });
 });
 
-describe("PLAYER_MODELS", () => {
-  it("has a sheet, a sprite size and a walk cycle for every direction on every model", () => {
-    for (const name of PLAYER_MODEL_NAMES) {
-      const model = PLAYER_MODELS[name];
-      expect(model.sheet).toBeTruthy();
-      expect(model.spriteW).toBeGreaterThan(0);
-      expect(model.spriteH).toBeGreaterThan(0);
-      for (const facing of ["down", "up", "right", "left"]) {
-        expect(model.walkCycles[facing].length).toBeGreaterThan(0);
-      }
-    }
-  });
-
-  it("gives the short model a two-frame side walk and a four-frame front and back walk", () => {
-    const cycles = PLAYER_MODELS.Short.walkCycles;
-    expect(cycles.right.length).toBe(2);
-    expect(cycles.left.length).toBe(2);
-    expect(cycles.down.length).toBe(4);
-    expect(cycles.up.length).toBe(4);
-  });
-});
-
 describe("Player model name", () => {
-  it("defaults to the tall model", () => {
-    expect(new Player(0, 0, "Fire").modelName).toBe("Tall");
+  it("defaults to the wizard model", () => {
+    expect(new Player(0, 0, "Fire").modelName).toBe("Wizard");
   });
 
   it("uses the model it is given", () => {
-    expect(new Player(0, 0, "Fire", "Short").modelName).toBe("Short");
+    expect(new Player(0, 0, "Fire", "Wizard").modelName).toBe("Wizard");
   });
 });

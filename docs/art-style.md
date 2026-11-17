@@ -33,7 +33,8 @@ The only source of colors is `src/view/palette.js` (`PALETTE.name`, or `paletteC
 
 ## Sprite sizes
 
-- Small characters, enemies, items and tiles: 16x16.
+- Tall characters (humanoids): 16x32. The bottom 16x16 is the footprint used for collision.
+- The player wizard: 24x28 frames in layered sheets (`assets/player/layers/`), feet on the bottom of the 16x16 hitbox, centered on it.
 - Tall characters (the player, humanoids): 16x32. The bottom 16x16 is the footprint used for collision.
 - Bosses: 32x32 or larger, in multiples of 16.
 - Sprite sheets are laid out on the same grid, one frame per cell, no padding.

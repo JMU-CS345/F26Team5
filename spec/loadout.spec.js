@@ -27,7 +27,7 @@ describe("class loadouts", function () {
 
   it("equips both weapons on the player", function () {
     for (const mageClass of MAGE_CLASSES) {
-      const player = new Player(10, 10, mageClass, "Tall");
+      const player = new Player(10, 10, mageClass, "Wizard");
       const loadout = giveLoadout(player, createRng(2));
       expect(player.inventory.getEquipped("melee")).toBe(loadout.melee);
       expect(player.inventory.getEquipped("projectile")).toBe(loadout.ranged);

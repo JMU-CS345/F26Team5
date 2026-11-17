@@ -32,12 +32,12 @@ function cardCenterX(i, count) {
   return width / 2 + (i - (count - 1) / 2) * 260;
 }
 
-// The model's standing sprite, feet on the line at footY.
-function drawModelPreview(name, centerX, footY) {
-  const model = PLAYER_MODELS[name];
-  const w = model.spriteW * MODEL_PREVIEW_SCALE;
-  const h = model.spriteH * MODEL_PREVIEW_SCALE;
-  image(playerSheets[name], centerX - w / 2, footY - h, w, h, 0, 0, model.spriteW, model.spriteH);
+// The wizard standing in the given class colors, feet on the line at footY.
+function drawModelPreview(mageClass, centerX, footY, scale = MODEL_PREVIEW_SCALE) {
+  const w = SPRITE_W * scale;
+  const h = SPRITE_H * scale;
+  const look = defaultAppearance(mageClass, gameSettings.hatStyle);
+  drawWizardFrame(look, FRAME_TABLE.idle.start, SPRITE_ROWS.down, centerX - w / 2, footY - h, w, h);
 }
 
 function drawTitleScreen(menu) {
@@ -51,7 +51,7 @@ function drawClassMenu(menu, modelName) {
   const panelX = width / 2 - 440;
   drawPanel(panelX, 90, 880, 470);
   drawPanelTitle("Choose your class", 140);
-  drawModelPreview(modelName, width / 2, 330);
+  drawModelPreview(MAGE_CLASSES[menu.index], width / 2, 330);
 
   const count = MAGE_CLASSES.length;
   MAGE_CLASSES.forEach((mageClass, i) => {
@@ -62,7 +62,8 @@ function drawClassMenu(menu, modelName) {
     fill(255);
     textAlign(CENTER, CENTER);
     textSize(28);
-    text(i + 1 + ". " + mageClass, x, 420);
+    text(i + 1 + ". " + mageClass, x + 22, 420);
+    drawModelPreview(mageClass, x - 70, 455, 2);
     if (i === menu.index) {
       noFill();
       stroke(...SKIN_GOLD);

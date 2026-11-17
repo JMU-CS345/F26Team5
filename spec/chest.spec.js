@@ -1,6 +1,6 @@
 describe("chest", function () {
   function playerAt(x, y) {
-    return new Player(x - PLAYER_LENGTH / 2, y - PLAYER_WIDTH / 2, "Fire", "Tall");
+    return new Player(x - PLAYER_LENGTH / 2, y - PLAYER_WIDTH / 2, "Fire", "Wizard");
   }
 
   function smallTemplate(rows) {

@@ -20,7 +20,7 @@ describe("Game title, pause, settings and credits", function () {
   it("goes from New Run to the class menu only from the title", function () {
     expect(game.startCharacterSelect()).toBe(true);
     expect(game.isMenu()).toBe(true);
-    expect(game.selectedModel).toBe("Tall");
+    expect(game.selectedModel).toBe("Wizard");
     expect(game.startCharacterSelect()).toBe(false);
   });
 
@@ -87,7 +87,7 @@ describe("Game title, pause, settings and credits", function () {
     game.pause();
     expect(game.restartRun()).toBe(true);
     expect(game.isPlaying()).toBe(true);
-    expect(game.selectedModel).toBe("Tall");
+    expect(game.selectedModel).toBe("Wizard");
     expect(game.selectedClass).toBe("Fire");
     expect(game.restartRun()).toBe(false);
   });
@@ -114,7 +114,7 @@ describe("Game title, pause, settings and credits", function () {
   it("leaves enemy and projectile positions alone while paused", function () {
     game = playingGame();
     const room = new NormalRoom(0, 0, 320, 320);
-    const player = new Player(40, 40, "Fire", "Tall");
+    const player = new Player(40, 40, "Fire", "Wizard");
     const enemy = new Enemy(200, 200);
     const shot = new Projectile(100, 100, new p5.Vector(1, 0));
     // The same guard draw() uses around the simulation.

@@ -23,7 +23,7 @@ describe("bag", function () {
   }
 
   function newPlayer() {
-    return new Player(80, 80, "Fire", "Tall");
+    return new Player(80, 80, "Fire", "Wizard");
   }
 
   function fillBag(player, count) {

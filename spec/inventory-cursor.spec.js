@@ -86,7 +86,7 @@ describe("keyboard inventory actions", function () {
   let cursor;
 
   beforeEach(function () {
-    player = new Player(50, 50, "Fire", "Tall");
+    player = new Player(50, 50, "Fire", "Wizard");
     inventory = player.inventory;
     cursor = new InventoryCursor();
   });

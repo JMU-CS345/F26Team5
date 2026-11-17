@@ -8,7 +8,7 @@ describe("weapon comparison and swap", function () {
   }
 
   function playerOnTop(drop) {
-    return new Player(drop.x, drop.y, "Fire", "Tall");
+    return new Player(drop.x, drop.y, "Fire", "Wizard");
   }
 
   describe("compareWeapons", function () {
