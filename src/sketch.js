@@ -23,6 +23,7 @@ let inventoryInfoLines = [];
 let resumeInputBlocked = false;
 let activeDialogue;
 let gameFeel; // hitstop, shake and damage numbers
+let enemyClock = new EnemyClock(); // slows enemy updates after a perfect dodge
 let lastPlayerHealth = 0;
 let setupDone = false; // draw() waits for this, because setup() loads art with await
 //temp
@@ -330,8 +331,11 @@ function draw() {
 
   // Enemies and their shots stand still while someone is talking.
   if (!player.isDead() && !activeDialogue.isActive()) {
+    const enemySteps = enemyClock.steps(player.getEnemyTimeScale());
     for (const e of room.enemies) {
-      e.update(player, room);
+      if (enemySteps > 0) {
+        e.update(player, room); // only the update slows down, hits are still checked
+      }
       e.damagePlayer(player);
       e.meleeHit(player);
       for (const shot of e.tryAttack(player)) {
