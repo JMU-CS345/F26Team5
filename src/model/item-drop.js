@@ -16,6 +16,7 @@ class ItemDrop {
     this.quantity = stack.quantity;
     this.size = ITEM_DROP_SIZE;
     this.age = 0;
+    this.justDropped = false; // set when the player drops it, so it is not grabbed again
   }
 
   update() {

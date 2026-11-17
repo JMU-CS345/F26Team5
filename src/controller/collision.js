@@ -23,6 +23,11 @@ function pickupItemDrops(player, room) {
   const remaining = [];
   for (const drop of room.items) {
     const overlaps = rectsOverlap(player.getBounds(), drop.getBounds());
+    if (drop.justDropped) {
+      drop.justDropped = overlaps; // free to pick up again once the player steps off it
+      remaining.push(drop);
+      continue;
+    }
     if (isEquippableWeapon(drop.item)) {
       remaining.push(drop); // weapons wait for E (see weapon-swap.js)
       continue;

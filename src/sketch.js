@@ -93,6 +93,7 @@ function startRun() {
   });
   console.log("Dungeon seed:", dungeon.seed); // pass this as seed to replay a dungeon
   lootRun = new LootRun(dungeon.seed + 1, doorDistances(dungeon.rooms, 0));
+  lootRun.assign(dungeon);
   enterRoom(dungeon.start);
   const spawn = room.getPlayerSpawn(); // the @ in the start room's drawing
   player = new Player(
@@ -110,13 +111,7 @@ function startRun() {
       defense: 1,
       description: "A light robe with basic protection."
     })),
-    new ItemDrop(spawn.x - 48, spawn.y + 48, new Consumable({
-      id: "health-potion",
-      name: "Health Potion",
-      maxStackSize: 5,
-      healthRestore: 2,
-      description: "A small restorative potion."
-    })),
+    new ItemDrop(spawn.x - 48, spawn.y + 48, makePotion()),
     new ItemDrop(spawn.x + 48, spawn.y + 48, new Gold(), 25)
   ];
   nextSpawnIndex = ENEMY_TYPE_NAMES.indexOf("Demon");
@@ -352,6 +347,7 @@ function draw() {
   drawRunScene();
   if (!room.cleared && room.enemies.every((e) => e.isDead())) {
     room.onClear();
+    room.items.push(...rollClearDrops(room, lootRun));
   }
   if (player.showDeathScreen()) {
     activeDialogue.close();
@@ -381,7 +377,8 @@ function drawRunScene() {
   if (floorWeapon !== null && game.isPlaying()) {
     drawWeaponCard(
       floorWeapon.item,
-      player.inventory.getEquipped(weaponSlotName(floorWeapon.item))
+      player.inventory.getEquipped(weaponSlotName(floorWeapon.item)),
+      !player.inventory.canAdd(floorWeapon.item)
     );
   }
   for (const p of projectiles) {
@@ -510,10 +507,7 @@ function keyPressed() {
     return false;
   }
   if (game.isInventory()) {
-    if (keyCode === ESCAPE) {
-      inventorySelection = null;
-      inventoryInfoLines = [];
-    }
+    handleInventoryKey();
     return false;
   }
   if (game.isPlaying()) {
@@ -539,7 +533,7 @@ function keyPressed() {
       }
       const floorWeapon = findWeaponDropUnderPlayer(player, room);
       if (floorWeapon !== null) {
-        swapWeaponDrop(player, room, floorWeapon);
+        useWeaponDrop(player, room, floorWeapon);
         return false;
       }
       spawnNextEnemy();
@@ -559,6 +553,36 @@ function keyPressed() {
   ) {
     return false;
   }
+}
+
+// Keys inside the inventory: arrows pick a bag item, Enter equips, R sorts, L locks, X drops.
+function handleInventoryKey() {
+  const inventory = player.inventory;
+  if (keyCode === ESCAPE) {
+    clearInventoryUiState();
+  } else if (keyCode === LEFT_ARROW) {
+    inventorySelection = moveBagSelection(inventory, inventorySelection, -1, 0);
+  } else if (keyCode === RIGHT_ARROW) {
+    inventorySelection = moveBagSelection(inventory, inventorySelection, 1, 0);
+  } else if (keyCode === UP_ARROW) {
+    inventorySelection = moveBagSelection(inventory, inventorySelection, 0, -1);
+  } else if (keyCode === DOWN_ARROW) {
+    inventorySelection = moveBagSelection(inventory, inventorySelection, 0, 1);
+  } else if (keyCode === ENTER) {
+    if (equipSelected(inventory, inventorySelection)) {
+      clearInventoryUiState();
+    }
+  } else if (key.toLowerCase() === "r") {
+    inventory.sortBag();
+    clearInventoryUiState();
+  } else if (key.toLowerCase() === "l") {
+    toggleLock(inventorySelection);
+  } else if (key.toLowerCase() === "x") {
+    if (dropBagItem(player, room, inventorySelection)) {
+      clearInventoryUiState();
+    }
+  }
+  inventoryInfoLines = [];
 }
 
 function mousePressed() {

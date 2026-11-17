@@ -12,12 +12,16 @@ function signedNumber(n) {
   return String(n);
 }
 
-function drawWeaponCard(weapon, equipped) {
+// bagFull: the bag has no room, so E swaps with the equipped weapon instead of picking up.
+function drawWeaponCard(weapon, equipped, bagFull = false) {
   const rows = compareWeapons(weapon, equipped);
   const effects = weaponEffectLines(weapon);
   const rarity = getRarity(weapon.rarity);
   const c = WEAPON_CARD;
-  const lineCount = 4 + rows.length + effects.length;
+  let lineCount = 5 + rows.length + effects.length;
+  if (bagFull) {
+    lineCount++;
+  }
   const h = c.padding * 2 + lineCount * c.lineHeight;
 
   push();
@@ -77,7 +81,16 @@ function drawWeaponCard(weapon, equipped) {
     text("* " + line, left, y, c.w - 2 * c.padding);
     y += c.lineHeight;
   }
+  fill(255, 215, 120);
+  text("Sell value: " + weapon.value + " gold", left, y);
+  y += c.lineHeight;
   fill(180);
-  text("Press E to equip", left, y);
+  if (bagFull) {
+    text("Bag full. E: swap with equipped", left, y);
+    y += c.lineHeight;
+    text("Walk away to leave it", left, y);
+  } else {
+    text("E: pick up (equip in the inventory)", left, y);
+  }
   pop();
 }

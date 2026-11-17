@@ -1,5 +1,23 @@
 // Slot-based inventory overlay. Reads inventory and drag state without changing them.
 
+// Weapons get a border in their rarity color, everything else stays white.
+function slotBorderColor(item) {
+  if (item instanceof Weapon) {
+    return getRarity(item.rarity).color;
+  }
+  return [255, 255, 255];
+}
+
+function slotBorderWeight(item, isSelected) {
+  if (isSelected) {
+    return 4;
+  }
+  if (item instanceof Weapon) {
+    return 2;
+  }
+  return 1;
+}
+
 function drawInventorySlot(slot, drag, selection = null) {
   const isDragged = drag !== null
     && drag.item === slot.item
@@ -11,8 +29,8 @@ function drawInventorySlot(slot, drag, selection = null) {
     && (slot.kind !== "equipment" || selection.equipmentName === slot.equipmentName);
 
   push();
-  stroke(255);
-  strokeWeight(isSelected ? 3 : 1);
+  stroke(...slotBorderColor(slot.item));
+  strokeWeight(slotBorderWeight(slot.item, isSelected));
   fill(0);
   rect(slot.x, slot.y, slot.w, slot.h);
   if (slot.item === null || isDragged) {
@@ -20,7 +38,15 @@ function drawInventorySlot(slot, drag, selection = null) {
     return;
   }
 
-  drawItemSprite(slot.item, slot.x + 10, slot.y + 8, slot.w - 20);
+  const pad = slot.w / 8;
+  drawItemSprite(slot.item, slot.x + pad, slot.y + pad, slot.w - 2 * pad);
+  if (slot.item.locked) {
+    noStroke();
+    fill(255, 215, 80);
+    textAlign(LEFT, TOP);
+    textSize(14);
+    text("L", slot.x + 4, slot.y + 2);
+  }
   if (slot.quantity > 1) {
     noStroke();
     fill(255);
@@ -63,6 +89,41 @@ function drawInventoryContextMenu(inventory, player, selection) {
     textSize(16);
     text(action.label, action.x + 12, action.y + action.h / 2);
     stroke(255);
+  }
+  pop();
+}
+
+// The card for the selected item: rarity-colored border, its facts and the sell value.
+function drawInventoryCard(selection) {
+  if (selection === null) {
+    return;
+  }
+  const item = selection.item;
+  const lines = inventoryItemInformation(item);
+  const box = { x: 650, y: 515, w: 376, h: 130 };
+  let color = [255, 255, 255];
+  if (item instanceof Weapon) {
+    color = getRarity(item.rarity).color;
+  }
+  push();
+  fill(0);
+  stroke(...color);
+  strokeWeight(2);
+  rect(box.x, box.y, box.w, box.h);
+  noStroke();
+  textAlign(LEFT, TOP);
+  fill(...color);
+  textSize(18);
+  text(lines[0], box.x + 12, box.y + 10, box.w - 24);
+  fill(220);
+  textSize(14);
+  for (let index = 1; index < lines.length; index++) {
+    text(lines[index], box.x + 12, box.y + 32 + (index - 1) * 17, box.w - 24);
+  }
+  if (item.locked) {
+    fill(255, 215, 80);
+    textAlign(RIGHT, TOP);
+    text("Locked", box.x + box.w - 12, box.y + 12);
   }
   pop();
 }
@@ -144,10 +205,12 @@ function drawInventoryMenu(
   text("Bag", 650, panelY + 138);
   fill(255);
   textSize(16);
-  text("Drag to equip, or click for options", 650, panelY + 176);
+  text("Bag " + inventory.size + "/" + inventory.capacity, 720, panelY + 146);
+  text("Drag or arrows, then Enter equip  R sort  L lock  X drop", 650, panelY + 176);
   for (const slot of layout.bagSlots) {
     drawInventorySlot(slot, visibleDrag, selection);
   }
+  drawInventoryCard(selection);
   drawInventoryInformation(infoLines);
   drawInventoryContextMenu(inventory, player, selection);
   drawDraggedInventoryItem(visibleDrag, pointerX, pointerY);
