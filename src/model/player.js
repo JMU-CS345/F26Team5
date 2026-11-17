@@ -48,12 +48,21 @@ class Player {
     }
     this.faceToward(dir);
     this.fireCooldown = FIRE_COOLDOWN;
-    return new Projectile(
+    const element = this.mageClass;
+    const damage = classMatchDamage(
+      this.getDamage(PROJECTILE_DAMAGE, element),
+      element,
+      this.mageClass
+    );
+    const shot = new Projectile(
       this.pos.x + this.length / 2,
       this.pos.y + this.width / 2,
       dir,
-      this.getDamage(PROJECTILE_DAMAGE, this.mageClass)
+      damage
     );
+    shot.element = element;
+    shot.classMatch = isClassMatch(element, this.mageClass);
+    return shot;
   }
 
   // Damage for an attack of the given element, scaled by the matching stat.

@@ -10,6 +10,8 @@ class Projectile {
     this.length = PROJECTILE_LENGTH;
     this.width = PROJECTILE_WIDTH;
     this.damage = damage;
+    this.element = null; // "Fire", "Ice" or "Mind" when the shot carries a status
+    this.classMatch = false; // true when element matches the player's class
     this.pos = new p5.Vector(x - this.length / 2, y - this.width / 2);
     this.vel = dir.copy().setMag(speed);
     this.alive = true;

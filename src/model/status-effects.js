@@ -10,8 +10,6 @@ const STATUS_BOSS_SLOW_SPEED = 0.75; // bosses get the slow at half strength
 const STATUS_STUN_FRAMES = 45; // Mind: brief freeze, bosses are immune
 
 // Each effect has one slot. Hitting again resets its timer, so effects never stack.
-// The class bonus (element-bonus.js) multiplies the duration.
-const STATUS_MATCH_DURATION_MULT = 1.5;
 
 // Starting status for a new enemy. Every timer counts down in frames.
 function createStatus() {
@@ -20,7 +18,10 @@ function createStatus() {
 
 // Starts or refreshes the status for an element. classMatch lengthens the duration.
 function applyStatusEffect(enemy, element, classMatch = false) {
-  const mult = classMatch ? STATUS_MATCH_DURATION_MULT : 1;
+  let mult = 1;
+  if (classMatch) {
+    mult = CLASS_MATCH_DURATION_MULT;
+  }
   const status = enemy.status;
   if (element === "Fire") {
     if (status.burn <= 0) {
