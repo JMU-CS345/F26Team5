@@ -209,6 +209,7 @@ async function setup() {
   await loadTileImages();
   await loadEnemySheets();
   await loadItemSprites();
+  await loadPixelFont();
   createCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);
   fitToWindow();
   noSmooth();
