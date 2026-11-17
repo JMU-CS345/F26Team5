@@ -1,9 +1,9 @@
 // Where the keyboard cursor sits in the inventory screen. No p5 calls.
 // Equipment slots are two rows (melee, projectile / head, body, legs) beside the bag, which
-// is a 4 by 4 grid. The cursor stops at the edges instead of wrapping.
+// is a 6 by 4 grid. The cursor stops at the edges instead of wrapping.
 
 const CURSOR_EQUIPMENT_ROW_LENGTHS = Object.freeze([2, 3]);
-const CURSOR_BAG_COLUMNS = 4;
+const CURSOR_BAG_COLUMNS = 6; // same grid as INVENTORY_BAG_COLUMNS in inventory-input.js
 const CURSOR_BAG_ROWS = 4;
 
 class InventoryCursor {

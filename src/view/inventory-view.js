@@ -183,7 +183,7 @@ function drawInventoryMenu(
     inventory.size + "/" + inventory.capacity, 740, panelY + 146, 16, UI_COLORS.goldLight
   );
   drawPixelText(
-    "Enter equip, R sort, L lock, X drop", 650, panelY + 172, 16, UI_COLORS.stoneLight
+    "R sort, L lock, X drop", 650, panelY + 172, 16, UI_COLORS.stoneLight
   );
   for (const slot of layout.bagSlots) {
     drawInventorySlot(slot, visibleDrag, selection, cursorSlot);
