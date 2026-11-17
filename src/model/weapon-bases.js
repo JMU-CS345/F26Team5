@@ -103,6 +103,14 @@ const WEAPON_BASES = Object.freeze([
   }
 ]);
 
+// The stat names a weapon kind ("melee" or "ranged") has.
+function statNamesFor(kind) {
+  if (kind === "melee") {
+    return MELEE_STAT_NAMES;
+  }
+  return RANGED_STAT_NAMES;
+}
+
 const WEAPON_BASE_IDS = Object.freeze(WEAPON_BASES.map((base) => base.id));
 
 function getWeaponBase(id) {
@@ -121,9 +129,10 @@ function validateWeaponBases(bases = WEAPON_BASES) {
   let melee = 0;
   let ranged = 0;
   bases.forEach((base, i) => {
-    const label = base && typeof base.id === "string" && base.id !== ""
-      ? base.id
-      : "base #" + (i + 1);
+    let label = "base #" + (i + 1);
+    if (base && typeof base.id === "string" && base.id !== "") {
+      label = base.id;
+    }
     const bad = (message) => problems.push(label + ": " + message);
 
     if (ids.has(base.id)) {
@@ -142,7 +151,7 @@ function validateWeaponBases(bases = WEAPON_BASES) {
     } else {
       ranged++;
     }
-    const names = base.kind === "melee" ? MELEE_STAT_NAMES : RANGED_STAT_NAMES;
+    const names = statNamesFor(base.kind);
     const stats = base.stats || {};
     for (const name of names) {
       const range = stats[name];

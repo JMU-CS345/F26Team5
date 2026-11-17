@@ -25,7 +25,7 @@ function finishStat(name, value) {
 // Rolls every stat of a base inside its [min, max]. Returns a plain stats object.
 function rollBaseStats(base, rng) {
   const stats = {};
-  const names = base.kind === "melee" ? MELEE_STAT_NAMES : RANGED_STAT_NAMES;
+  const names = statNamesFor(base.kind);
   for (const name of names) {
     const range = base.stats[name];
     if (WHOLE_NUMBER_STATS.includes(name)) {
@@ -40,7 +40,7 @@ function rollBaseStats(base, rng) {
 
 // Rounds the stats and keeps them inside what the Weapon constructors accept.
 function finishStats(stats, kind) {
-  const names = kind === "melee" ? MELEE_STAT_NAMES : RANGED_STAT_NAMES;
+  const names = statNamesFor(kind);
   const done = {};
   for (const name of names) {
     done[name] = finishStat(name, stats[name]);
@@ -65,11 +65,12 @@ function finishStats(stats, kind) {
 //   element     "Fire", "Ice" or "Mind": the weapon has it, and no elemental prefix is rolled
 // Returns a MeleeWeapon or a ProjectileWeapon.
 function generateWeapon(rng, options = {}) {
-  const depth = options.depth === undefined ? 0 : options.depth;
-  const source = options.source === undefined ? "chest" : options.source;
-  const rarityId = options.rarity === undefined
-    ? rollRarity(rng, { depth: depth, source: source, minRarity: options.minRarity })
-    : options.rarity;
+  const depth = valueOr(options.depth, 0);
+  const source = valueOr(options.source, "chest");
+  let rarityId = options.rarity;
+  if (rarityId === undefined) {
+    rarityId = rollRarity(rng, { depth: depth, source: source, minRarity: options.minRarity });
+  }
   const rarity = getRarity(rarityId);
   let legendary = null;
   if (rarityId === "legendary") {
@@ -82,9 +83,10 @@ function generateWeapon(rng, options = {}) {
   if (legendary !== null) {
     base = getWeaponBase(legendary.baseId);
   } else {
-    const bases = options.kind === undefined
-      ? WEAPON_BASES
-      : WEAPON_BASES.filter((b) => b.kind === options.kind);
+    let bases = WEAPON_BASES;
+    if (options.kind !== undefined) {
+      bases = WEAPON_BASES.filter((b) => b.kind === options.kind);
+    }
     base = pick(bases, rng);
   }
 
@@ -108,9 +110,9 @@ function generateWeapon(rng, options = {}) {
   const weaponOptions = {
     ...final,
     id: base.id + "-" + randInt(rng, 0, 999999),
-    name: legendary === null ? buildWeaponName(base.name, affixes) : legendary.name,
+    name: buildWeaponName(base.name, affixes),
     value: RARITY_VALUE[RARITY_IDS.indexOf(rarityId)] + affixes.length * 5,
-    description: legendary === null ? base.blurb : legendary.blurb,
+    description: base.blurb,
     rarity: rarityId,
     affixes: affixes.map((a) => a.id),
     baseId: base.id
@@ -119,6 +121,8 @@ function generateWeapon(rng, options = {}) {
   const onFire = [];
   if (legendary !== null) {
     weaponOptions.uniqueId = legendary.id;
+    weaponOptions.name = legendary.name;
+    weaponOptions.description = legendary.blurb;
     if (legendary.onHit) {
       onHit.push(legendary.onHit);
     }

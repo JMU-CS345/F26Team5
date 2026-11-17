@@ -3,6 +3,14 @@
 const DEFAULT_MAX_STACK_SIZE = 99;
 let nextItemInstanceId = 1;
 
+// The value, or the fallback when the value is undefined.
+function valueOr(value, fallback) {
+  if (value === undefined) {
+    return fallback;
+  }
+  return value;
+}
+
 function itemOptions(idOrOptions, name, value, maxStackSize) {
   if (typeof idOrOptions === "object" && idOrOptions !== null) {
     return { ...idOrOptions };
@@ -70,7 +78,7 @@ const WEAPON_ELEMENTS = Object.freeze(["Fire", "Ice", "Mind"]);
 
 // Reads a number option, falls back to a default, and rejects bad values.
 function weaponNumber(options, key, fallback, min, max) {
-  const value = options[key] === undefined ? fallback : options[key];
+  const value = valueOr(options[key], fallback);
   if (typeof value !== "number" || !Number.isFinite(value) || value < min || value > max) {
     throw new TypeError(`${key} must be a number from ${min} to ${max}`);
   }
@@ -109,12 +117,12 @@ class Weapon extends Item {
     this.attackType = options.attackType === undefined ? "Weapon" : options.attackType;
     requireNonEmptyString(this.attackType, "attackType");
 
-    const rarity = options.rarity === undefined ? "common" : options.rarity;
+    const rarity = valueOr(options.rarity, "common");
     if (!RARITY_IDS.includes(rarity)) {
       throw new TypeError(`rarity must be one of ${RARITY_IDS.join(", ")}`);
     }
     this.rarity = rarity;
-    const affixes = options.affixes === undefined ? [] : options.affixes;
+    const affixes = valueOr(options.affixes, []);
     if (!Array.isArray(affixes) || affixes.some((id) => typeof id !== "string")) {
       throw new TypeError("affixes must be a list of affix ids");
     }
@@ -128,8 +136,8 @@ class Weapon extends Item {
       }
     }
     // Which base (Sword, Wand...) and handmade weapon this came from, for the card and art.
-    this.baseId = options.baseId === undefined ? null : options.baseId;
-    this.uniqueId = options.uniqueId === undefined ? null : options.uniqueId;
+    this.baseId = valueOr(options.baseId, null);
+    this.uniqueId = valueOr(options.uniqueId, null);
   }
 }
 

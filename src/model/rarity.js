@@ -68,18 +68,19 @@ function rarityWeights(depth = 0, source = "chest", minRarity = null) {
       MIN_DEPTH_MULTIPLIER,
       1 + DEPTH_WEIGHT_STEP[r.id] * safeDepth
     );
-    const weight = i < floor
-      ? 0
-      : r.weight * depthMultiplier * SOURCE_WEIGHT_MULTIPLIER[source][r.id];
+    let weight = 0;
+    if (i >= floor) {
+      weight = r.weight * depthMultiplier * SOURCE_WEIGHT_MULTIPLIER[source][r.id];
+    }
     return { id: r.id, weight };
   });
 }
 
 // Rolls a rarity id. options: { depth, source, minRarity }.
 function rollRarity(rng, options = {}) {
-  const depth = options.depth === undefined ? 0 : options.depth;
-  const source = options.source === undefined ? "chest" : options.source;
-  const minRarity = options.minRarity === undefined ? null : options.minRarity;
+  const depth = valueOr(options.depth, 0);
+  const source = valueOr(options.source, "chest");
+  const minRarity = valueOr(options.minRarity, null);
   return weightedPick(rarityWeights(depth, source, minRarity), rng).id;
 }
 

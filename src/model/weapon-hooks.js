@@ -35,11 +35,11 @@ function projectileEffect(x, y, angle, damage, options = {}) {
     y: y,
     angle: angle,
     damage: damage,
-    speed: options.speed === undefined ? DEFAULT_HOOK_SHOT_SPEED : options.speed,
-    range: options.range === undefined ? DEFAULT_HOOK_RANGE : options.range,
-    pierce: options.pierce === undefined ? 0 : options.pierce,
-    element: options.element === undefined ? null : options.element,
-    delayFrames: options.delayFrames === undefined ? 0 : options.delayFrames
+    speed: valueOr(options.speed, DEFAULT_HOOK_SHOT_SPEED),
+    range: valueOr(options.range, DEFAULT_HOOK_RANGE),
+    pierce: valueOr(options.pierce, 0),
+    element: valueOr(options.element, null),
+    delayFrames: valueOr(options.delayFrames, 0)
   };
 }
 
@@ -54,8 +54,8 @@ function areaEffect(x, y, radius, damage, options = {}) {
     y: y,
     radius: radius,
     damage: damage,
-    element: options.element === undefined ? null : options.element,
-    delayFrames: options.delayFrames === undefined ? 0 : options.delayFrames
+    element: valueOr(options.element, null),
+    delayFrames: valueOr(options.delayFrames, 0)
   };
 }
 
@@ -67,9 +67,9 @@ function pullEffect(x, y, radius, strength) {
 function hookWeapon(ctx) {
   const weapon = ctx.weapon || {};
   return {
-    element: weapon.element === undefined ? null : weapon.element,
-    shotSpeed: weapon.shotSpeed === undefined ? DEFAULT_HOOK_SHOT_SPEED : weapon.shotSpeed,
-    range: weapon.range === undefined ? DEFAULT_HOOK_RANGE : weapon.range
+    element: valueOr(weapon.element, null),
+    shotSpeed: valueOr(weapon.shotSpeed, DEFAULT_HOOK_SHOT_SPEED),
+    range: valueOr(weapon.range, DEFAULT_HOOK_RANGE)
   };
 }
 

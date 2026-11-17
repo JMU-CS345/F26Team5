@@ -58,8 +58,14 @@ function compareWeapons(candidate, equipped) {
     const diff = Math.round((value - equippedValue) * 100) / 100;
     let verdict = "same";
     if (diff !== 0) {
-      const better = stat.higher ? diff > 0 : diff < 0;
-      verdict = better ? "up" : "down";
+      let better = diff < 0;
+      if (stat.higher) {
+        better = diff > 0;
+      }
+      verdict = "down";
+      if (better) {
+        verdict = "up";
+      }
     }
     return { label: stat.label, value: value, equippedValue: equippedValue, diff: diff,
       verdict: verdict };
@@ -76,7 +82,7 @@ function weaponEffectLines(weapon) {
       lines.push(affix[kind].text);
     }
   }
-  const unique = weapon.uniqueId === null ? null : getLegendary(weapon.uniqueId);
+  const unique = getLegendary(weapon.uniqueId);
   if (unique !== null) {
     lines.unshift(unique.power);
   }

@@ -12,7 +12,7 @@ describe("weapon bases", function () {
 
   it("gives every base all of its stat ranges", function () {
     for (const base of WEAPON_BASES) {
-      const names = base.kind === "melee" ? MELEE_STAT_NAMES : RANGED_STAT_NAMES;
+      const names = statNamesFor(base.kind);
       for (const name of names) {
         expect(base.stats[name]).toBeDefined();
         expect(base.stats[name].length).toBe(2);

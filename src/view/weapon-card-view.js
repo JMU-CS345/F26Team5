@@ -17,7 +17,7 @@ function drawWeaponCard(weapon, equipped) {
   const effects = weaponEffectLines(weapon);
   const rarity = getRarity(weapon.rarity);
   const c = WEAPON_CARD;
-  const lineCount = 3 + rows.length + effects.length;
+  const lineCount = 4 + rows.length + effects.length;
   const h = c.padding * 2 + lineCount * c.lineHeight;
 
   push();

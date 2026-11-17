@@ -195,7 +195,10 @@ function rollAffixes(kind, count, rng, keepElement = false) {
   }
   for (const wantedKind of wanted) {
     const room = (affixKind) => {
-      const limit = affixKind === "prefix" ? MAX_PREFIXES : MAX_SUFFIXES;
+      let limit = MAX_SUFFIXES;
+      if (affixKind === "prefix") {
+        limit = MAX_PREFIXES;
+      }
       return chosen.filter((a) => a.kind === affixKind).length < limit;
     };
     const allowed = (a) => {
