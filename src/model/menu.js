@@ -91,8 +91,15 @@ class Menu {
     return true;
   }
 
+  // Back to the first row.
   reset() {
     this.index = 0;
+    this.skipToEnabled(1);
+  }
+
+  // Coming back to a screen keeps the row the player left it on.
+  reopen() {
+    this.index = Math.min(this.index, Math.max(this.items.length - 1, 0));
     this.skipToEnabled(1);
   }
 }
