@@ -122,8 +122,9 @@ describe("Player stats", () => {
   it("fires projectiles with damage scaled to its class", () => {
     const fire = new Player(0, 0, "Fire").fire(new p5.Vector(1, 0));
     const ice = new Player(0, 0, "Ice").fire(new p5.Vector(1, 0));
-    expect(fire.damage).toBeCloseTo(1.5);
-    expect(ice.damage).toBeCloseTo(1.5);
+    // The default shot matches the class, so it also gets CLASS_MATCH_DAMAGE_MULT.
+    expect(fire.damage).toBeCloseTo(1.5 * CLASS_MATCH_DAMAGE_MULT);
+    expect(ice.damage).toBeCloseTo(1.5 * CLASS_MATCH_DAMAGE_MULT);
   });
 });
 

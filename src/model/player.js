@@ -207,21 +207,31 @@ class Player {
     this.cancelRecovery();
     this.fireCooldown = stats.fireRate;
     const element = stats.element || this.mageClass;
+    let damage = this.getDamage(stats.damage, element);
+    const isDefaultShot = stats.weapon === null;
+    if (isDefaultShot) {
+      damage = classMatchDamage(damage, element, this.mageClass); // elements bonus
+    }
     const shots = [];
     for (let i = 0; i < stats.projectileCount; i++) {
       let offset = 0;
       if (stats.projectileCount > 1) {
         offset = stats.spread * (i / (stats.projectileCount - 1) - 0.5);
       }
-      shots.push(new Projectile(
+      const shot = new Projectile(
         this.pos.x + this.length / 2,
         this.pos.y + this.width / 2,
         dir.copy().rotate(offset * Math.PI / 180),
-        this.getDamage(stats.damage, element),
+        damage,
         stats.shotSpeed,
         { range: stats.range, pierce: stats.pierce, onHit: stats.onHit, weapon: stats.weapon,
           owner: this }
-      ));
+      );
+      if (isDefaultShot) {
+        shot.element = element; // only the default shot carries a status for now
+        shot.classMatch = isClassMatch(element, this.mageClass);
+      }
+      shots.push(shot);
     }
     playCombatSfx("shoot");
     if (typeof stats.onFire === "function") {

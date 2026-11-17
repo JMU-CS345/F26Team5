@@ -48,6 +48,7 @@ class Enemy {
     this.rng = Math.random; // specs swap this out to control wandering
     this.wanderDir = null;
     this.wanderTimer = 0;
+    this.status = createStatus(); // burn, slow and stun timers, see status-effects.js
   }
 
   isDead() {
@@ -88,10 +89,11 @@ class Enemy {
 
   getSpeed() {
     const phase = this.getPhase();
+    let base = this.speed;
     if (phase && typeof phase.speed === "number") {
-      return phase.speed;
+      base = phase.speed;
     }
-    return this.speed;
+    return base * speedMultiplier(this);
   }
 
   justChangedPhase() {
@@ -195,6 +197,7 @@ class Enemy {
     this.shotFlash = Math.max(0, this.shotFlash - 1);
     this.phaseFlashTimer = Math.max(0, this.phaseFlashTimer - 1);
     this.stateTimer = Math.max(0, this.stateTimer - 1);
+    tickStatusEffects(this);
     if (this.canSee(player)) {
       this.faceToward(player);
     }
@@ -202,7 +205,7 @@ class Enemy {
       moveWithCollision(this, this.knockback.x, this.knockback.y, room);
       this.knockback.mult(ENEMY_KNOCKBACK_DECAY);
       this.knockbackTimer--;
-    } else if (this.freezeTimer === 0) {
+    } else if (this.freezeTimer === 0 && !isStunned(this)) {
       ENEMY_MOVES[this.getMoveName()](this, player, room);
     }
     this.freezeTimer = Math.max(0, this.freezeTimer - 1); // counted after the move
@@ -238,7 +241,9 @@ class Enemy {
   // Returns an array of new projectiles. Empty for enemies with no attack.
   tryAttack(player) {
     const attack = this.getAttack();
-    if (this.isDead() || this.isHarmless() || this.freezeTimer > 0 || !attack) {
+    if (
+      this.isDead() || this.isHarmless() || this.freezeTimer > 0 || isStunned(this) || !attack
+    ) {
       return [];
     }
     return ENEMY_ATTACKS[attack.kind](this, player);
@@ -247,7 +252,9 @@ class Enemy {
   // Melee hit: while in the attack state, hurts a player inside a reach box in front of us.
   meleeHit(player) {
     const attack = this.getAttack();
-    if (this.isDead() || this.isHarmless() || !attack || attack.kind !== "melee") {
+    if (
+      this.isDead() || this.isHarmless() || isStunned(this) || !attack || attack.kind !== "melee"
+    ) {
       return false;
     }
     if (this.state !== "attack" || this.swingHit || this.damageCooldown > 0) {
@@ -315,6 +322,10 @@ class Enemy {
       return false;
     }
     this.takeDamage(projectile.damage, projectile.vel);
+    // Only some shots proc; rng is injected so specs can force the roll.
+    if (projectile.element && this.rng() < STATUS_PROC_CHANCE) {
+      applyStatusEffect(this, projectile.element, projectile.classMatch);
+    }
     projectile.registerHit(this);
     return true;
   }
