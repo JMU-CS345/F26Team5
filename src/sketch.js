@@ -429,11 +429,11 @@ function toggleInventoryMenu() {
   return true;
 }
 
-// Vincent's room code hooks door unlock and exit here, and Nick's loot hooks
-// enemy.type.lootTable here.
+// Vincent's room code hooks door unlock and exit here.
 function handleDeadEnemies(dead) {
   for (const enemy of dead) {
     startEnemyDeath(enemy);
+    room.items.push(...rollEnemyDrops(enemy, lootRun, room));
   }
   if (findDeadBosses(dead).length > 0) {
     room.bossDefeated = true;
