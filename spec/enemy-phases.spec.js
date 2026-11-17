@@ -95,7 +95,7 @@ describe("Enemy phases", function () {
       placePlayer(demon, 200);
       demon.health = 10;
       demon.attackTimer = 0;
-      expect(demon.tryAttack(player).length).toBe(3);
+      expect(shootNow(demon, player).length).toBe(3);
       expect(demon.attackTimer).toBe(50);
     });
 
@@ -103,7 +103,7 @@ describe("Enemy phases", function () {
       const demon = createEnemy("Demon", 100, 100);
       placePlayer(demon, 200);
       demon.attackTimer = 0;
-      expect(demon.tryAttack(player).length).toBe(1);
+      expect(shootNow(demon, player).length).toBe(1);
       expect(demon.attackTimer).toBe(75);
     });
   });

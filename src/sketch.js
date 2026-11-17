@@ -30,6 +30,9 @@ let downRepeat = new KeyRepeat();
 let creditsScroll = 0; // pixels the credits have scrolled
 let resumeInputBlocked = false;
 let activeDialogue;
+let gameFeel; // hitstop, shake and damage numbers
+let enemyClock = new EnemyClock(); // slows enemy updates after a perfect dodge
+let lastPlayerHealth = 0;
 let setupDone = false; // draw() waits for this, because setup() loads art with await
 //temp
 const ROOM_WIDTH = 640;
@@ -90,6 +93,9 @@ function fillRoomTemp(r) {
 
 // Makes a fresh player with the class picked on the menu.
 function startRun() {
+  refreshBindings(); // the menus may have changed the controls setting
+  gameFeel.refreshSettings();
+  gameFeel.reset();
   for (const g of roomGraphics.values()) {
     g.remove(); // free the old dungeon's pictures
   }
@@ -132,6 +138,7 @@ function startRun() {
     })),
     new ItemDrop(spawn.x + 48, spawn.y + 48, new Gold(), 25)
   ];
+  lastPlayerHealth = player.health;
   nextSpawnIndex = ENEMY_TYPE_NAMES.indexOf("Demon");
   projectiles = [];
   enemyProjectiles = [];
@@ -310,6 +317,7 @@ async function setup() {
   makeMenus();
   // The window losing focus pauses a run. p5 has no event for it, so use the DOM one.
   window.addEventListener("blur", pauseGame);
+  gameFeel = new GameFeel();
   setupDone = true;
 }
 
@@ -442,19 +450,23 @@ function drawScreen() {
       useExit(exit);
     }
   }
+  const shake = gameFeel.getShakeOffset();
+  if (gameFeel.consumeHitstop()) {
+    drawGameScene(shake); // a hit freezes the game for a moment
+    return;
+  }
 
   const heldInputBlocked = resumeInputBlocked && isGameplayInputHeld(keyIsDown);
   if (resumeInputBlocked && !heldInputBlocked) {
     resumeInputBlocked = false;
   }
-  if (!activeDialogue.isActive()) {
-    player.move(
-      heldInputBlocked ? new p5.Vector(0, 0) : getMoveDirection(keyIsDown),
-      room
-    );
-  } else {
-    player.walkFrames = 0;
-  }
+  const input = readPlayerInput(
+    keyIsDown,
+    player,
+    heldInputBlocked || activeDialogue.isActive()
+  );
+  aimPlayer(player, input);
+  player.move(input.move, room, input.strafe);
   for (const drop of room.items) {
     drop.update();
   }
@@ -462,9 +474,13 @@ function drawScreen() {
     runStats.recordPickup(drop.item);
   }
 
-  if (!player.isDead()) {
+  // Enemies and their shots stand still while someone is talking.
+  if (!player.isDead() && !activeDialogue.isActive()) {
+    const enemySteps = enemyClock.steps(player.getEnemyTimeScale());
     for (const e of room.enemies) {
-      e.update(player, room);
+      if (enemySteps > 0) {
+        e.update(player, room); // only the update slows down, hits are still checked
+      }
       e.damagePlayer(player);
       e.meleeHit(player);
       for (const shot of e.tryAttack(player)) {
@@ -473,25 +489,27 @@ function drawScreen() {
     }
   }
 
-  if (!activeDialogue.isActive()) {
-    const proj = player.fire(
-      heldInputBlocked ? new p5.Vector(0, 0) : getFireDirection(keyIsDown)
-    );
-    if (proj) {
-      projectiles.push(proj);
-    }
+  projectiles.push(...player.fireAll(input.fireDir));
+  player.update(room, input);
+  for (const hit of player.lastHits) {
+    gameFeel.onHit(hit, "melee");
   }
-  player.update();
 
   for (const p of projectiles) {
     p.update(room);
     for (const e of room.enemies) {
-      e.damageFromProjectile(p);
+      if (e.damageFromProjectile(p)) {
+        gameFeel.onHit({ target: e, damage: p.damage }, "ranged");
+        playCombatSfx("hit");
+      }
     }
   }
   projectiles = projectiles.filter((p) => p.alive);
 
   for (const p of enemyProjectiles) {
+    if (activeDialogue.isActive()) {
+      break;
+    }
     p.update(room);
     projectileHitsPlayer(p, player);
   }
@@ -499,7 +517,12 @@ function drawScreen() {
   const deadThisFrame = removeDeadEnemies(room);
   handleDeadEnemies(deadThisFrame);
 
-  drawRunScene();
+  if (player.health < lastPlayerHealth) {
+    gameFeel.onPlayerHurt();
+  }
+  lastPlayerHealth = player.health;
+  gameFeel.update();
+  drawGameScene(shake);
   if (!room.cleared && room.enemies.every((e) => e.isDead())) {
     room.onClear();
     // A room with no enemies at all is not counted, only one the player emptied.
@@ -538,9 +561,23 @@ function updateCamera() {
   worldCamera = cameraFor(center.x, center.y, viewW, viewH, bounds);
 }
 
+// The world shakes with a hit, the HUD stays put.
+function drawGameScene(shake) {
+  push();
+  translate(shake.x, shake.y);
+  drawWorldScene();
+  pop();
+  drawRunHud();
+}
+
+function drawRunScene() {
+  drawWorldScene();
+  drawRunHud();
+}
+
 // The world (room, items, shots, characters) draws zoomed and follows the camera. The HUD,
 // minimap and dialogue come after pop(), so they stay in fixed screen space.
-function drawRunScene() {
+function drawWorldScene() {
   updateCamera();
   push();
   scale(WORLD_ZOOM);
@@ -556,6 +593,7 @@ function drawRunScene() {
     drawEnemyProjectile(p);
   }
   drawPlayer(player);
+  drawMeleeAttack(player);
   for (const e of room.enemies) {
     drawEnemy(e);
     if (debugOverlay) {
@@ -566,7 +604,12 @@ function drawRunScene() {
     drawNpc(npc, player, activeDialogue.isActive());
   }
   drawDyingEnemies(game.shouldSimulate());
+  drawHitSparks(gameFeel);
+  drawDamageNumbers(gameFeel);
   pop();
+}
+
+function drawRunHud() {
   drawHud(player);
   drawFirstBossBar();
   drawClassLabel(player.mageClass);
@@ -615,8 +658,8 @@ function drawFirstBossBar() {
   }
 }
 
-// Testing aids: press E to spawn enemies, F3 to toggle the enemy debug overlay.
-// Press E: spawns the next enemy type somewhere on the floor, away from the player.
+// Testing aids: with the F3 overlay on, B spawns enemies and N toggles the NPC.
+// Press B: spawns the next enemy type somewhere on the floor, away from the player.
 function spawnNextEnemy() {
   const typeName = ENEMY_TYPE_NAMES[nextSpawnIndex % ENEMY_TYPE_NAMES.length];
   nextSpawnIndex++;
@@ -718,7 +761,8 @@ function keyPressed() {
     handleMenuKey(pauseMenu, keyCode);
     return false;
   }
-  if ((game.isPlaying() || game.isInventory()) && key.toLowerCase() === "i") {
+  const action = actionForKey(keyCode);
+  if ((game.isPlaying() || game.isInventory()) && action === "inventory") {
     toggleInventoryMenu();
     return false;
   }
@@ -731,12 +775,19 @@ function keyPressed() {
     return false;
   }
   if (game.isPlaying()) {
-    if (key.toLowerCase() === "n") {
+    if (!activeDialogue.isActive() && !player.isDead()) {
+      pressCombatKey(player, action);
+    }
+    // Debug keys only work while the F3 overlay is on.
+    if (debugOverlay && action === null && key.toLowerCase() === "n") {
       toggleTopRightNpc();
       return false;
     }
-    // Interaction: Space (32) or F
-    if (keyCode === 32 || key.toLowerCase() === "f") {
+    if (debugOverlay && action === null && key.toLowerCase() === "b") {
+      spawnNextEnemy();
+      return false;
+    }
+    if (action === "interact") {
       if (activeDialogue.isActive()) {
         activeDialogue.advance();
         return false;
@@ -746,9 +797,6 @@ function keyPressed() {
         activeDialogue.start(nearbyNpc);
         return false;
       }
-    }
-    if (key.toLowerCase() === "e") {
-      spawnNextEnemy();
     }
   }
   // Temporary damage key for testing the death screen, commented out currently.

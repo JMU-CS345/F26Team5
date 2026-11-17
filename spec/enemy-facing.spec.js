@@ -91,6 +91,7 @@ describe("Melee swing", function () {
         hits++;
       }
       player.health = 99; // so the player stays alive and in reach
+      player.iFrames = 0; // this spec counts swings, not i-frames
     }
     expect(swings).toBeGreaterThan(1);
     expect(hits).toBe(swings);
@@ -107,10 +108,10 @@ describe("Melee swing", function () {
       if (hitFrame >= 0 && frame === hitFrame + 3) {
         sawAttackAfterHit = enemy.state === "attack";
       }
-      if (hitFrame >= 0 && frame === hitFrame + ENEMY_DAMAGE_COOLDOWN + 2) {
-        expect(enemy.state).toBe("recover"); // not stuck once the cooldown ends
+      if (hitFrame >= 0 && frame === hitFrame + ENEMY_FREEZE_FRAMES + 2) {
+        expect(enemy.state).toBe("recover"); // not stuck once the freeze ends
       }
-      if (hitFrame >= 0 && frame === hitFrame + ENEMY_DAMAGE_COOLDOWN + 12) {
+      if (hitFrame >= 0 && frame === hitFrame + ENEMY_FREEZE_FRAMES + 10) {
         expect(enemy.state).toBe("idle");
         break;
       }

@@ -57,10 +57,88 @@ function drawPlayer(player) {
   const left = player.pos.x + (sw - w) / 2;
   const top = player.pos.y - (sh - player.width) + (sh - h) / 2;
 
-  tint(255, lerp(255, 0, t));
+  let alpha = lerp(255, 0, t);
+  if (player.iFrames > 0 && Math.floor(player.iFrames / 3) % 2 === 0) {
+    alpha = 90; // flicker while invulnerable
+  }
+  if (player.isDashing()) {
+    alpha = 140;
+  }
+  tint(255, alpha);
   const sheet = playerClassSheets[playerSheetPath(player.modelName, player.mageClass)];
   image(sheet, left, top, w, h, f.col * sw, f.row * sh, sw, sh);
   noTint();
+  drawDodgeFlash(player);
+}
+
+// A ring spreads out from the player after a perfect dodge.
+function drawDodgeFlash(player) {
+  if (player.dodgeFlash <= 0) {
+    return;
+  }
+  const t = 1 - player.dodgeFlash / DODGE_FLASH_FRAMES;
+  const center = player.getCenter();
+  push();
+  noFill();
+  stroke(140, 220, 255, lerp(255, 0, t));
+  strokeWeight(lerp(4, 1, t));
+  circle(center.x, center.y, lerp(16, 56, t));
+  pop();
+}
+
+// The slash is a simple arc that sweeps across the swing. Final art can replace it.
+function drawMeleeAttack(player) {
+  const attack = player.attack;
+  if (attack !== null && attack.phase() !== "windup") {
+    const center = player.getCenter();
+    const half = radians(attack.plan.arc / 2);
+    const heading = attack.dir.heading();
+    let from = heading - half;
+    let to = lerp(from, heading + half, attack.getSweep());
+    if (attack.step % 2 === 1 && attack.kind === "swing") {
+      from = heading + half; // every other swing comes back the other way
+      to = lerp(from, heading - half, attack.getSweep());
+    }
+    const fade = map(attack.frame, 0, attack.plan.total, 255, 60);
+    const size = attack.plan.reach * 2;
+    push();
+    if (attack.kind === "spin") {
+      from = heading;
+      to = heading + TWO_PI * attack.getSweep();
+    }
+    if (typeof drawEffect === "function" && attack.kind === "swing") {
+      const tip = p5.Vector.fromAngle(heading, attack.plan.reach * 0.7);
+      const started = frameCount - (attack.frame - attack.plan.windup);
+      drawEffect("slash", center.x + tip.x, center.y + tip.y, started, 2, heading);
+    }
+    noStroke();
+    fill(255, 255, 255, fade * 0.35);
+    arc(center.x, center.y, size, size, min(from, to), max(from, to), PIE);
+    noFill();
+    stroke(255, 255, 255, fade);
+    strokeWeight(3);
+    arc(center.x, center.y, size, size, min(from, to), max(from, to));
+    pop();
+  }
+  drawSpinCharge(player);
+}
+
+// A ring grows around the player while melee is held, and flashes when the spin is ready.
+function drawSpinCharge(player) {
+  if (player.chargeFrames < 8) {
+    return;
+  }
+  const center = player.getCenter();
+  const fraction = min(1, player.chargeFrames / SPIN_CHARGE_FRAMES);
+  push();
+  noFill();
+  strokeWeight(2);
+  stroke(255, 255, 255, 200);
+  if (player.isCharged() && Math.floor(frameCount / 4) % 2 === 0) {
+    stroke(255, 220, 80);
+  }
+  arc(center.x, center.y, 40, 40, -HALF_PI, -HALF_PI + TWO_PI * fraction);
+  pop();
 }
 
 function goldHudText(inventory) {

@@ -7,16 +7,44 @@ describe("Player movement", function () {
     player = new Player(50, 50);
   });
 
+  // The first frame of a walk covers the accelerate share of the speed.
+  function firstStep(dir) {
+    player.velocity.set(0, 0);
+    const before = player.pos.copy();
+    player.move(dir, room);
+    return player.pos.copy().sub(before);
+  }
+
   it("moves in the direction it is given", function () {
-    player.move(new p5.Vector(1, 0), room);
-    expect(player.pos.x).toBe(50 + player.speed);
-    expect(player.pos.y).toBe(50);
-    player.move(new p5.Vector(0, 1), room);
-    expect(player.pos.y).toBe(50 + player.speed);
-    player.move(new p5.Vector(-1, 0), room);
-    expect(player.pos.x).toBe(50);
-    player.move(new p5.Vector(0, -1), room);
-    expect(player.pos.y).toBe(50);
+    expect(firstStep(new p5.Vector(1, 0)).x).toBeCloseTo(player.speed * MOVE_ACCEL, 5);
+    expect(firstStep(new p5.Vector(0, 1)).y).toBeCloseTo(player.speed * MOVE_ACCEL, 5);
+    expect(firstStep(new p5.Vector(-1, 0)).x).toBeCloseTo(-player.speed * MOVE_ACCEL, 5);
+    expect(firstStep(new p5.Vector(0, -1)).y).toBeCloseTo(-player.speed * MOVE_ACCEL, 5);
+  });
+
+  it("reaches full speed in about four frames", function () {
+    for (let i = 0; i < 4; i++) {
+      player.move(new p5.Vector(1, 0), room);
+    }
+    expect(player.velocity.x).toBeGreaterThan(player.speed * 0.9);
+    for (let i = 0; i < 8; i++) {
+      player.move(new p5.Vector(1, 0), room);
+    }
+    expect(player.velocity.x).toBeCloseTo(player.speed, 1);
+  });
+
+  it("brakes over a few frames instead of stopping dead", function () {
+    for (let i = 0; i < 10; i++) {
+      player.move(new p5.Vector(1, 0), room);
+    }
+    const full = player.velocity.x;
+    player.move(new p5.Vector(0, 0), room);
+    expect(player.velocity.x).toBeCloseTo(full * (1 - MOVE_BRAKE), 5);
+    expect(player.velocity.x).toBeGreaterThan(0);
+    for (let i = 0; i < 10; i++) {
+      player.move(new p5.Vector(0, 0), room);
+    }
+    expect(player.velocity.magSq()).toBe(0);
   });
 
   it("does not move with no direction", function () {
@@ -26,9 +54,8 @@ describe("Player movement", function () {
   });
 
   it("moves diagonals at the same speed as straight lines", function () {
-    player.move(new p5.Vector(1, 1), room);
-    const distance = Math.hypot(player.pos.x - 50, player.pos.y - 50);
-    expect(distance).toBeCloseTo(player.speed, 5);
+    const step = firstStep(new p5.Vector(1, 1));
+    expect(step.mag()).toBeCloseTo(player.speed * MOVE_ACCEL, 5);
   });
 
   it("does not change the direction vector it is given", function () {
@@ -51,7 +78,9 @@ describe("Player movement", function () {
 
   it("slides along a wall when moving diagonally into it", function () {
     player.pos.set(128, 50);          // already squished against the right wall
-    player.move(new p5.Vector(1, 1), room);
+    for (let i = 0; i < 3; i++) {
+      player.move(new p5.Vector(1, 1), room);
+    }
     expect(player.pos.x).toBe(128);   // blocked on x
     expect(player.pos.y).toBeGreaterThan(50); // still free on y
   });
@@ -126,7 +155,9 @@ describe("Player animation state", () => {
     player.move(right, room);
     player.move(right, room);
     expect(player.walkFrames).toBe(2);
-    player.move(none, room);
+    for (let i = 0; i < 10; i++) {
+      player.move(none, room);
+    }
     expect(player.walkFrames).toBe(0);
   });
 
@@ -171,29 +202,34 @@ describe("Player animation state", () => {
 describe("getFireDirection", function () {
   // 38 up, 40 down, 37 left, 39 right; 87 W, 65 A, 83 S, 68 D
   const held = (...codes) => (code) => codes.includes(code);
+  const twin = getPreset("twinstick"); // arrow fire lives in the Twin-stick preset
 
   it("maps each arrow key to a cardinal direction", function () {
-    expect(getFireDirection(held(38))).toEqual(new p5.Vector(0, -1));
-    expect(getFireDirection(held(40))).toEqual(new p5.Vector(0, 1));
-    expect(getFireDirection(held(37))).toEqual(new p5.Vector(-1, 0));
-    expect(getFireDirection(held(39))).toEqual(new p5.Vector(1, 0));
+    expect(getFireDirection(held(38), twin)).toEqual(new p5.Vector(0, -1));
+    expect(getFireDirection(held(40), twin)).toEqual(new p5.Vector(0, 1));
+    expect(getFireDirection(held(37), twin)).toEqual(new p5.Vector(-1, 0));
+    expect(getFireDirection(held(39), twin)).toEqual(new p5.Vector(1, 0));
   });
 
   it("returns no direction when no arrow is held", function () {
-    expect(getFireDirection(held()).magSq()).toBe(0);
+    expect(getFireDirection(held(), twin).magSq()).toBe(0);
   });
 
   it("ignores WASD, which move instead", function () {
-    expect(getFireDirection(held(87, 65, 83, 68)).magSq()).toBe(0);
+    expect(getFireDirection(held(87, 65, 83, 68), twin).magSq()).toBe(0);
   });
 
-  it("never fires diagonally, even with several arrows held", function () {
-    const combos = [[38, 39], [38, 37], [40, 39], [40, 37], [38, 40], [37, 39], [37, 38, 39, 40]];
-    for (const combo of combos) {
-      const dir = getFireDirection(held(...combo));
-      expect(dir.x * dir.y).toBe(0);
-      expect(dir.magSq()).toBe(1);
-    }
+  it("aims diagonally with two arrows held", function () {
+    expect(getFireDirection(held(38, 39), twin)).toEqual(new p5.Vector(1, -1));
+    expect(getFireDirection(held(38, 37), twin)).toEqual(new p5.Vector(-1, -1));
+    expect(getFireDirection(held(40, 39), twin)).toEqual(new p5.Vector(1, 1));
+    expect(getFireDirection(held(40, 37), twin)).toEqual(new p5.Vector(-1, 1));
+  });
+
+  it("cancels opposite arrows", function () {
+    expect(getFireDirection(held(38, 40), twin).magSq()).toBe(0);
+    expect(getFireDirection(held(37, 39), twin).magSq()).toBe(0);
+    expect(getFireDirection(held(37, 38, 39, 40), twin).magSq()).toBe(0);
   });
 });
 
@@ -308,5 +344,74 @@ describe("Player health and death", function () {
     const fresh = new Player(50, 50);
     expect(fresh.isDead()).toBe(false);
     expect(fresh.showDeathScreen()).toBe(false);
+  });
+});
+
+describe("Player i-frames and defense", function () {
+  let player;
+  const room = new NormalRoom(0, 0, 160, 160);
+
+  beforeEach(function () {
+    player = new Player(50, 50, "Fire");
+  });
+
+  function wear(armor) {
+    player.inventory.add(armor);
+    player.inventory.equip(armor);
+  }
+
+  it("starts i-frames when hit", function () {
+    expect(player.takeDamage(1)).toBe(true);
+    expect(player.iFrames).toBe(HIT_IFRAMES);
+    expect(player.isInvulnerable()).toBe(true);
+  });
+
+  it("takes no damage while invulnerable", function () {
+    player.takeDamage(1);
+    expect(player.takeDamage(1)).toBe(false);
+    expect(player.health).toBe(player.maxHealth - 1);
+  });
+
+  it("can be hit again once the i-frames expire", function () {
+    player.takeDamage(1);
+    for (let i = 0; i < HIT_IFRAMES; i++) player.update(room);
+    expect(player.isInvulnerable()).toBe(false);
+    expect(player.takeDamage(1)).toBe(true);
+    expect(player.health).toBe(player.maxHealth - 2);
+  });
+
+  it("is knocked back away from the hit", function () {
+    player.takeDamage(1, new p5.Vector(1, 0));
+    player.update(room);
+    expect(player.pos.x).toBeGreaterThan(50);
+    expect(player.pos.y).toBe(50);
+  });
+
+  it("does not walk while being shoved", function () {
+    player.takeDamage(1, new p5.Vector(1, 0));
+    const before = player.pos.x;
+    player.move(new p5.Vector(-1, 0), room);
+    expect(player.pos.x).toBe(before);
+  });
+
+  it("reduces damage by worn armor", function () {
+    wear(new ChestArmor({ id: "robe", name: "Robe", defense: 1 }));
+    expect(player.getDefense()).toBe(1);
+    player.takeDamage(2);
+    expect(player.health).toBe(player.maxHealth - 1);
+  });
+
+  it("never cuts a hit below the minimum", function () {
+    wear(new ChestArmor({ id: "plate", name: "Plate", defense: 50 }));
+    player.takeDamage(3);
+    expect(player.health).toBe(player.maxHealth - MIN_HIT_DAMAGE);
+  });
+
+  it("does not heal from negative or zero damage", function () {
+    player.takeDamage(2);
+    for (let i = 0; i < HIT_IFRAMES; i++) player.update(room);
+    expect(player.takeDamage(-3)).toBe(false);
+    expect(player.takeDamage(0)).toBe(false);
+    expect(player.health).toBe(player.maxHealth - 2);
   });
 });

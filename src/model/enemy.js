@@ -1,14 +1,9 @@
 // Enemy model. No p5 drawing calls, so Jasmine can test it without a canvas.
 // What each type is (stats, behaviors, art) lives in enemy-types.js.
 
-const ENEMY_DAMAGE_COOLDOWN = 30; // frames at 60 fps
-const ENEMY_HURT_FRAMES = 6; // how long the hit flash lasts
 const ENEMY_PHASE_FLASH_FRAMES = 30; // how long the boss bar flashes after a phase change
-const ENEMY_SWING_FRAMES = 10; // how long a melee swing can hit
-const ENEMY_KNOCKBACK_SPEED = 3; // pixels per frame at the start of a shove
-const ENEMY_KNOCKBACK_FRAMES = 8;
-const ENEMY_KNOCKBACK_DECAY = 0.8; // the shove keeps this much of its speed each frame
 const ENEMY_SPAWN_FRAMES = 30; // harmless while the spawn-in ring plays
+const ROOM_GRACE_FRAMES = 30; // template enemies are harmless this long after the room loads
 
 class Enemy {
   // typeName is a key of ENEMY_TYPES. With no name it is a Jelly.
@@ -29,6 +24,9 @@ class Enemy {
     this.contactDamage = type.contactDamage;
     // Starts at zero so the enemy can damage the player on its first contact.
     this.damageCooldown = 0;
+    this.freezeTimer = 0; // frames left standing still after hitting the player or a stagger
+    this.shotFlash = 0; // frames left of the flash before a shot
+    this.shotFlashing = false; // a shot is lined up and waiting for the flash to end
     this.attackTimer = 0; // frames until the next shot
     if (type.attack) {
       this.attackTimer = type.attack.cooldown;
@@ -41,6 +39,7 @@ class Enemy {
     this.hopDir = null; // locked dash direction for the hop moves
     this.knockback = new p5.Vector(0, 0); // pixels per frame, shrinks as the shove fades
     this.knockbackTimer = 0;
+    this.graceTimer = 0; // harmless while above zero, set when the player enters the room
     this.spawnTimer = 0; // createEnemy can raise this so the enemy fades in harmless
     this.facingLeft = false;
     this.facingDir = "down"; // "down", "up", "left" or "right", the side the player is on
@@ -108,18 +107,27 @@ class Enemy {
     return this.spawnTimer > 0;
   }
 
+  // Enemies that cannot hurt anyone yet: still appearing, or in the room's grace period.
+  isHarmless() {
+    return this.isSpawning() || this.graceTimer > 0;
+  }
+
   // fromDir is the direction the hit travels. Leave it out for damage with no shove.
-  takeDamage(amount, fromDir) {
+  // power scales the shove (1 is normal, a finisher uses more).
+  takeDamage(amount, fromDir, power = 1) {
     if (amount > 0) {
       this.hurtTimer = ENEMY_HURT_FRAMES;
     }
     if (amount > 0 && fromDir && fromDir.magSq() > 0) {
-      let shove = ENEMY_KNOCKBACK_SPEED;
+      let shove = ENEMY_KNOCKBACK_SPEED * power;
       if (this.type.boss) {
         shove = shove / 2; // bosses are heavy
       }
       this.knockback = fromDir.copy().setMag(shove);
       this.knockbackTimer = ENEMY_KNOCKBACK_FRAMES;
+    }
+    if (amount > 0 && !this.type.boss) {
+      this.staggerIfWindingUp();
     }
     const phaseBefore = this.getPhase();
     this.health = Math.max(0, this.health - amount);
@@ -131,6 +139,28 @@ class Enemy {
         this.attackTimer = Math.min(this.attackTimer, attack.cooldown);
       }
     }
+  }
+
+  // A hit during a windup or a shot flash cancels it, then the enemy stands stunned.
+  staggerIfWindingUp() {
+    let canceled = false;
+    if (this.state === "windup") {
+      this.setState("recover", ENEMY_STAGGER_FRAMES);
+      canceled = true;
+    }
+    if (this.shotFlashing) {
+      this.shotFlashing = false;
+      this.shotFlash = 0;
+      canceled = true;
+    }
+    if (canceled) {
+      this.freezeTimer = Math.max(this.freezeTimer, ENEMY_STAGGER_FRAMES);
+    }
+  }
+
+  // True while a swing or a shot is being telegraphed, for the view.
+  isTelegraphing() {
+    return this.state === "windup" || this.shotFlash > 0;
   }
 
   getBounds() {
@@ -148,11 +178,13 @@ class Enemy {
   }
 
   // Call once per frame. Counts the timers down and runs the type's move behavior.
-  update(player, room) {
-    if (this.isDead()) {
+  // frozen is true while dialogue is open: nothing changes at all.
+  update(player, room, frozen = false) {
+    if (this.isDead() || frozen) {
       return;
     }
     this.age++;
+    this.graceTimer = Math.max(0, this.graceTimer - 1);
     if (this.isSpawning()) {
       this.spawnTimer--;
       return;
@@ -160,6 +192,7 @@ class Enemy {
     this.damageCooldown = Math.max(0, this.damageCooldown - 1);
     this.attackTimer = Math.max(0, this.attackTimer - 1);
     this.hurtTimer = Math.max(0, this.hurtTimer - 1);
+    this.shotFlash = Math.max(0, this.shotFlash - 1);
     this.phaseFlashTimer = Math.max(0, this.phaseFlashTimer - 1);
     this.stateTimer = Math.max(0, this.stateTimer - 1);
     if (this.canSee(player)) {
@@ -169,9 +202,10 @@ class Enemy {
       moveWithCollision(this, this.knockback.x, this.knockback.y, room);
       this.knockback.mult(ENEMY_KNOCKBACK_DECAY);
       this.knockbackTimer--;
-    } else if (this.damageCooldown === 0) {
+    } else if (this.freezeTimer === 0) {
       ENEMY_MOVES[this.getMoveName()](this, player, room);
     }
+    this.freezeTimer = Math.max(0, this.freezeTimer - 1); // counted after the move
   }
 
   // Remembers which way the player is. The art picks its direction from these.
@@ -204,7 +238,7 @@ class Enemy {
   // Returns an array of new projectiles. Empty for enemies with no attack.
   tryAttack(player) {
     const attack = this.getAttack();
-    if (this.isDead() || this.isSpawning() || !attack) {
+    if (this.isDead() || this.isHarmless() || this.freezeTimer > 0 || !attack) {
       return [];
     }
     return ENEMY_ATTACKS[attack.kind](this, player);
@@ -213,25 +247,39 @@ class Enemy {
   // Melee hit: while in the attack state, hurts a player inside a reach box in front of us.
   meleeHit(player) {
     const attack = this.getAttack();
-    if (this.isDead() || !attack || attack.kind !== "melee") {
+    if (this.isDead() || this.isHarmless() || !attack || attack.kind !== "melee") {
       return false;
     }
     if (this.state !== "attack" || this.swingHit || this.damageCooldown > 0) {
       return false;
     }
     const center = this.getCenter();
-    let left = center.x;
-    if (this.facingLeft) {
-      left = center.x - attack.reach;
-    }
-    const box = { x: left, y: center.y - attack.reach / 2, w: attack.reach, h: attack.reach };
-    if (!rectsOverlap(box, player.getBounds())) {
+    if (!rectsOverlap(this.getSwingBox(attack.reach), player.getBounds())) {
       return false;
     }
-    player.takeDamage(attack.damage);
+    if (!player.takeDamage(attack.damage, player.getCenter().sub(center))) {
+      return false; // the player is in i-frames, so try again next frame
+    }
     this.damageCooldown = ENEMY_DAMAGE_COOLDOWN;
+    this.freezeTimer = ENEMY_FREEZE_FRAMES;
     this.swingHit = true; // one hit per swing, and the sword stays out
     return true;
+  }
+
+  // The square a melee swing reaches, in front of the enemy in all four directions.
+  getSwingBox(reach) {
+    const center = this.getCenter();
+    const box = { x: center.x, y: center.y - reach / 2, w: reach, h: reach };
+    if (this.facingDir === "left") {
+      box.x = center.x - reach;
+    } else if (this.facingDir === "up") {
+      box.x = center.x - reach / 2;
+      box.y = center.y - reach;
+    } else if (this.facingDir === "down") {
+      box.x = center.x - reach / 2;
+      box.y = center.y;
+    }
+    return box;
   }
 
   isTouching(player) {
@@ -239,14 +287,18 @@ class Enemy {
   }
 
   damagePlayer(player) {
-    if (this.isDead() || this.isSpawning() || this.damageCooldown > 0) {
+    if (this.isDead() || this.isHarmless() || this.damageCooldown > 0) {
       return false;
     }
     if (!this.isTouching(player)) {
       return false;
     }
-    player.takeDamage(this.contactDamage);
+    const push = player.getCenter().sub(this.getCenter());
+    if (!player.takeDamage(this.contactDamage, push)) {
+      return false;
+    }
     this.damageCooldown = ENEMY_DAMAGE_COOLDOWN;
+    this.freezeTimer = ENEMY_FREEZE_FRAMES;
     return true;
   }
 
@@ -256,14 +308,14 @@ class Enemy {
   }
 
   damageFromProjectile(projectile) {
-    if (this.isDead() || this.isSpawning() || !projectile.alive) {
+    if (this.isDead() || this.isSpawning() || !projectile.canHit(this)) {
       return false;
     }
     if (!this.isTouchingProjectile(projectile)) {
       return false;
     }
     this.takeDamage(projectile.damage, projectile.vel);
-    projectile.alive = false;
+    projectile.registerHit(this);
     return true;
   }
 }
