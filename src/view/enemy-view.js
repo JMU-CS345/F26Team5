@@ -14,7 +14,7 @@ async function loadEnemySheets() {
     const allFrames = allSpriteFrames(sprite);
     for (const frame of allFrames) {
       if (!enemySheets[frame.sheet]) {
-        enemySheets[frame.sheet] = await loadImage(frame.sheet);
+        enemySheets[frame.sheet] = await loadImageFile(frame.sheet);
       }
     }
   }

@@ -11,10 +11,10 @@ const ITEM_SPRITE_COLORS = {
 const itemSprites = {};
 
 async function loadItemSprites() {
-  itemSprites.gold = await loadImage("assets/item/gold-coin.png");
-  itemSprites.consumable = await loadImage("assets/item/potion.png");
-  itemSprites.weapon = await loadImage("assets/item/weapon.png");
-  itemSprites.armor = await loadImage("assets/item/armor.png");
+  itemSprites.gold = await loadImageFile("assets/item/gold-coin.png");
+  itemSprites.consumable = await loadImageFile("assets/item/potion.png");
+  itemSprites.weapon = await loadImageFile("assets/item/weapon.png");
+  itemSprites.armor = await loadImageFile("assets/item/armor.png");
 }
 
 function itemSpriteImage(item) {

@@ -2,10 +2,10 @@
 const tileImages = {};
 
 async function loadTileImages() {
-  tileImages.floor = await loadImage("assets/tiles/dungeon/DungeonFloor.png");
-  tileImages.ceiling = await loadImage("assets/tiles/dungeon/DungeonCeiling.png");
-  tileImages.interiorWall = await loadImage("assets/tiles/dungeon/DungeonInteriorWall.png");
-  tileImages.walls = await loadImage("assets/tiles/dungeon/DungeonWalls.png");
+  tileImages.floor = await loadImageFile("assets/tiles/dungeon/DungeonFloor.png");
+  tileImages.ceiling = await loadImageFile("assets/tiles/dungeon/DungeonCeiling.png");
+  tileImages.interiorWall = await loadImageFile("assets/tiles/dungeon/DungeonInteriorWall.png");
+  tileImages.walls = await loadImageFile("assets/tiles/dungeon/DungeonWalls.png");
 }
 
 // Where each wall variant is on DungeonWalls.png, as [column, row] in 16x16 tiles.

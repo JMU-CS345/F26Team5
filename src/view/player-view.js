@@ -11,7 +11,7 @@ const playerSheets = {}; // model name -> loaded image
 // Call once in setup(), with await.
 async function loadPlayerSheets() {
   for (const name of PLAYER_MODEL_NAMES) {
-    playerSheets[name] = await loadImage(PLAYER_MODELS[name].sheet);
+    playerSheets[name] = await loadImageFile(PLAYER_MODELS[name].sheet);
   }
 }
 
