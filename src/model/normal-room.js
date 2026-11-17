@@ -16,7 +16,7 @@ class NormalRoom extends Room {
         const row = [];
         for (let x = 0; x < columns; x++) {
             const isWall = (x === 0 || y === 0 || x === columns - 1 || y === rows - 1);
-            row.push(isWall ? 1 : 0);
+            row.push(isWall ? TILE.WALL : TILE.FLOOR);
         }
 
       this.tileGrid.push(row);

@@ -33,3 +33,7 @@ function getFireDirection(isDown) {
   }
   return new p5.Vector(0, 0);
 }
+
+function isGameplayInputHeld(isDown) {
+  return [37, 38, 39, 40, 65, 68, 83, 87].some((code) => isDown(code));
+}

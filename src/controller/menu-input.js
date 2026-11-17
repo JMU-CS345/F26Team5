@@ -7,3 +7,13 @@ function getClassForKey(key) {
   }
   return MAGE_CLASSES[index];
 }
+
+// Turns a key on the model screen into a playermodel name. Keys 1 and 2 pick the
+// models in PLAYER_MODEL_NAMES order. Returns null for any other key.
+function getModelForKey(key) {
+  const index = Number(key) - 1;
+  if (!Number.isInteger(index) || index < 0 || index >= PLAYER_MODEL_NAMES.length) {
+    return null;
+  }
+  return PLAYER_MODEL_NAMES[index];
+}

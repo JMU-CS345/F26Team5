@@ -157,3 +157,96 @@ describe("Room collision integration", function () {
     expect(projectile.alive).toBe(true);
   });
 });
+
+describe("getWallVariant", () => {
+  let room;
+  beforeEach(() => {
+    room = new NormalRoom(0, 0, 160, 160); // 10x10 tiles with a wall border
+  });
+
+  it("picks straight walls by which side the floor is on", () => {
+    expect(getWallVariant(room, 5, 0)).toBe("open-s");
+    expect(getWallVariant(room, 5, 9)).toBe("open-n");
+    expect(getWallVariant(room, 0, 5)).toBe("open-e");
+    expect(getWallVariant(room, 9, 5)).toBe("open-w");
+  });
+
+  it("picks the room's four corners", () => {
+    expect(getWallVariant(room, 0, 0)).toBe("diag-se");
+    expect(getWallVariant(room, 9, 0)).toBe("diag-sw");
+    expect(getWallVariant(room, 0, 9)).toBe("diag-ne");
+    expect(getWallVariant(room, 9, 9)).toBe("diag-nw");
+  });
+
+  it("picks corners for a block of wall sticking into the room", () => {
+    for (let c = 4; c <= 6; c++) {
+      for (let r = 4; r <= 5; r++) {
+        room.tileGrid[r][c] = TILE.WALL;
+      }
+    }
+    expect(getWallVariant(room, 4, 4)).toBe("open-nw");
+    expect(getWallVariant(room, 5, 4)).toBe("open-n");
+    expect(getWallVariant(room, 6, 4)).toBe("open-ne");
+    expect(getWallVariant(room, 4, 5)).toBe("open-sw");
+    expect(getWallVariant(room, 5, 5)).toBe("open-s");
+    expect(getWallVariant(room, 6, 5)).toBe("open-se");
+  });
+
+  it("is solid when no floor is around it", () => {
+    for (let c = 3; c <= 5; c++) {
+      for (let r = 3; r <= 5; r++) {
+        room.tileGrid[r][c] = TILE.WALL;
+      }
+    }
+    expect(getWallVariant(room, 4, 4)).toBe("solid");
+  });
+
+  it("treats doors as part of the wall", () => {
+    room.tileGrid[0][5] = TILE.DOOR_CLOSED;
+    expect(getWallVariant(room, 4, 0)).toBe("open-s");
+  });
+
+  it("treats pits and interior walls as open space", () => {
+    room.tileGrid[1][5] = TILE.PIT;
+    expect(getWallVariant(room, 5, 0)).toBe("open-s");
+    room.tileGrid[1][5] = TILE.INTERIOR_WALL;
+    expect(getWallVariant(room, 5, 0)).toBe("open-s");
+  });
+});
+
+describe("Room tile editing and exits", () => {
+  let room;
+  beforeEach(() => {
+    room = new NormalRoom(32, 64, 160, 160); // 10x10 tiles, drawn at pixel (32, 64)
+  });
+
+  it("knows its size in tiles", () => {
+    expect(room.cols).toBe(10);
+    expect(room.rows).toBe(10);
+  });
+
+  it("changes a tile with setTile", () => {
+    expect(room.setTile(3, 4, TILE.PIT)).toBe(true);
+    expect(room.getTile(3, 4)).toBe(TILE.PIT);
+  });
+
+  it("ignores setTile outside the room", () => {
+    expect(room.setTile(-1, 0, TILE.PIT)).toBe(false);
+    expect(room.setTile(0, 10, TILE.PIT)).toBe(false);
+    expect(room.setTile(10, 0, TILE.PIT)).toBe(false);
+  });
+
+  it("starts with no exits", () => {
+    expect(room.exits).toEqual([]);
+    expect(room.getExitAt(40, 70)).toBeNull();
+  });
+
+  it("finds the exit under a pixel, relative to the room's own position", () => {
+    const exit = { side: "N", tiles: [{ col: 4, row: 0 }, { col: 5, row: 0 }], toId: 1, screenStart: 4 };
+    room.exits.push(exit);
+    expect(room.getExitAt(32 + 4 * 16 + 2, 64 + 3)).toBe(exit); // first door tile
+    expect(room.getExitAt(32 + 5 * 16 + 2, 64 + 3)).toBe(exit); // second door tile
+    expect(room.getExitAt(32 + 3 * 16 + 2, 64 + 3)).toBeNull(); // wall beside the door
+    expect(room.getExitAt(32 + 4 * 16 + 2, 64 + 16 + 3)).toBeNull(); // floor just inside
+  });
+});
