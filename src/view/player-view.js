@@ -8,7 +8,7 @@ const recolorCache = new Map(); // recolorKey -> recolored sheet
 async function loadPlayerSheets() {
   const model = PLAYER_MODELS[PLAYER_MODEL_NAMES[0]];
   for (const name of model.layers) {
-    layerImages[name] = await loadImageFile(model.layerDir + name + ".png");
+    layerImages[name] = await loadImageFile(LAYER_DATA[name]);
   }
 }
 
