@@ -12,6 +12,15 @@ function makeRun(mageClass, modelName = "Tall") {
 }
 
 describe("game flow", function () {
+  it("uses E to interact and I for the inventory in both presets", function () {
+    for (const name of CONTROL_PRESETS) {
+      const bindings = getPreset(name);
+      expect(actionForKey(69, bindings)).toBe("interact");
+      expect(actionForKey(73, bindings)).toBe("inventory");
+      expect(actionForKey(70, bindings)).toBeNull(); // F no longer interacts
+    }
+  });
+
   it("starts a run when a model and a class are picked", function () {
     const game = new Game();
     game.selectModel(getModelForKey("1"));

@@ -81,6 +81,7 @@ function fillRoomTemp(r) {
 
 // Makes a fresh player with the class picked on the menu.
 function startRun() {
+  refreshBindings(); // the menus may have changed the controls setting
   for (const g of roomGraphics.values()) {
     g.remove(); // free the old dungeon's pictures
   }
@@ -326,9 +327,8 @@ function draw() {
   }
 
   if (!activeDialogue.isActive()) {
-    const proj = player.fire(
-      heldInputBlocked ? new p5.Vector(0, 0) : getFireDirection(keyIsDown)
-    );
+    const fireDir = getFireDirection(keyIsDown, getBindings(), player.facing);
+    const proj = player.fire(heldInputBlocked ? new p5.Vector(0, 0) : fireDir);
     if (proj) {
       projectiles.push(proj);
     }
@@ -436,8 +436,8 @@ function drawFirstBossBar() {
   }
 }
 
-// Testing aids: press E to spawn enemies, F3 to toggle the enemy debug overlay.
-// Press E: spawns the next enemy type somewhere on the floor, away from the player.
+// Testing aids: with the F3 overlay on, B spawns enemies and N toggles the NPC.
+// Press B: spawns the next enemy type somewhere on the floor, away from the player.
 function spawnNextEnemy() {
   const typeName = ENEMY_TYPE_NAMES[nextSpawnIndex % ENEMY_TYPE_NAMES.length];
   nextSpawnIndex++;
@@ -492,7 +492,8 @@ function keyPressed() {
     chooseClass(getClassForKey(key));
     return;
   }
-  if ((game.isPlaying() || game.isInventory()) && key.toLowerCase() === "i") {
+  const action = actionForKey(keyCode);
+  if ((game.isPlaying() || game.isInventory()) && action === "inventory") {
     toggleInventoryMenu();
     return false;
   }
@@ -504,12 +505,16 @@ function keyPressed() {
     return false;
   }
   if (game.isPlaying()) {
-    if (key.toLowerCase() === "n") {
+    // Debug keys only work while the F3 overlay is on.
+    if (debugOverlay && action === null && key.toLowerCase() === "n") {
       toggleTopRightNpc();
       return false;
     }
-    // Interaction: Space (32) or F
-    if (keyCode === 32 || key.toLowerCase() === "f") {
+    if (debugOverlay && action === null && key.toLowerCase() === "b") {
+      spawnNextEnemy();
+      return false;
+    }
+    if (action === "interact") {
       if (activeDialogue.isActive()) {
         activeDialogue.advance();
         return false;
@@ -519,9 +524,6 @@ function keyPressed() {
         activeDialogue.start(nearbyNpc);
         return false;
       }
-    }
-    if (key.toLowerCase() === "e") {
-      spawnNextEnemy();
     }
   }
   // Temporary damage key for testing the death screen, commented out currently.

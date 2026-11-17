@@ -171,26 +171,27 @@ describe("Player animation state", () => {
 describe("getFireDirection", function () {
   // 38 up, 40 down, 37 left, 39 right; 87 W, 65 A, 83 S, 68 D
   const held = (...codes) => (code) => codes.includes(code);
+  const twin = getPreset("twinstick"); // arrow fire lives in the Twin-stick preset
 
   it("maps each arrow key to a cardinal direction", function () {
-    expect(getFireDirection(held(38))).toEqual(new p5.Vector(0, -1));
-    expect(getFireDirection(held(40))).toEqual(new p5.Vector(0, 1));
-    expect(getFireDirection(held(37))).toEqual(new p5.Vector(-1, 0));
-    expect(getFireDirection(held(39))).toEqual(new p5.Vector(1, 0));
+    expect(getFireDirection(held(38), twin)).toEqual(new p5.Vector(0, -1));
+    expect(getFireDirection(held(40), twin)).toEqual(new p5.Vector(0, 1));
+    expect(getFireDirection(held(37), twin)).toEqual(new p5.Vector(-1, 0));
+    expect(getFireDirection(held(39), twin)).toEqual(new p5.Vector(1, 0));
   });
 
   it("returns no direction when no arrow is held", function () {
-    expect(getFireDirection(held()).magSq()).toBe(0);
+    expect(getFireDirection(held(), twin).magSq()).toBe(0);
   });
 
   it("ignores WASD, which move instead", function () {
-    expect(getFireDirection(held(87, 65, 83, 68)).magSq()).toBe(0);
+    expect(getFireDirection(held(87, 65, 83, 68), twin).magSq()).toBe(0);
   });
 
   it("never fires diagonally, even with several arrows held", function () {
     const combos = [[38, 39], [38, 37], [40, 39], [40, 37], [38, 40], [37, 39], [37, 38, 39, 40]];
     for (const combo of combos) {
-      const dir = getFireDirection(held(...combo));
+      const dir = getFireDirection(held(...combo), twin);
       expect(dir.x * dir.y).toBe(0);
       expect(dir.magSq()).toBe(1);
     }
