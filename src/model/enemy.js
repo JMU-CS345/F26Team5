@@ -116,12 +116,13 @@ class Enemy {
   }
 
   // fromDir is the direction the hit travels. Leave it out for damage with no shove.
-  takeDamage(amount, fromDir) {
+  // power scales the shove (1 is normal, a finisher uses more).
+  takeDamage(amount, fromDir, power = 1) {
     if (amount > 0) {
       this.hurtTimer = ENEMY_HURT_FRAMES;
     }
     if (amount > 0 && fromDir && fromDir.magSq() > 0) {
-      let shove = ENEMY_KNOCKBACK_SPEED;
+      let shove = ENEMY_KNOCKBACK_SPEED * power;
       if (this.type.boss) {
         shove = shove / 2; // bosses are heavy
       }
