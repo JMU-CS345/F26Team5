@@ -49,6 +49,7 @@ class Enemy {
     this.rng = Math.random; // specs swap this out to control wandering
     this.wanderDir = null;
     this.wanderTimer = 0;
+    this.status = createStatus(); // burn, slow and stun timers, see status-effects.js
   }
 
   isDead() {
@@ -89,10 +90,11 @@ class Enemy {
 
   getSpeed() {
     const phase = this.getPhase();
+    let base = this.speed;
     if (phase && typeof phase.speed === "number") {
-      return phase.speed;
+      base = phase.speed;
     }
-    return this.speed;
+    return base * speedMultiplier(this);
   }
 
   justChangedPhase() {
@@ -162,6 +164,7 @@ class Enemy {
     this.hurtTimer = Math.max(0, this.hurtTimer - 1);
     this.phaseFlashTimer = Math.max(0, this.phaseFlashTimer - 1);
     this.stateTimer = Math.max(0, this.stateTimer - 1);
+    tickStatusEffects(this);
     if (this.canSee(player)) {
       this.faceToward(player);
     }
@@ -169,7 +172,7 @@ class Enemy {
       moveWithCollision(this, this.knockback.x, this.knockback.y, room);
       this.knockback.mult(ENEMY_KNOCKBACK_DECAY);
       this.knockbackTimer--;
-    } else if (this.damageCooldown === 0) {
+    } else if (this.damageCooldown === 0 && !isStunned(this)) {
       ENEMY_MOVES[this.getMoveName()](this, player, room);
     }
   }
@@ -204,7 +207,7 @@ class Enemy {
   // Returns an array of new projectiles. Empty for enemies with no attack.
   tryAttack(player) {
     const attack = this.getAttack();
-    if (this.isDead() || this.isSpawning() || !attack) {
+    if (this.isDead() || this.isSpawning() || isStunned(this) || !attack) {
       return [];
     }
     return ENEMY_ATTACKS[attack.kind](this, player);
@@ -213,7 +216,7 @@ class Enemy {
   // Melee hit: while in the attack state, hurts a player inside a reach box in front of us.
   meleeHit(player) {
     const attack = this.getAttack();
-    if (this.isDead() || !attack || attack.kind !== "melee") {
+    if (this.isDead() || isStunned(this) || !attack || attack.kind !== "melee") {
       return false;
     }
     if (this.state !== "attack" || this.swingHit || this.damageCooldown > 0) {
@@ -263,6 +266,7 @@ class Enemy {
       return false;
     }
     this.takeDamage(projectile.damage, projectile.vel);
+    applyStatusEffect(this, projectile.element, projectile.classMatch);
     projectile.alive = false;
     return true;
   }
