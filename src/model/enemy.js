@@ -1,13 +1,7 @@
 // Enemy model. No p5 drawing calls, so Jasmine can test it without a canvas.
 // What each type is (stats, behaviors, art) lives in enemy-types.js.
 
-const ENEMY_DAMAGE_COOLDOWN = 30; // frames at 60 fps
-const ENEMY_HURT_FRAMES = 6; // how long the hit flash lasts
 const ENEMY_PHASE_FLASH_FRAMES = 30; // how long the boss bar flashes after a phase change
-const ENEMY_SWING_FRAMES = 10; // how long a melee swing can hit
-const ENEMY_KNOCKBACK_SPEED = 3; // pixels per frame at the start of a shove
-const ENEMY_KNOCKBACK_FRAMES = 8;
-const ENEMY_KNOCKBACK_DECAY = 0.8; // the shove keeps this much of its speed each frame
 const ENEMY_SPAWN_FRAMES = 30; // harmless while the spawn-in ring plays
 const ROOM_GRACE_FRAMES = 30; // template enemies are harmless this long after the room loads
 

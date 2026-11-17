@@ -3,17 +3,6 @@
 const PLAYER_LENGTH = 16;
 const PLAYER_WIDTH = 16;
 const FIRE_COOLDOWN = RANGED_DEFAULTS.fireRate; // default shots are slower than melee
-const HIT_IFRAMES = 45; // invulnerable frames after being hurt
-const MIN_HIT_DAMAGE = 0.5; // armor never cuts a hit below this
-const PLAYER_KNOCKBACK_SPEED = 4; // pixels per frame at the start of a shove
-const PLAYER_KNOCKBACK_FRAMES = 6;
-const PLAYER_KNOCKBACK_DECAY = 0.8;
-const DASH_FRAMES = 8; // frames spent moving fast
-const DASH_SPEED = 6; // pixels per frame, so a dash covers 48 pixels
-const DASH_IFRAMES = 10; // invulnerable frames from the start of a dash
-const DASH_COOLDOWN = 40; // frames from one dash start to the next
-const DASH_BUFFER_FRAMES = 8; // a dash press this early still counts
-const DEATH_FRAMES = 48; // death animation length (0.8 s at 60 fps)
 
 class Player {
   // mageClass is "Fire", "Ice" or "Mind". It picks the starting stats (see player-stats.js).

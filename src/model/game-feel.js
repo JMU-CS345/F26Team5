@@ -1,13 +1,6 @@
 // Game feel state: hitstop, screen shake and floating damage numbers. This only counts
 // frames and keeps a list, the views draw it. No p5 drawing calls.
 
-const HITSTOP_MELEE_FRAMES = 3;
-const SHAKE_FRAMES = 6;
-const SHAKE_MELEE = 2; // pixels
-const SHAKE_RANGED = 1;
-const SHAKE_HURT = 3;
-const NUMBER_FRAMES = 40; // how long a damage number floats
-
 class GameFeel {
   // settings comes from loadSettings(). Shake and numbers follow it.
   constructor(settings = loadSettings()) {

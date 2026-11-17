@@ -1,21 +1,6 @@
 // Melee swings. A swing has windup, active and recovery frames. The hitbox only exists
 // during the active frames. No p5 drawing calls, so Jasmine can test it without a canvas.
 
-const MELEE_BUFFER_FRAMES = 8; // a press this early before a swing ends still chains
-const COMBO_RESET_FRAMES = 20; // idle this long after a swing and the combo starts over
-const COMBO_LENGTH = 3;
-const FINISHER_DAMAGE = 1.5;
-const FINISHER_KNOCKBACK = 2;
-const FINISHER_REACH = 1.15;
-const FINISHER_EXTRA_FRAMES = 3;
-const SPIN_CHARGE_FRAMES = 40; // hold melee this long, then let go for a spin
-const SPIN_DAMAGE = 1.5;
-const SPIN_KNOCKBACK = 1.5;
-const SPIN_REACH = 1.3;
-const SPIN_WINDUP = 2;
-const SPIN_ACTIVE = 5;
-const SPIN_RECOVERY = 8;
-
 // Works out the numbers for one swing of the combo. step is 0, 1 or 2 (2 is the finisher).
 function makeSwingPlan(stats, step) {
   const finisher = step === COMBO_LENGTH - 1;
