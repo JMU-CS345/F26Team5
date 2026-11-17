@@ -52,6 +52,9 @@ function drawPlayer(player) {
   if (player.iFrames > 0 && Math.floor(player.iFrames / 3) % 2 === 0) {
     alpha = 90; // flicker while invulnerable
   }
+  if (player.isDashing()) {
+    alpha = 140;
+  }
   tint(255, alpha);
   image(playerSheets[player.modelName], left, top, w, h, f.col * sw, f.row * sh, sw, sh);
   noTint();

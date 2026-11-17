@@ -30,9 +30,12 @@ function aimPlayer(player, input, bindings = getBindings()) {
   }
 }
 
-// A key press that starts a swing. Dash joins here later.
+// A key press that starts a swing or a dash.
 function pressCombatKey(player, action) {
   if (action === "melee") {
     player.bufferMelee();
+  }
+  if (action === "dash") {
+    player.bufferDash();
   }
 }

@@ -8,6 +8,11 @@ const MIN_HIT_DAMAGE = 0.5; // armor never cuts a hit below this
 const PLAYER_KNOCKBACK_SPEED = 4; // pixels per frame at the start of a shove
 const PLAYER_KNOCKBACK_FRAMES = 6;
 const PLAYER_KNOCKBACK_DECAY = 0.8;
+const DASH_FRAMES = 8; // frames spent moving fast
+const DASH_SPEED = 6; // pixels per frame, so a dash covers 48 pixels
+const DASH_IFRAMES = 10; // invulnerable frames from the start of a dash
+const DASH_COOLDOWN = 40; // frames from one dash start to the next
+const DASH_BUFFER_FRAMES = 8; // a dash press this early still counts
 const DEATH_FRAMES = 48; // death animation length (0.8 s at 60 fps)
 
 class Player {
@@ -28,6 +33,13 @@ class Player {
     this.iFrames = 0; // frames left of invulnerability after a hit
     this.knockback = new p5.Vector(0, 0); // pixels per frame, shrinks as the shove fades
     this.knockbackTimer = 0;
+
+    // Dash state.
+    this.dashFrames = 0; // frames of dash movement left
+    this.dashIFrames = 0; // frames of dash invulnerability left
+    this.dashCooldown = 0; // frames until the next dash can start
+    this.dashBuffer = 0; // frames left of a dash press waiting for the cooldown
+    this.dashDir = new p5.Vector(0, 0);
 
     // Melee state. attack is the swing in progress, or null.
     this.attack = null;
@@ -74,6 +86,9 @@ class Player {
 
   // The swing can be cut short into the next one once its active frames are over.
   canStartSwing() {
+    if (this.isDashing()) {
+      return false;
+    }
     return this.attack === null || this.attack.phase() === "recovery";
   }
 
@@ -194,7 +209,60 @@ class Player {
   }
 
   isInvulnerable() {
-    return this.iFrames > 0;
+    return this.iFrames > 0 || this.dashIFrames > 0;
+  }
+
+  isDashing() {
+    return this.dashFrames > 0;
+  }
+
+  // A dash press. It waits in the buffer, so a press just before the cooldown ends works.
+  bufferDash() {
+    if (!this.isDead()) {
+      this.dashBuffer = DASH_BUFFER_FRAMES;
+    }
+  }
+
+  // Starts a dash toward moveDir (or the facing when standing still). It does nothing
+  // against a wall, so you never waste the cooldown on a blocked dash.
+  startDash(moveDir, room) {
+    let dir = moveDir;
+    if (dir.magSq() === 0) {
+      dir = facingToVector(this.facing);
+    }
+    dir = dir.copy().normalize();
+    const before = this.pos.copy();
+    moveWithCollision(this, dir.x * DASH_SPEED, dir.y * DASH_SPEED, room);
+    const moved = this.pos.dist(before) > 0;
+    if (!moved) {
+      this.dashBuffer = 0;
+      return false;
+    }
+    this.dashDir = dir;
+    this.dashFrames = DASH_FRAMES - 1; // this call was the first frame
+    this.dashIFrames = DASH_IFRAMES;
+    this.dashCooldown = DASH_COOLDOWN;
+    this.dashBuffer = 0;
+    this.attack = null; // dashing cancels a swing
+    this.meleeBuffer = 0;
+    playCombatSfx("dash");
+    return true;
+  }
+
+  // Runs the dash timers and movement for one frame.
+  updateDash(room, moveDir) {
+    this.dashCooldown = Math.max(0, this.dashCooldown - 1);
+    this.dashIFrames = Math.max(0, this.dashIFrames - 1);
+    if (this.dashFrames > 0 && room) {
+      moveWithCollision(this, this.dashDir.x * DASH_SPEED, this.dashDir.y * DASH_SPEED, room);
+      this.dashFrames--;
+    }
+    if (this.dashBuffer > 0) {
+      this.dashBuffer--;
+      if (this.dashCooldown === 0 && this.dashFrames === 0 && room) {
+        this.startDash(moveDir, room);
+      }
+    }
   }
 
   // Total defense of the armor being worn.
@@ -234,6 +302,7 @@ class Player {
       this.deathFrames = Math.min(this.deathFrames + 1, DEATH_FRAMES);
       this.attack = null;
     } else {
+      this.updateDash(room, input.move || new p5.Vector(0, 0));
       this.updateMelee(room, input.meleeHeld === true);
     }
     if (this.lastHits.length > 0) {
@@ -261,7 +330,7 @@ class Player {
 
   // lockFacing keeps the facing while walking (Classic strafe).
   move(dir, room, lockFacing = false) {
-    if (this.isDead() || dir.magSq() === 0 || this.knockbackTimer > 0) {
+    if (this.isDead() || dir.magSq() === 0 || this.knockbackTimer > 0 || this.isDashing()) {
       this.walkFrames = 0;
       return;
     }
