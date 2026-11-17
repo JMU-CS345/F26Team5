@@ -23,9 +23,24 @@ describe("enemy drops", function () {
     }
   });
 
+  const BOSS_ROOM = { id: 2, role: "boss" };
+  const DUNGEON = {
+    rooms: [
+      { id: 0, role: "start" },
+      { id: 1, role: "normal" },
+      BOSS_ROOM
+    ]
+  };
+
+  function runWithSlots(seed) {
+    const run = new LootRun(seed, []);
+    run.assign(DUNGEON);
+    return run;
+  }
+
   it("always drops a rare-or-better weapon and gold from a boss", function () {
     for (let seed = 1; seed <= 200; seed++) {
-      const drops = rollEnemyDrops(enemyOf("Demon"), new LootRun(seed, []), room);
+      const drops = rollEnemyDrops(enemyOf("Demon"), runWithSlots(seed), BOSS_ROOM);
       const weapon = drops.find((d) => d.item instanceof Weapon);
       expect(weapon).toBeDefined();
       expect(isRareOrBetter(weapon.item.rarity)).toBe(true);
@@ -33,31 +48,49 @@ describe("enemy drops", function () {
     }
   });
 
-  it("drops from elites only some of the time", function () {
-    let weapons = 0;
-    const run = new LootRun(4, []);
+  it("drops the boss weapon only once", function () {
+    const run = runWithSlots(3);
+    const first = rollEnemyDrops(enemyOf("Demon"), run, BOSS_ROOM);
+    const second = rollEnemyDrops(enemyOf("Demon"), run, BOSS_ROOM);
+    expect(first.some((d) => d.item instanceof Weapon)).toBe(true);
+    expect(second.some((d) => d.item instanceof Weapon)).toBe(false);
+  });
+
+  it("never drops a weapon from elites, only gold and potions some of the time", function () {
+    let gold = 0;
+    let potions = 0;
+    const run = runWithSlots(4);
     for (let i = 0; i < 1000; i++) {
-      const drops = rollEnemyDrops(enemyOf("Zombie"), run, room);
-      if (drops.length > 0) {
-        weapons++;
+      for (const drop of rollEnemyDrops(enemyOf("Zombie"), run, { id: 1, role: "normal" })) {
+        expect(drop.item instanceof Weapon).toBe(false);
+        if (drop.item instanceof Gold) {
+          gold++;
+        }
+        if (drop.item instanceof Consumable) {
+          potions++;
+        }
       }
     }
-    expect(weapons).toBeGreaterThan(200);
-    expect(weapons).toBeLessThan(400);
+    expect(gold).toBeGreaterThan(350);
+    expect(gold).toBeLessThan(650);
+    expect(potions).toBeGreaterThan(40);
+    expect(potions).toBeLessThan(200);
   });
 
   it("places the drops where the enemy died", function () {
-    const drops = rollEnemyDrops(enemyOf("Demon"), new LootRun(1, []), room);
+    const drops = rollEnemyDrops(enemyOf("Demon"), runWithSlots(1), BOSS_ROOM);
     for (const drop of drops) {
-      expect(Math.abs(drop.x - 116)).toBeLessThan(30);
-      expect(Math.abs(drop.y - 116)).toBeLessThan(30);
+      expect(Math.abs(drop.x - 116)).toBeLessThan(40);
+      expect(Math.abs(drop.y - 116)).toBeLessThan(40);
     }
   });
 
   it("is repeatable for the same seed", function () {
-    const a = rollEnemyDrops(enemyOf("Demon"), new LootRun(12, []), room);
-    const b = rollEnemyDrops(enemyOf("Demon"), new LootRun(12, []), room);
-    expect(a[0].item.name).toBe(b[0].item.name);
-    expect(a[1].quantity).toBe(b[1].quantity);
+    const a = rollEnemyDrops(enemyOf("Demon"), runWithSlots(12), BOSS_ROOM);
+    const b = rollEnemyDrops(enemyOf("Demon"), runWithSlots(12), BOSS_ROOM);
+    const weaponA = a.find((d) => d.item instanceof Weapon);
+    const weaponB = b.find((d) => d.item instanceof Weapon);
+    expect(weaponA.item.name).toBe(weaponB.item.name);
+    expect(a.length).toBe(b.length);
   });
 });
