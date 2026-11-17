@@ -1,11 +1,12 @@
 // Makes random weapons. Model code: no p5 drawing calls.
-// Load after items.js, rng.js, rarity.js, weapon-bases.js, weapon-hooks.js and affixes.js.
+// Load after items.js, rng.js, rarity.js, weapon-bases.js, weapon-hooks.js, affixes.js and
+// legendaries.js.
 //
 // generateWeapon(rng, options) is deterministic: the same rng state and options always give
-// the same weapon. It rolls, in this order: rarity, base, base stats, affixes. Base stat
-// ranges bound the roll before affixes. Affixes then push stats past them on purpose (Swift
-// lowers swingFrames, of Reach raises reach), so only a common weapon is always inside its
-// base ranges.
+// the same weapon. It rolls, in this order: rarity, legendary (only for legendary rarity),
+// base, base stats, affixes. Base stat ranges bound the roll before affixes. Affixes then push
+// stats past them on purpose (Swift lowers swingFrames, of Reach raises reach), so only a
+// common weapon is always inside its base ranges.
 
 // Gold value by rarity, in the order of RARITY_IDS.
 const RARITY_VALUE = Object.freeze([10, 20, 50, 120, 300]);
@@ -70,14 +71,30 @@ function generateWeapon(rng, options = {}) {
     ? rollRarity(rng, { depth: depth, source: source, minRarity: options.minRarity })
     : options.rarity;
   const rarity = getRarity(rarityId);
-  const bases = options.kind === undefined
-    ? WEAPON_BASES
-    : WEAPON_BASES.filter((b) => b.kind === options.kind);
-  const base = pick(bases, rng);
+  let legendary = null;
+  if (rarityId === "legendary") {
+    const fits = legendariesFor(options.kind);
+    if (fits.length > 0) {
+      legendary = pick(fits, rng);
+    }
+  }
+  let base = null;
+  if (legendary !== null) {
+    base = getWeaponBase(legendary.baseId);
+  } else {
+    const bases = options.kind === undefined
+      ? WEAPON_BASES
+      : WEAPON_BASES.filter((b) => b.kind === options.kind);
+    base = pick(bases, rng);
+  }
 
   const stats = rollBaseStats(base, rng);
   if (options.element !== undefined && options.element !== null) {
     stats.element = options.element;
+  }
+  if (legendary !== null) {
+    stats.element = legendary.element;
+    legendary.stats(stats);
   }
   const affixes = rollAffixes(
     base.kind,
@@ -91,18 +108,35 @@ function generateWeapon(rng, options = {}) {
   const weaponOptions = {
     ...final,
     id: base.id + "-" + randInt(rng, 0, 999999),
-    name: buildWeaponName(base.name, affixes),
+    name: legendary === null ? buildWeaponName(base.name, affixes) : legendary.name,
     value: RARITY_VALUE[RARITY_IDS.indexOf(rarityId)] + affixes.length * 5,
-    description: base.blurb,
+    description: legendary === null ? base.blurb : legendary.blurb,
     rarity: rarityId,
     affixes: affixes.map((a) => a.id),
     baseId: base.id
   };
+  const onHit = [];
+  const onFire = [];
+  if (legendary !== null) {
+    weaponOptions.uniqueId = legendary.id;
+    if (legendary.onHit) {
+      onHit.push(legendary.onHit);
+    }
+    if (legendary.onFire) {
+      onFire.push(legendary.onFire);
+    }
+  }
   if (hooks.onHit) {
-    weaponOptions.onHit = hooks.onHit;
+    onHit.push(hooks.onHit);
   }
   if (hooks.onFire) {
-    weaponOptions.onFire = hooks.onFire;
+    onFire.push(hooks.onFire);
+  }
+  if (onHit.length > 0) {
+    weaponOptions.onHit = composeHooks(onHit);
+  }
+  if (onFire.length > 0) {
+    weaponOptions.onFire = composeHooks(onFire);
   }
   if (base.kind === "melee") {
     return new MeleeWeapon(weaponOptions);
