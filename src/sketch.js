@@ -210,6 +210,8 @@ async function setup() {
   await loadEnemySheets();
   await loadItemSprites();
   await loadPixelFont();
+  await loadHudImages();
+  await loadPanelImage();
   createCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);
   fitToWindow();
   noSmooth();
@@ -389,8 +391,7 @@ function drawRunScene() {
     drawNpc(npc, player, activeDialogue.isActive());
   }
   drawDyingEnemies(!game.isInventory());
-  drawHealthBar(player);
-  drawGoldHud(player.inventory);
+  drawHud(player);
   drawFirstBossBar();
   drawClassLabel(player.mageClass);
   drawMinimap(dungeon, room);
