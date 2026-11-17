@@ -130,7 +130,20 @@ const ENEMY_ATTACKS = Object.freeze({
   // Fires count projectiles at the player, spread degrees apart, once the cooldown is over.
   shoot: function (enemy, player) {
     const attack = enemy.getAttack();
-    if (enemy.attackTimer > 0 || !enemy.canSee(player)) {
+    if (enemy.attackTimer > 0) {
+      return [];
+    }
+    if (!enemy.canSee(player)) {
+      enemy.shotFlashing = false; // lost sight, so the shot is called off
+      enemy.shotFlash = 0;
+      return [];
+    }
+    if (!enemy.shotFlashing) {
+      enemy.shotFlashing = true; // flash first, the shot follows when the flash ends
+      enemy.shotFlash = ENEMY_SHOT_FLASH_FRAMES;
+      return [];
+    }
+    if (enemy.shotFlash > 0) {
       return [];
     }
     const center = enemy.getCenter();
@@ -138,6 +151,7 @@ const ENEMY_ATTACKS = Object.freeze({
     if (aim.magSq() === 0) {
       return []; // no direction to aim, and a zero vector would give NaN
     }
+    enemy.shotFlashing = false;
     enemy.attackTimer = attack.cooldown;
     const count = attack.count || 1;
     const step = ((attack.spread || 0) * Math.PI) / 180;

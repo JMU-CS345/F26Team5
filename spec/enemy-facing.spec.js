@@ -108,10 +108,10 @@ describe("Melee swing", function () {
       if (hitFrame >= 0 && frame === hitFrame + 3) {
         sawAttackAfterHit = enemy.state === "attack";
       }
-      if (hitFrame >= 0 && frame === hitFrame + ENEMY_DAMAGE_COOLDOWN + 2) {
-        expect(enemy.state).toBe("recover"); // not stuck once the cooldown ends
+      if (hitFrame >= 0 && frame === hitFrame + ENEMY_FREEZE_FRAMES + 2) {
+        expect(enemy.state).toBe("recover"); // not stuck once the freeze ends
       }
-      if (hitFrame >= 0 && frame === hitFrame + ENEMY_DAMAGE_COOLDOWN + 12) {
+      if (hitFrame >= 0 && frame === hitFrame + ENEMY_FREEZE_FRAMES + 10) {
         expect(enemy.state).toBe("idle");
         break;
       }

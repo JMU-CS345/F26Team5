@@ -79,6 +79,9 @@ const NUMBER_FRAMES = 40; // how long a damage number floats
 
 // Enemies
 const ENEMY_DAMAGE_COOLDOWN = 30; // frames at 60 fps
+const ENEMY_FREEZE_FRAMES = 12; // an enemy that just hit the player stands still this long
+const ENEMY_STAGGER_FRAMES = 12; // a hit during a windup cancels it and stuns this long
+const ENEMY_SHOT_FLASH_FRAMES = 10; // a shooter flashes this long before it fires
 const ENEMY_HURT_FRAMES = 6; // how long the hit flash lasts
 const ENEMY_SWING_FRAMES = 10; // how long a melee swing can hit
 const ENEMY_KNOCKBACK_SPEED = 3; // pixels per frame at the start of a shove

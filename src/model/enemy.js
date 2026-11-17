@@ -24,6 +24,9 @@ class Enemy {
     this.contactDamage = type.contactDamage;
     // Starts at zero so the enemy can damage the player on its first contact.
     this.damageCooldown = 0;
+    this.freezeTimer = 0; // frames left standing still after hitting the player or a stagger
+    this.shotFlash = 0; // frames left of the flash before a shot
+    this.shotFlashing = false; // a shot is lined up and waiting for the flash to end
     this.attackTimer = 0; // frames until the next shot
     if (type.attack) {
       this.attackTimer = type.attack.cooldown;
@@ -123,6 +126,9 @@ class Enemy {
       this.knockback = fromDir.copy().setMag(shove);
       this.knockbackTimer = ENEMY_KNOCKBACK_FRAMES;
     }
+    if (amount > 0 && !this.type.boss) {
+      this.staggerIfWindingUp();
+    }
     const phaseBefore = this.getPhase();
     this.health = Math.max(0, this.health - amount);
     if (this.getPhase() !== phaseBefore) {
@@ -133,6 +139,28 @@ class Enemy {
         this.attackTimer = Math.min(this.attackTimer, attack.cooldown);
       }
     }
+  }
+
+  // A hit during a windup or a shot flash cancels it, then the enemy stands stunned.
+  staggerIfWindingUp() {
+    let canceled = false;
+    if (this.state === "windup") {
+      this.setState("recover", ENEMY_STAGGER_FRAMES);
+      canceled = true;
+    }
+    if (this.shotFlashing) {
+      this.shotFlashing = false;
+      this.shotFlash = 0;
+      canceled = true;
+    }
+    if (canceled) {
+      this.freezeTimer = Math.max(this.freezeTimer, ENEMY_STAGGER_FRAMES);
+    }
+  }
+
+  // True while a swing or a shot is being telegraphed, for the view.
+  isTelegraphing() {
+    return this.state === "windup" || this.shotFlash > 0;
   }
 
   getBounds() {
@@ -164,6 +192,7 @@ class Enemy {
     this.damageCooldown = Math.max(0, this.damageCooldown - 1);
     this.attackTimer = Math.max(0, this.attackTimer - 1);
     this.hurtTimer = Math.max(0, this.hurtTimer - 1);
+    this.shotFlash = Math.max(0, this.shotFlash - 1);
     this.phaseFlashTimer = Math.max(0, this.phaseFlashTimer - 1);
     this.stateTimer = Math.max(0, this.stateTimer - 1);
     if (this.canSee(player)) {
@@ -173,9 +202,10 @@ class Enemy {
       moveWithCollision(this, this.knockback.x, this.knockback.y, room);
       this.knockback.mult(ENEMY_KNOCKBACK_DECAY);
       this.knockbackTimer--;
-    } else if (this.damageCooldown === 0) {
+    } else if (this.freezeTimer === 0) {
       ENEMY_MOVES[this.getMoveName()](this, player, room);
     }
+    this.freezeTimer = Math.max(0, this.freezeTimer - 1); // counted after the move
   }
 
   // Remembers which way the player is. The art picks its direction from these.
@@ -208,7 +238,7 @@ class Enemy {
   // Returns an array of new projectiles. Empty for enemies with no attack.
   tryAttack(player) {
     const attack = this.getAttack();
-    if (this.isDead() || this.isHarmless() || !attack) {
+    if (this.isDead() || this.isHarmless() || this.freezeTimer > 0 || !attack) {
       return [];
     }
     return ENEMY_ATTACKS[attack.kind](this, player);
@@ -224,20 +254,32 @@ class Enemy {
       return false;
     }
     const center = this.getCenter();
-    let left = center.x;
-    if (this.facingLeft) {
-      left = center.x - attack.reach;
-    }
-    const box = { x: left, y: center.y - attack.reach / 2, w: attack.reach, h: attack.reach };
-    if (!rectsOverlap(box, player.getBounds())) {
+    if (!rectsOverlap(this.getSwingBox(attack.reach), player.getBounds())) {
       return false;
     }
     if (!player.takeDamage(attack.damage, player.getCenter().sub(center))) {
       return false; // the player is in i-frames, so try again next frame
     }
     this.damageCooldown = ENEMY_DAMAGE_COOLDOWN;
+    this.freezeTimer = ENEMY_FREEZE_FRAMES;
     this.swingHit = true; // one hit per swing, and the sword stays out
     return true;
+  }
+
+  // The square a melee swing reaches, in front of the enemy in all four directions.
+  getSwingBox(reach) {
+    const center = this.getCenter();
+    const box = { x: center.x, y: center.y - reach / 2, w: reach, h: reach };
+    if (this.facingDir === "left") {
+      box.x = center.x - reach;
+    } else if (this.facingDir === "up") {
+      box.x = center.x - reach / 2;
+      box.y = center.y - reach;
+    } else if (this.facingDir === "down") {
+      box.x = center.x - reach / 2;
+      box.y = center.y;
+    }
+    return box;
   }
 
   isTouching(player) {
@@ -256,6 +298,7 @@ class Enemy {
       return false;
     }
     this.damageCooldown = ENEMY_DAMAGE_COOLDOWN;
+    this.freezeTimer = ENEMY_FREEZE_FRAMES;
     return true;
   }
 
