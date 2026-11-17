@@ -26,7 +26,8 @@ describe("settings", function () {
       musicVolume: 0.4,
       sfxVolume: 0.55,
       screenShake: true,
-      damageNumbers: true
+      damageNumbers: true,
+      hatStyle: "pointed"
     });
   });
 
@@ -49,7 +50,8 @@ describe("settings", function () {
       musicVolume: 0.2,
       sfxVolume: 1,
       screenShake: false,
-      damageNumbers: false
+      damageNumbers: false,
+      hatStyle: "hood"
     };
     expect(saveSettings(settings, storage)).toBe(true);
     expect(JSON.parse(storage.data[SETTINGS_KEY])).toEqual(settings);
@@ -71,5 +73,19 @@ describe("settings", function () {
     for (const id of CONTROL_PRESET_IDS) {
       expect(CONTROL_PRESETS[id].lines.length).toBeGreaterThan(0);
     }
+  });
+
+  it("defaults the wizard hat to pointed", function () {
+    expect(defaultSettings().hatStyle).toBe("pointed");
+  });
+
+  it("keeps a saved hood hat style", function () {
+    const store = fakeStorage(JSON.stringify({ hatStyle: "hood" }));
+    expect(loadSettings(store).hatStyle).toBe("hood");
+  });
+
+  it("falls back to pointed for an unknown hat style", function () {
+    expect(cleanSettings({ hatStyle: "round" }).hatStyle).toBe("pointed");
+    expect(cleanSettings({ hatStyle: 3 }).hatStyle).toBe("pointed");
   });
 });

@@ -119,6 +119,7 @@ function startRun() {
     game.selectedClass,
     game.selectedModel
   );
+  player.appearance = defaultAppearance(game.selectedClass, gameSettings.hatStyle);
   giveLoadout(player, lootRun.rng);
   // Placeholder pickups until room data supplies item placement.
   room.items = [
@@ -219,6 +220,9 @@ function saveAndApplySettings() {
   saveSettings(gameSettings);
   refreshBindings();
   gameFeel.refreshSettings();
+  if (player) {
+    player.appearance.hatStyle = gameSettings.hatStyle;
+  }
   if (musicAudio !== null) {
     applyMusicVolume(musicAudio);
   }
@@ -254,6 +258,16 @@ function makeMenus() {
       adjust: () => {
         const other = CONTROL_PRESET_IDS.find((id) => id !== gameSettings.controls);
         gameSettings.controls = other;
+        changeSetting();
+      }
+    },
+    {
+      label: "Wizard hat",
+      kind: "choice",
+      value: () => HAT_STYLE_LABELS[gameSettings.hatStyle],
+      adjust: () => {
+        const other = HAT_STYLES.find((id) => id !== gameSettings.hatStyle);
+        gameSettings.hatStyle = other;
         changeSetting();
       }
     },

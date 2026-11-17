@@ -28,7 +28,8 @@ function defaultSettings() {
     musicVolume: 0.4,
     sfxVolume: 0.55,
     screenShake: true,
-    damageNumbers: true
+    damageNumbers: true,
+    hatStyle: DEFAULT_HAT_STYLE
   };
 }
 
@@ -59,6 +60,9 @@ function cleanSettings(raw) {
   settings.sfxVolume = cleanVolume(raw.sfxVolume, settings.sfxVolume);
   settings.screenShake = cleanBoolean(raw.screenShake, settings.screenShake);
   settings.damageNumbers = cleanBoolean(raw.damageNumbers, settings.damageNumbers);
+  if (HAT_STYLES.includes(raw.hatStyle)) {
+    settings.hatStyle = raw.hatStyle;
+  }
   return settings;
 }
 

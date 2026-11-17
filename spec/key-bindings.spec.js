@@ -79,7 +79,8 @@ describe("loadSettings", function () {
       musicVolume: 0.4,
       sfxVolume: 0.55,
       screenShake: true,
-      damageNumbers: true
+      damageNumbers: true,
+      hatStyle: "pointed"
     });
   });
 
