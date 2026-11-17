@@ -1,6 +1,7 @@
 html {
-  background-color: rgb(28, 24, 48);
+  background-color: #0d0b14; /* PALETTE.void, kept in sync by buildBackground() */
   overflow: hidden;
+  image-rendering: pixelated;
 }
 /* Fixed game size. sketch.js scales it to fit the window with a transform. */
 body {
@@ -10,7 +11,9 @@ body {
   height: 720px;
   position: relative;
   transform-origin: 0 0;
+  image-rendering: pixelated;
 }
 canvas {
   display: block;
+  image-rendering: pixelated;
 }
