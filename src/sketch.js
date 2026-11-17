@@ -302,14 +302,13 @@ function draw() {
   if (resumeInputBlocked && !heldInputBlocked) {
     resumeInputBlocked = false;
   }
-  if (!activeDialogue.isActive()) {
-    player.move(
-      heldInputBlocked ? new p5.Vector(0, 0) : getMoveDirection(keyIsDown),
-      room
-    );
-  } else {
-    player.walkFrames = 0;
-  }
+  const input = readPlayerInput(
+    keyIsDown,
+    player,
+    heldInputBlocked || activeDialogue.isActive()
+  );
+  aimPlayer(player, input);
+  player.move(input.move, room, input.strafe);
   for (const drop of room.items) {
     drop.update();
   }
@@ -327,14 +326,11 @@ function draw() {
     }
   }
 
-  if (!activeDialogue.isActive()) {
-    const fireDir = getFireDirection(keyIsDown, getBindings(), player.facing);
-    const proj = player.fire(heldInputBlocked ? new p5.Vector(0, 0) : fireDir);
-    if (proj) {
-      projectiles.push(proj);
-    }
+  const proj = player.fire(input.fireDir);
+  if (proj) {
+    projectiles.push(proj);
   }
-  player.update(room);
+  player.update(room, input);
 
   for (const p of projectiles) {
     p.update(room);
@@ -382,6 +378,7 @@ function drawRunScene() {
     drawEnemyProjectile(p);
   }
   drawPlayer(player);
+  drawMeleeAttack(player);
   for (const e of room.enemies) {
     drawEnemy(e);
     if (debugOverlay) {
@@ -509,6 +506,9 @@ function keyPressed() {
     return false;
   }
   if (game.isPlaying()) {
+    if (!activeDialogue.isActive() && !player.isDead()) {
+      pressCombatKey(player, action);
+    }
     // Debug keys only work while the F3 overlay is on.
     if (debugOverlay && action === null && key.toLowerCase() === "n") {
       toggleTopRightNpc();

@@ -29,6 +29,15 @@ class Player {
     this.knockback = new p5.Vector(0, 0); // pixels per frame, shrinks as the shove fades
     this.knockbackTimer = 0;
 
+    // Melee state. attack is the swing in progress, or null.
+    this.attack = null;
+    this.comboStep = 0; // the combo step of the last swing
+    this.comboTimer = 0; // frames left to keep the combo going after a swing
+    this.meleeBuffer = 0; // frames left of a melee press waiting for a swing to end
+    this.chargeFrames = 0; // frames melee has been held, for the spin
+    this.aim = new p5.Vector(0, 1); // the way melee and Twin-stick shots point
+    this.lastHits = []; // melee hits made in the latest update, for the game feel code
+
     // Animation state. The view reads these to pick a sprite frame.
     this.facing = "down"; // "down", "up", "left" or "right"
     this.walkFrames = 0; // frames spent walking, 0 when standing still
@@ -46,7 +55,90 @@ class Player {
 
   // The weapon is raised while a fire key is held and for the cooldown after a shot.
   isArmUp() {
-    return this.holding || this.fireCooldown > 0;
+    return this.holding || this.fireCooldown > 0 || this.attack !== null;
+  }
+
+  // Remembers the aim. A zero vector leaves it where it was.
+  setAim(dir) {
+    if (dir.magSq() > 0) {
+      this.aim = dir.copy().normalize();
+    }
+  }
+
+  // A melee press. It waits in the buffer, so a press just before a swing ends still counts.
+  bufferMelee() {
+    if (!this.isDead()) {
+      this.meleeBuffer = MELEE_BUFFER_FRAMES;
+    }
+  }
+
+  // The swing can be cut short into the next one once its active frames are over.
+  canStartSwing() {
+    return this.attack === null || this.attack.phase() === "recovery";
+  }
+
+  startSwing() {
+    let step = 0;
+    if (this.comboTimer > 0 || this.attack !== null) {
+      step = (this.comboStep + 1) % COMBO_LENGTH;
+    }
+    const stats = getMeleeStats(this.inventory.getEquipped("melee"));
+    this.beginAttack(new MeleeAttack(this, stats, makeSwingPlan(stats, step), this.aim));
+    this.comboStep = step;
+    this.meleeBuffer = 0;
+  }
+
+  startSpin() {
+    const stats = getMeleeStats(this.inventory.getEquipped("melee"));
+    this.beginAttack(new MeleeAttack(this, stats, makeSpinPlan(stats), this.aim));
+    this.comboStep = 0;
+    this.meleeBuffer = 0;
+  }
+
+  beginAttack(attack) {
+    this.attack = attack;
+    this.faceToward(attack.dir);
+    playCombatSfx("swing");
+  }
+
+  // Runs the swing, the buffer, the combo timer and the spin charge for one frame.
+  updateMelee(room, meleeHeld) {
+    const targets = [];
+    if (room) {
+      targets.push(...room.enemies);
+    }
+    if (this.attack !== null) {
+      this.lastHits.push(...this.attack.update(targets));
+      if (this.attack.isDone()) {
+        this.attack = null;
+        this.comboTimer = COMBO_RESET_FRAMES;
+      }
+    } else if (this.comboTimer > 0) {
+      this.comboTimer--;
+      if (this.comboTimer === 0) {
+        this.comboStep = 0;
+      }
+    }
+    if (this.meleeBuffer > 0) {
+      if (this.canStartSwing()) {
+        this.startSwing();
+      } else {
+        this.meleeBuffer--;
+      }
+    }
+    // Letting go of a full charge spins. An early release already swung on the press.
+    if (meleeHeld) {
+      this.chargeFrames++;
+    } else {
+      if (this.chargeFrames >= SPIN_CHARGE_FRAMES) {
+        this.startSpin();
+      }
+      this.chargeFrames = 0;
+    }
+  }
+
+  isCharged() {
+    return this.chargeFrames >= SPIN_CHARGE_FRAMES;
   }
 
   fire(dir) {
@@ -106,10 +198,18 @@ class Player {
     return true;
   }
 
-  // Call once per frame. Counts the timers down. Pass the room so a shove can move us.
-  update(room) {
+  // Call once per frame. Counts the timers down. Pass the room so a shove can move us and
+  // swings can find enemies. input.meleeHeld is true while the melee key is down.
+  update(room, input = {}) {
+    this.lastHits = [];
     if (this.isDead()) {
       this.deathFrames = Math.min(this.deathFrames + 1, DEATH_FRAMES);
+      this.attack = null;
+    } else {
+      this.updateMelee(room, input.meleeHeld === true);
+    }
+    if (this.lastHits.length > 0) {
+      playCombatSfx("hit");
     }
     if (this.fireCooldown > 0) {
       this.fireCooldown--;
@@ -131,16 +231,21 @@ class Player {
     return this.deathFrames >= DEATH_FRAMES;
   }
 
-  move(dir, room) {
+  // lockFacing keeps the facing while walking (Classic strafe).
+  move(dir, room, lockFacing = false) {
     if (this.isDead() || dir.magSq() === 0 || this.knockbackTimer > 0) {
       this.walkFrames = 0;
       return;
     }
-    if (!this.isArmUp()) {
+    if (!this.isArmUp() && !lockFacing) {
       this.faceToward(dir); // keep the shot direction while the arm is up
     }
     this.walkFrames++;
-    const step = dir.copy().setMag(this.speed);
+    let speed = this.speed;
+    if (this.attack !== null) {
+      speed = speed / 2; // swinging slows you down
+    }
+    const step = dir.copy().setMag(speed);
     moveWithCollision(this, step.x, step.y, room);
   }
 
