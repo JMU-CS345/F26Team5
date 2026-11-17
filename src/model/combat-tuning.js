@@ -5,6 +5,7 @@
 const MELEE_BUFFER_FRAMES = 8; // a press this early before a swing ends still chains
 const COMBO_RESET_FRAMES = 20; // idle this long after a swing and the combo starts over
 const COMBO_LENGTH = 3;
+const HOLD_SWING_GAP = 14; // pause between swings while the attack key stays held
 const FINISHER_DAMAGE = 1.5;
 const FINISHER_KNOCKBACK = 2;
 const FINISHER_REACH = 1.15;

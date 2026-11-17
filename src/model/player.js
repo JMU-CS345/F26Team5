@@ -43,6 +43,7 @@ class Player {
     this.comboStep = 0; // the combo step of the last swing
     this.comboTimer = 0; // frames left to keep the combo going after a swing
     this.meleeBuffer = 0; // frames left of a melee press waiting for a swing to end
+    this.holdGap = 0; // frames to wait before a held key swings again
     this.aim = new p5.Vector(0, 1); // the way melee and Twin-stick shots point, starts facing
     this.lastHits = []; // melee hits made in the latest update, for the game feel code
     this.room = null; // the room of the latest update, for weapon hooks that look for enemies
@@ -160,6 +161,7 @@ class Player {
       if (this.attack.isDone()) {
         this.attack = null;
         this.comboTimer = COMBO_RESET_FRAMES;
+        this.holdGap = HOLD_SWING_GAP;
       }
     } else if (this.comboTimer > 0) {
       this.comboTimer--;
@@ -175,9 +177,13 @@ class Player {
       }
     }
     this.updateLunge(room); // after the swing starts, so the first step is this frame
-    // Holding melee keeps swinging, so a plain hold runs the combo. Letting go does nothing.
-    if (meleeHeld) {
-      this.bufferMelee();
+    // Holding melee keeps swinging with a short pause between swings. Letting go does nothing.
+    if (meleeHeld && this.attack === null) {
+      if (this.holdGap > 0) {
+        this.holdGap--;
+      } else {
+        this.bufferMelee();
+      }
     }
   }
 

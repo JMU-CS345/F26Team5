@@ -26,9 +26,33 @@ describe("Holding melee", function () {
     expect(steps.slice(0, 4)).toEqual([0, 1, 2, 0]);
   });
 
+  it("waits a short gap between swings while held", function () {
+    let idle = 0;
+    let longestIdle = 0;
+    let swings = 0;
+    let wasSwinging = false;
+    for (let i = 0; i < 200; i++) {
+      player.update(room, { meleeHeld: true });
+      const swinging = player.attack !== null;
+      if (swinging && !wasSwinging) {
+        swings++;
+      }
+      if (swinging) {
+        idle = 0;
+      } else {
+        idle++;
+        longestIdle = Math.max(longestIdle, idle);
+      }
+      wasSwinging = swinging;
+    }
+    expect(longestIdle).toBeGreaterThanOrEqual(HOLD_SWING_GAP);
+    expect(swings).toBeLessThan(200 / 20); // slower than back to back swings
+  });
+
   it("never starts a spin while held, however long", function () {
-    hold(300, []);
-    expect(player.attack.kind).toBe("swing");
+    const steps = [];
+    hold(300, steps); // hold() checks that every attack on the way is a swing
+    expect(steps.length).toBeGreaterThan(0);
   });
 
   it("does not attack again when the key is released", function () {
