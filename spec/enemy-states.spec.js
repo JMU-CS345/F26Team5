@@ -174,11 +174,27 @@ describe("Melee attack and hopSwing", function () {
 
   it("only hits in the facing direction", function () {
     placePlayerRightOf(enemy, player, 20);
-    enemy.facingLeft = true;
+    enemy.facingDir = "left";
     enemy.setState("attack", 5);
     expect(enemy.meleeHit(player)).toBe(false);
-    enemy.facingLeft = false;
+    enemy.facingDir = "right";
     expect(enemy.meleeHit(player)).toBe(true);
+  });
+
+  it("swings up and down too, matching the four way art", function () {
+    const reach = enemy.getAttack().reach;
+    const c = enemy.getCenter();
+    const above = new Player(c.x - player.length / 2, c.y - reach + 2 - player.width / 2);
+    const below = new Player(c.x - player.length / 2, c.y + reach - 2 - player.width / 2);
+    enemy.setState("attack", 5);
+    enemy.facingDir = "up";
+    expect(enemy.meleeHit(below)).toBe(false);
+    expect(enemy.meleeHit(above)).toBe(true);
+    enemy.damageCooldown = 0;
+    enemy.swingHit = false;
+    enemy.facingDir = "down";
+    expect(enemy.meleeHit(above)).toBe(false);
+    expect(enemy.meleeHit(below)).toBe(true);
   });
 
   it("does not hit outside the attack state", function () {

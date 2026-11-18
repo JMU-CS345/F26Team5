@@ -11,7 +11,7 @@ function projectileHitsPlayer(projectile, player) {
   if (!rectsOverlap(projectile.getBounds(), player.getBounds())) {
     return false;
   }
-  player.takeDamage(projectile.damage);
+  player.takeDamage(projectile.damage, projectile.vel); // the shot shoves the player along its path
   projectile.alive = false;
   return true;
 }

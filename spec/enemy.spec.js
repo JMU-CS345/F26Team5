@@ -14,6 +14,17 @@ function placePlayerRightOf(enemy, player, distance) {
   player.pos.set(center.x + distance - player.length / 2, center.y - player.width / 2);
 }
 
+// Calls tryAttack and, when the enemy starts its telegraph (windup) instead of firing, lets the
+// windup run out so the shot comes out. For specs about the shot itself, not the telegraph.
+function tryAttackThroughWindup(enemy, player, room) {
+  let shots = enemy.tryAttack(player, room);
+  if (shots.length === 0 && enemy.state === "windup") {
+    enemy.stateTimer = 0;
+    shots = enemy.tryAttack(player, room);
+  }
+  return shots;
+}
+
 describe("Enemy movement", function () {
   let room;
   let enemy;
@@ -262,11 +273,12 @@ describe("Demon", function () {
 
   it("chases the player", function () {
     const room = new NormalRoom(0, 0, 640, 320);
-    const demon = new Enemy(50, 100, "Demon");
+    const demon = new Enemy(48, 96, "Demon"); // on the tile grid, so it runs straight along its row
     const player = new Player(0, 0);
     placePlayerRightOf(demon, player, 150);
     demon.update(player, room);
-    expect(demon.pos.x).toBeCloseTo(50 + demon.speed, 5);
+    expect(demon.pos.x).toBeCloseTo(48 + demon.speed, 5);
+    expect(demon.pos.y).toBe(96);
   });
 
   it("hurts the player by its contact damage", function () {
