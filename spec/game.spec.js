@@ -22,13 +22,19 @@ describe("Game state", function () {
     expect(MAGE_CLASSES).toEqual(["Fire", "Ice", "Mind"]);
   });
 
-  it("saves the chosen class and starts the run", function () {
+  it("saves the chosen class and moves on to customization", function () {
     for (const mageClass of MAGE_CLASSES) {
       const fresh = gameAtClassMenu();
       expect(fresh.selectClass(mageClass)).toBe(true);
       expect(fresh.selectedClass).toBe(mageClass);
-      expect(fresh.isPlaying()).toBe(true);
+      expect(fresh.isCustomizing()).toBe(true);
     }
+  });
+
+  it("starts the run once customization is finished", function () {
+    game.selectClass("Fire");
+    expect(game.finishCustomization()).toBe(true);
+    expect(game.isPlaying()).toBe(true);
   });
 
   it("ignores a class that does not exist", function () {
@@ -40,6 +46,7 @@ describe("Game state", function () {
 
   it("cannot change class once the run has started", function () {
     game.selectClass("Fire");
+    game.finishCustomization();
     expect(game.selectClass("Ice")).toBe(false);
     expect(game.selectedClass).toBe("Fire");
   });
@@ -47,6 +54,7 @@ describe("Game state", function () {
   it("opens and closes the inventory menu only during a run", function () {
     expect(game.openInventory()).toBe(false);
     game.selectClass("Fire");
+    game.finishCustomization();
 
     expect(game.openInventory()).toBe(true);
     expect(game.isInventory()).toBe(true);
@@ -57,6 +65,7 @@ describe("Game state", function () {
 
   it("toggles between playing and the paused inventory state", function () {
     game.selectClass("Ice");
+    game.finishCustomization();
     expect(game.toggleInventory()).toBe(true);
     expect(game.state).toBe(GAME_STATES.INVENTORY);
     expect(game.toggleInventory()).toBe(true);
@@ -65,6 +74,7 @@ describe("Game state", function () {
 
   it("moves to dead when the player dies during a run", function () {
     game.selectClass("Ice");
+    game.finishCustomization();
     expect(game.playerDied()).toBe(true);
     expect(game.isDead()).toBe(true);
   });
@@ -76,6 +86,7 @@ describe("Game state", function () {
 
   it("goes back to the model screen when a new run starts", function () {
     game.selectClass("Fire");
+    game.finishCustomization();
     game.playerDied();
     expect(game.newRun()).toBe(true);
     expect(game.isModelSelect()).toBe(true);
@@ -85,12 +96,14 @@ describe("Game state", function () {
   it("only starts a new run after dying", function () {
     expect(game.newRun()).toBe(false);
     game.selectClass("Mind");
+    game.finishCustomization();
     expect(game.newRun()).toBe(false);
     expect(game.isPlaying()).toBe(true);
   });
 
   it("lets the player pick a different class on the next run", function () {
     game.selectClass("Fire");
+    game.finishCustomization();
     game.playerDied();
     game.newRun();
     game.selectModel("Tall");
