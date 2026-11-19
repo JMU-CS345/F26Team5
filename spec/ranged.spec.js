@@ -100,15 +100,24 @@ describe("Ranged shots", function () {
   it("calls the weapon hooks", function () {
     const fired = [];
     const hit = [];
-    equip(wand({ onFire: (ctx) => fired.push(ctx), onHit: (ctx) => hit.push(ctx) }));
+    equip(wand({
+      onFire: (ctx) => {
+        fired.push(ctx);
+        return [];
+      },
+      onHit: (ctx) => {
+        hit.push(ctx);
+        return [];
+      }
+    }));
     const shot = player.fireAll(right)[0];
     expect(fired.length).toBe(1);
-    expect(fired[0].shots[0]).toBe(shot);
+    expect(fired[0].angle).toBeCloseTo(0, 5);
     const enemy = new Enemy(0, 0, "Demon");
     enemy.pos.set(shot.pos.x, shot.pos.y);
     enemy.damageFromProjectile(shot);
     expect(hit.length).toBe(1);
-    expect(hit[0].target).toBe(enemy);
+    expect(hit[0].target.health).toBe(enemy.health);
   });
 
   it("is weaker and slower than melee by default", function () {

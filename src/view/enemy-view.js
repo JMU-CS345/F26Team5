@@ -22,6 +22,7 @@ async function loadEnemySheets() {
 
 function drawEnemySprite(enemy, sprite, alpha = 255) {
   const frame = enemySpriteFrame(enemy, sprite, frameCount);
+  const status = activeStatusElement(enemy);
   const w = frame.w || ENEMY_SPRITE_SIZE;
   const h = frame.h || ENEMY_SPRITE_SIZE;
   const ax = frame.ax || w / 2; // the art x that sits at the center of the hitbox
@@ -38,6 +39,9 @@ function drawEnemySprite(enemy, sprite, alpha = 255) {
   }
   if (enemy.state === "windup") {
     tint(255, 200, 120, alpha);
+  } else if (status) {
+    const c = elementColor(status);
+    tint(c[0], c[1], c[2], alpha);
   } else {
     tint(255, alpha);
   }
@@ -82,11 +86,19 @@ function drawSwingTelegraph(enemy) {
 
 function drawEnemySquare(enemy, alpha = 255) {
   let c = enemy.type.color;
+  let status = activeStatusElement(enemy);
   if (enemy.hurtTimer > 0 || shotFlashOn(enemy)) {
     c = [255, 255, 255]; // white flash
+    status = null;
   }
   noStroke();
-  fill(c[0], c[1], c[2], alpha);
+  if (status) {
+    const s = elementColor(status);
+    const mixed = lerpColor(color(c[0], c[1], c[2]), color(s[0], s[1], s[2]), 0.5);
+    fill(red(mixed), green(mixed), blue(mixed), alpha);
+  } else {
+    fill(c[0], c[1], c[2], alpha);
+  }
   rect(enemy.pos.x, enemy.pos.y, enemy.length, enemy.width);
 }
 

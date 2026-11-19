@@ -200,14 +200,17 @@ describe("Melee", function () {
   it("calls the weapon onHit hook with the target", function () {
     const calls = [];
     equip(new MeleeWeapon({
-      id: "hook", name: "Hook", damage: 2, onHit: (ctx) => calls.push(ctx)
+      id: "hook", name: "Hook", damage: 2, onHit: (ctx) => {
+        calls.push(ctx);
+        return [];
+      }
     }));
     const enemy = enemyAt(120, 92);
     swing();
     run(20);
     expect(calls.length).toBe(1);
-    expect(calls[0].target).toBe(enemy);
-    expect(calls[0].player).toBe(player);
+    expect(calls[0].target.health).toBe(enemy.health);
+    expect(Number.isFinite(calls[0].source.x)).toBe(true);
   });
 });
 

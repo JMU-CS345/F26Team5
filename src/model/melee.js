@@ -146,12 +146,12 @@ class MeleeAttack {
       return;
     }
     for (const hit of hits) {
-      this.stats.onHit({
-        player: this.owner,
-        target: hit.target,
-        damage: hit.damage,
+      runWeaponHook(this.owner, this.stats.onHit, "hit", {
         weapon: this.stats.weapon,
-        step: this.plan.step
+        angle: this.dir.heading(),
+        damage: hit.damage,
+        target: hit.target,
+        enemies: this.owner.nearbyEnemies()
       });
     }
   }

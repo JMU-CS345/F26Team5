@@ -50,6 +50,9 @@ class Player {
     this.spinDone = false; // this hold already spun, so wait for the key to come up
     this.aim = new p5.Vector(0, 1); // the way melee and Twin-stick shots point, starts facing
     this.lastHits = []; // melee hits made in the latest update, for the game feel code
+    this.room = null; // the room of the latest update, for weapon hooks that look for enemies
+    this.hookCounts = {}; // hits and shots made per weapon, for "every 3rd shot" hooks
+    this.effectQueue = []; // weapon hook effects waiting for their delay: { frames, effect }
 
     // Animation state. The view reads these to pick a sprite frame.
     this.facing = "down"; // "down", "up", "left" or "right"
@@ -221,27 +224,76 @@ class Player {
     this.cancelRecovery();
     this.fireCooldown = stats.fireRate;
     const element = stats.element || this.mageClass;
+    let damage = this.getDamage(stats.damage, element);
+    const isDefaultShot = stats.weapon === null;
+    if (isDefaultShot) {
+      damage = classMatchDamage(damage, element, this.mageClass); // elements bonus
+    }
     const shots = [];
     for (let i = 0; i < stats.projectileCount; i++) {
       let offset = 0;
       if (stats.projectileCount > 1) {
         offset = stats.spread * (i / (stats.projectileCount - 1) - 0.5);
       }
-      shots.push(new Projectile(
+      const shot = new Projectile(
         this.pos.x + this.length / 2,
         this.pos.y + this.width / 2,
         dir.copy().rotate(offset * Math.PI / 180),
-        this.getDamage(stats.damage, element),
+        damage,
         stats.shotSpeed,
         { range: stats.range, pierce: stats.pierce, onHit: stats.onHit, weapon: stats.weapon,
           owner: this }
-      ));
+      );
+      if (isDefaultShot) {
+        shot.element = element; // only the default shot carries a status for now
+        shot.classMatch = isClassMatch(element, this.mageClass);
+      }
+      shots.push(shot);
     }
     playCombatSfx("shoot");
-    if (typeof stats.onFire === "function") {
-      stats.onFire({ player: this, shots: shots, weapon: stats.weapon });
-    }
+    runWeaponHook(this, stats.onFire, "fire", {
+      weapon: stats.weapon,
+      angle: dir.heading(),
+      damage: damage,
+      enemies: this.nearbyEnemies()
+    });
     return shots;
+  }
+
+  nearbyEnemies() {
+    if (this.room === null) {
+      return [];
+    }
+    return this.room.enemies;
+  }
+
+  // The next number for a hook counter ("hit" or "fire") of one weapon, starting at 1.
+  countHook(kind, weaponId) {
+    const name = kind + ":" + weaponId;
+    this.hookCounts[name] = (this.hookCounts[name] || 0) + 1;
+    return this.hookCounts[name];
+  }
+
+  queueEffects(effects) {
+    for (const effect of effects) {
+      this.effectQueue.push({ frames: effect.delayFrames || 0, effect: effect });
+    }
+  }
+
+  // Counts the delays down one frame and returns the effects that are due now.
+  takeDueEffects() {
+    const due = [];
+    const waiting = [];
+    for (const queued of this.effectQueue) {
+      if (queued.frames <= 0) {
+        due.push(queued.effect);
+      } else {
+        queued.frames--;
+        waiting.push(queued);
+      }
+    }
+    this.effectQueue = waiting;
+    return due;
   }
 
   // A shot ends the recovery of a swing early, so shooting out of a combo feels quick.
@@ -419,6 +471,7 @@ class Player {
   // swings can find enemies. input.meleeHeld is true while the melee key is down.
   update(room, input = {}) {
     this.lastHits = [];
+    this.room = room || null;
     if (this.isDead()) {
       this.deathFrames = Math.min(this.deathFrames + 1, DEATH_FRAMES);
       this.attack = null;
