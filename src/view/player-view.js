@@ -6,8 +6,11 @@ const FACING_ROW = { down: 0, up: 1, right: 2, left: 3 };
 const WEAPON_ROW_OFFSET = 4;
 const STEP_TIME = 8; // game frames per walk frame
 
-const playerSheets = {}; // model name -> default image, used by the model menu
+const playerSheets = {}; // model name -> default image, used by the menu preview
 const playerClassSheets = {}; // sheet path -> loaded image
+// model name -> { eyes, hair, clothing }: white layers drawn over the body and tinted to the
+// player's chosen colors (#23).
+const appearanceLayers = {};
 
 // Call once in setup(), with await.
 async function loadPlayerSheets() {
@@ -21,7 +24,37 @@ async function loadPlayerSheets() {
         playerClassSheets[path] = await loadImageFile(path);
       }
     }
+    const paths = model.layerSheets;
+    appearanceLayers[name] = {
+      eyes: await loadImageFile(paths.eyes),
+      hair: await loadImageFile(paths.hair),
+      clothing: await loadImageFile(paths.clothing)
+    };
   }
+}
+
+// Draws one frame of a player with their look: the body tinted to the skin color, then the
+// clothing, hair and eye layers on top. alpha fades the whole thing (the death animation).
+// Used in the game and for the preview on the customization screen.
+function drawPlayerSprite(modelName, appearance, col, row, x, y, w, h, alpha = 255,
+  body = playerSheets[modelName]) {
+  const model = PLAYER_MODELS[modelName];
+  const sx = col * model.spriteW;
+  const sy = row * model.spriteH;
+  const layers = [
+    [body, [255, 255, 255]], // class sheets are already colored, so skin waits for the wizard
+    [appearanceLayers[modelName].clothing, getAppearanceColor(appearance, "clothing")],
+    [appearanceLayers[modelName].hair, getAppearanceColor(appearance, "hair")],
+    [appearanceLayers[modelName].eyes, getAppearanceColor(appearance, "eyes")]
+  ];
+  for (const [picture, color] of layers) {
+    if (color === null) {
+      continue; // no hair
+    }
+    tint(color[0], color[1], color[2], alpha);
+    image(picture, x, y, w, h, sx, sy, model.spriteW, model.spriteH);
+  }
+  noTint();
 }
 
 // Which row and column of the player's sheet to draw.
@@ -57,10 +90,9 @@ function drawPlayer(player) {
   const left = player.pos.x + (sw - w) / 2;
   const top = player.pos.y - (sh - player.width) + (sh - h) / 2;
 
-  tint(255, lerp(255, 0, t));
   const sheet = playerClassSheets[playerSheetPath(player.modelName, player.mageClass)];
-  image(sheet, left, top, w, h, f.col * sw, f.row * sh, sw, sh);
-  noTint();
+  drawPlayerSprite(player.modelName, player.appearance, f.col, f.row, left, top, w, h,
+    lerp(255, 0, t), sheet);
 }
 
 function drawHealthBar(player) {
