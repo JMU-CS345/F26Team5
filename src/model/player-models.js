@@ -6,6 +6,13 @@
 const PLAYER_MODELS = Object.freeze({
   Tall: {
     sheet: "assets/player/16x32 Player.png",
+    // White layers for #23, tinted to the chosen colors. Hair and clothing are placeholders
+    // cut from the body sprite until there is real art. Same layout as the body sheet.
+    layerSheets: {
+      eyes: "assets/player/customization/16x32 Eye Color.png",
+      hair: "assets/player/customization/16x32 Hair.png",
+      clothing: "assets/player/customization/16x32 Clothing.png"
+    },
     spriteW: 16,
     spriteH: 32,
     // Columns of the walk frames in order. Each cycle starts on a step, not the standing frame.
@@ -18,6 +25,11 @@ const PLAYER_MODELS = Object.freeze({
   },
   Short: {
     sheet: "assets/player/16x16 Player.png",
+    layerSheets: {
+      eyes: "assets/player/customization/16x16 Eye Color.png",
+      hair: "assets/player/customization/16x16 Hair.png",
+      clothing: "assets/player/customization/16x16 Clothing.png"
+    },
     spriteW: 16,
     spriteH: 16,
     walkCycles: {

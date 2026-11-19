@@ -3,6 +3,7 @@ describe("Inventory controls and context actions", () => {
     const game = new Game();
     game.startCharacterSelect();
     game.selectClass("Fire");
+    game.finishCustomization();
     return game;
   }
 

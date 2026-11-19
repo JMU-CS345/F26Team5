@@ -195,3 +195,60 @@ function drawCreditsScreen(lines, scroll) {
   text("Credits", width / 2, 60);
   drawFooterHint("Up/Down scroll, Esc back");
 }
+
+// Customization screen (#23): a big preview of the player on the left, and one row per part
+// on the right. The < and > buttons and the Start button are p5 DOM buttons, made in sketch.js.
+const CUSTOMIZE_PREVIEW_SCALE = 8;
+const CUSTOMIZE_PREVIEW_X = 400; // center x of the preview
+const CUSTOMIZE_ROWS_X = 820; // center x of the option names
+const CUSTOMIZE_ROW_GAP = 80;
+const CUSTOMIZE_ARROW_SIZE = 56;
+const CUSTOMIZE_ARROW_OFFSET = 190; // from the row center to each arrow's center
+
+// Center y of the nth customization row.
+function customizeRowY(i) {
+  return 230 + i * CUSTOMIZE_ROW_GAP;
+}
+
+function drawCustomizeMenu(game, selectedRow) {
+  noStroke();
+  fill(255);
+  textAlign(CENTER, CENTER);
+  textSize(64);
+  text("Mage Quest", width / 2, 70);
+  textSize(28);
+  text("Customize your " + game.selectedClass + " Mage", width / 2, 140);
+
+  // Preview: standing and facing down, feet on the same line for both models.
+  const model = PLAYER_MODELS[game.selectedModel];
+  const w = model.spriteW * CUSTOMIZE_PREVIEW_SCALE;
+  const h = model.spriteH * CUSTOMIZE_PREVIEW_SCALE;
+  drawPlayerSprite(game.selectedModel, game.appearance, 0, 0,
+    CUSTOMIZE_PREVIEW_X - w / 2, 500 - h, w, h);
+
+  APPEARANCE_PARTS.forEach((part, i) => {
+    const y = customizeRowY(i);
+    if (i === selectedRow) {
+      fill(255, 255, 255, 30);
+      rect(CUSTOMIZE_ROWS_X - 230, y - 32, 460, 64, 8);
+    }
+    fill(180);
+    textSize(18);
+    text(part.toUpperCase(), CUSTOMIZE_ROWS_X, y - 16);
+    fill(255);
+    textSize(28);
+    text(game.appearance[part], CUSTOMIZE_ROWS_X, y + 12);
+    const color = getAppearanceColor(game.appearance, part);
+    if (color !== null) {
+      fill(...color);
+      stroke(255);
+      rect(CUSTOMIZE_ROWS_X + 90, y - 2, 28, 28, 4);
+      noStroke();
+    }
+  });
+
+  textSize(18);
+  fill(180);
+  text("Click the arrows, or use W/S and A/D (or the arrow keys). Enter to start.",
+    width / 2, height - 50);
+}

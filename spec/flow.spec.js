@@ -6,6 +6,7 @@ function makeRun(mageClass) {
   const game = new Game();
   game.startCharacterSelect();
   game.selectClass(mageClass);
+  game.finishCustomization();
   const room = new NormalRoom(0, 0, 160, 160);
   const player = new Player(80, 80, game.selectedClass, game.selectedModel);
   return { game, room, player };
@@ -16,6 +17,7 @@ describe("game flow", function () {
     const game = new Game();
     game.startCharacterSelect();
     game.selectClass(getClassForKey("1"));
+    game.finishCustomization();
     expect(game.isPlaying()).toBe(true);
   });
 
@@ -74,6 +76,7 @@ describe("character creator", () => {
 
   it("keeps the picked model when a class is picked", () => {
     game.selectClass("Ice");
+    game.finishCustomization();
     expect(game.isPlaying()).toBe(true);
     expect(game.selectedModel).toBe("Tall");
     expect(game.selectedClass).toBe("Ice");
@@ -81,6 +84,7 @@ describe("character creator", () => {
 
   it("goes back to the title and clears both choices after a run", () => {
     game.selectClass("Ice");
+    game.finishCustomization();
     game.playerDied();
     expect(game.backToTitle()).toBe(true);
     expect(game.isTitle()).toBe(true);

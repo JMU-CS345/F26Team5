@@ -1,11 +1,13 @@
 // Game state model. No p5 drawing calls, so Jasmine can test it without a canvas.
-// Tracks which screen the game is on, and the playermodel and mage class the player picked.
+// Tracks which screen the game is on, and the playermodel, mage class and appearance the
+// player picked.
 
 const GAME_STATES = Object.freeze({
   TITLE: "title",
   SETTINGS: "settings", // opened from the title or the pause menu
   CREDITS: "credits",
   MENU: "menu", // character select: pick a class
+  CUSTOMIZE: "customize", // pick the look (#23), after the class
   PLAYING: "playing",
   INVENTORY: "inventory",
   PAUSED: "paused",
@@ -21,6 +23,7 @@ class Game {
     this.selectedModel = null;
     this.selectedClass = null;
     this.settingsReturn = GAME_STATES.TITLE; // where Back from settings goes
+    this.appearance = makeAppearance(); // kept between runs, so it starts as last time's look
   }
 
   isTitle() {
@@ -38,6 +41,11 @@ class Game {
   // The class menu.
   isMenu() {
     return this.state === GAME_STATES.MENU;
+  }
+
+  // The customization screen, the last step of the character creator.
+  isCustomizing() {
+    return this.state === GAME_STATES.CUSTOMIZE;
   }
 
   isPlaying() {
@@ -159,13 +167,32 @@ class Game {
     return true;
   }
 
-  // Picks a class and starts the run. Only works from the class menu, and only for a
-  // real class, so a stray key press cannot start a run mid-game.
+  // Picks a class and moves on to the customization screen. Only works from the class
+  // menu, and only for a real class, so a stray key press cannot change it mid-game.
   selectClass(mageClass) {
     if (!this.isMenu() || !MAGE_CLASSES.includes(mageClass)) {
       return false;
     }
     this.selectedClass = mageClass;
+    this.state = GAME_STATES.CUSTOMIZE;
+    return true;
+  }
+
+  // Moves one part of the look to the next (step 1) or previous (step -1) option.
+  // Only works on the customization screen.
+  changeAppearance(part, step) {
+    if (!this.isCustomizing() || !APPEARANCE_PARTS.includes(part)) {
+      return false;
+    }
+    this.appearance = cycleAppearance(this.appearance, part, step);
+    return true;
+  }
+
+  // Finishes the character creator and starts the run.
+  finishCustomization() {
+    if (!this.isCustomizing()) {
+      return false;
+    }
     this.state = GAME_STATES.PLAYING;
     return true;
   }
@@ -180,9 +207,9 @@ class Game {
   }
 
   // Leaving a run (death screen or Quit to Title) or backing out of character select.
-  // Clears the picked model and class.
+  // Clears the picked model and class, but keeps the appearance.
   backToTitle() {
-    const allowed = this.isMenu() || this.isPaused() || this.isDead();
+    const allowed = this.isMenu() || this.isCustomizing() || this.isPaused() || this.isDead();
     if (!allowed) {
       return false;
     }

@@ -5,6 +5,7 @@ describe("Game title, pause, settings and credits", function () {
     const g = new Game();
     g.startCharacterSelect();
     g.selectClass("Fire");
+    g.finishCustomization();
     return g;
   }
 

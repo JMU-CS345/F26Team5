@@ -13,6 +13,8 @@ let dungeon;
 let room; // the room the player is in right now
 let roomGraphic; // the picture of that room
 let roomGraphics = new Map(); // room id -> picture, built the first time the room is entered
+let customizeButtons = []; // the < and > buttons for each part, and the Start button
+let customizeRow = 0; // highlighted row on the customization screen
 let inventoryDrag = null;
 let inventorySelection = null;
 let inventoryInfoLines = [];
@@ -105,7 +107,8 @@ function startRun() {
     spawn.x - PLAYER_LENGTH / 2,
     spawn.y - PLAYER_WIDTH / 2,
     game.selectedClass,
-    game.selectedModel
+    game.selectedModel,
+    game.appearance
   );
   // Placeholder pickups until room data supplies item placement.
   room.items = [
@@ -147,9 +150,29 @@ function startRun() {
   pauseMenu.reset(); // a new run starts the pause menu on Resume again
 }
 
-// Picks a class on the menu and starts the run.
+// Picks a class on the menu and moves on to the customization screen.
 function chooseClass(mageClass) {
   if (game.selectClass(mageClass)) {
+    customizeRow = 0;
+    for (const button of customizeButtons) {
+      button.show();
+    }
+  }
+}
+
+// Changes one part of the look on the customization screen.
+function changeAppearancePart(part, step) {
+  if (game.changeAppearance(part, step)) {
+    customizeRow = APPEARANCE_PARTS.indexOf(part);
+  }
+}
+
+// Leaves the customization screen and starts the run.
+function finishCustomization() {
+  if (game.finishCustomization()) {
+    for (const button of customizeButtons) {
+      button.hide();
+    }
     startRun();
   }
 }
@@ -158,6 +181,9 @@ function chooseClass(mageClass) {
 function goToTitle() {
   activeDialogue.close();
   if (game.backToTitle()) {
+    for (const button of customizeButtons) {
+      button.hide();
+    }
     titleMenu.reopen();
   }
 }
@@ -288,6 +314,35 @@ function closeSettings() {
   game.closeSettings();
 }
 
+function makeCustomizeButtons() {
+  APPEARANCE_PARTS.forEach((part, i) => {
+    for (const step of [-1, 1]) {
+      const button = createButton(step < 0 ? "<" : ">");
+      button.size(CUSTOMIZE_ARROW_SIZE, CUSTOMIZE_ARROW_SIZE);
+      button.position(
+        CUSTOMIZE_ROWS_X + step * CUSTOMIZE_ARROW_OFFSET - CUSTOMIZE_ARROW_SIZE / 2,
+        customizeRowY(i) - CUSTOMIZE_ARROW_SIZE / 2
+      );
+      button.style("background-color", "rgb(90, 90, 110)");
+      button.style("color", "white");
+      button.style("font-size", "28px");
+      button.mousePressed(() => changeAppearancePart(part, step));
+      customizeButtons.push(button);
+    }
+  });
+  const start = createButton("Start run");
+  start.size(MODEL_BUTTON_W, MENU_BUTTON_H);
+  start.position(
+    CUSTOMIZE_ROWS_X - MODEL_BUTTON_W / 2,
+    customizeRowY(APPEARANCE_PARTS.length) + 10
+  );
+  start.style("background-color", "rgb(60, 140, 80)");
+  start.style("color", "white");
+  start.style("font-size", "24px");
+  start.mousePressed(finishCustomization);
+  customizeButtons.push(start);
+}
+
 async function setup() {
   await loadPlayerSheets();
   await loadTileImages();
@@ -304,6 +359,10 @@ async function setup() {
   makeMenus();
   // The window losing focus pauses a run. p5 has no event for it, so use the DOM one.
   window.addEventListener("blur", pauseGame);
+  makeCustomizeButtons();
+  for (const button of customizeButtons) {
+    button.hide(); // the customization screen comes after the class menu
+  }
   setupDone = true;
 }
 
@@ -407,6 +466,10 @@ function drawScreen() {
     drawRoom(room, roomGraphic);
     drawRunScene();
     drawPauseMenu(pauseMenu);
+    return;
+  }
+  if (game.isCustomizing()) {
+    drawCustomizeMenu(game, customizeRow);
     return;
   }
   if (game.isInventory()) {
@@ -696,6 +759,17 @@ function keyPressed() {
   if (game.isPaused()) {
     handleMenuKey(pauseMenu, keyCode);
     return false;
+  }
+  if (game.isCustomizing()) {
+    const action = getCustomizeAction(key);
+    if (action && action.type === "row") {
+      customizeRow = nextCustomizeRow(customizeRow, action.step);
+    } else if (action && action.type === "option") {
+      changeAppearancePart(APPEARANCE_PARTS[customizeRow], action.step);
+    } else if (action && action.type === "done") {
+      finishCustomization();
+    }
+    return false; // keep the arrow keys from scrolling the page
   }
   if ((game.isPlaying() || game.isInventory()) && key.toLowerCase() === "i") {
     toggleInventoryMenu();
