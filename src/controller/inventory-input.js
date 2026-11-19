@@ -123,7 +123,10 @@ function finishInventoryDrag(inventory, drag, x, y) {
 }
 
 function inventorySelectionAt(inventory, x, y) {
-  const slot = inventorySlotAt(inventory, x, y);
+  return inventorySelectionFromSlot(inventorySlotAt(inventory, x, y));
+}
+
+function inventorySelectionFromSlot(slot) {
   if (slot === null || slot.item === null) {
     return null;
   }
@@ -280,4 +283,74 @@ function inventoryHudButtonAt(x, y) {
 
 function toggleInventoryFromControl(game) {
   return game.toggleInventory();
+}
+
+// The slot the keyboard cursor is on.
+function inventoryCursorSlot(inventory, cursor) {
+  const layout = inventoryUiLayout(inventory);
+  if (cursor.section === "equipment") {
+    return layout.equipmentSlots[cursor.index];
+  }
+  return layout.bagSlots[cursor.index];
+}
+
+// Arrows or WASD. Returns true when the key moved the cursor.
+function moveInventoryCursorForKey(cursor, code) {
+  const moves = {
+    37: [-1, 0], 65: [-1, 0],
+    39: [1, 0], 68: [1, 0],
+    38: [0, -1], 87: [0, -1],
+    40: [0, 1], 83: [0, 1]
+  };
+  const step = moves[code];
+  if (step === undefined) {
+    return false;
+  }
+  cursor.move(step[0], step[1]);
+  return true;
+}
+
+// Enter: equip, unequip or consume the item under the cursor. An item with nothing to do
+// shows its info instead. Returns { success, infoLines }.
+function useInventoryCursorItem(inventory, player, cursor) {
+  const selection = inventorySelectionFromSlot(inventoryCursorSlot(inventory, cursor));
+  const actions = inventoryContextActions(inventory, player, selection);
+  const usable = actions.find((action) => action.id !== "view" && action.enabled);
+  if (selection === null || actions.length === 0) {
+    return Object.freeze({ success: false, infoLines: Object.freeze([]) });
+  }
+  if (usable === undefined) {
+    return performInventoryContextAction(inventory, player, selection, "view");
+  }
+  return performInventoryContextAction(inventory, player, selection, usable.id);
+}
+
+// X: takes the item under the cursor out of the inventory and returns it as a drop at the
+// player's feet, or null when there is nothing to drop. Gold stays with the player.
+function dropInventoryCursorItem(inventory, player, cursor) {
+  const slot = inventoryCursorSlot(inventory, cursor);
+  if (slot.item === null || slot.item instanceof Gold) {
+    return null;
+  }
+  let quantity = slot.quantity;
+  try {
+    if (slot.kind === "equipment") {
+      if (inventory.unequip(slot.equipmentName) === null) {
+        return null;
+      }
+      quantity = 1;
+    }
+    inventory.remove(slot.item, quantity);
+  } catch (error) {
+    return null;
+  }
+  const center = player.getCenter();
+  const drop = new ItemDrop(
+    center.x - ITEM_DROP_SIZE / 2,
+    center.y - ITEM_DROP_SIZE / 2,
+    slot.item,
+    quantity
+  );
+  drop.pickupDelay = ITEM_DROP_PICKUP_DELAY;
+  return drop;
 }

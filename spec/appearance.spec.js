@@ -53,7 +53,7 @@ describe("Appearance", function () {
 describe("Customization in the character creator", function () {
   function gameAtCustomize(mageClass = "Fire") {
     const game = new Game();
-    game.selectModel("Tall");
+    game.startCharacterSelect();
     game.selectClass(mageClass);
     return game;
   }
@@ -76,7 +76,7 @@ describe("Customization in the character creator", function () {
   it("only changes the look on the customization screen", function () {
     const game = new Game();
     expect(game.changeAppearance("skin", 1)).toBe(false);
-    game.selectModel("Tall");
+    game.startCharacterSelect();
     game.selectClass("Ice");
     game.finishCustomization();
     expect(game.changeAppearance("skin", 1)).toBe(false);
@@ -124,14 +124,14 @@ describe("Customization in the character creator", function () {
     }
   });
 
-  it("keeps the look for the next run, on any model", function () {
+  it("keeps the look for the next run", function () {
     const game = gameAtCustomize();
     game.changeAppearance("clothing", 1);
     const look = { ...game.appearance };
     game.finishCustomization();
     game.playerDied();
-    game.newRun();
-    game.selectModel("Short");
+    game.backToTitle();
+    game.startCharacterSelect();
     game.selectClass("Mind");
     expect(game.appearance).toEqual(look);
   });

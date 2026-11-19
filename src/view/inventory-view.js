@@ -1,6 +1,7 @@
 // Slot-based inventory overlay. Reads inventory and drag state without changing them.
 
-function drawInventorySlot(slot, drag, selection = null) {
+function drawInventorySlot(slot, drag, selection = null, cursorSlot = null) {
+  const hasCursor = cursorSlot !== null && cursorSlot.x === slot.x && cursorSlot.y === slot.y;
   const isDragged = drag !== null
     && drag.item === slot.item
     && drag.sourceKind === slot.kind
@@ -19,6 +20,12 @@ function drawInventorySlot(slot, drag, selection = null) {
   }
   fill(UI_COLORS.void);
   rect(slot.x, slot.y, slot.w, slot.h);
+  if (hasCursor) {
+    noFill();
+    stroke(255, 220, 90);
+    strokeWeight(4);
+    rect(slot.x - 3, slot.y - 3, slot.w + 6, slot.h + 6);
+  }
   pop();
   if (slot.item === null || isDragged) {
     return;
@@ -92,7 +99,8 @@ function drawInventoryMenu(
   selection = null,
   infoLines = [],
   pointerX = 0,
-  pointerY = 0
+  pointerY = 0,
+  cursorSlot = null
 ) {
   noStroke();
   fill(0, 0, 0, 210);
@@ -105,7 +113,10 @@ function drawInventoryMenu(
   drawPanel(panelX, panelY, panelWidth, panelHeight);
 
   drawPixelText("Inventory", panelX + 40, panelY + 36, 32, UI_COLORS.goldLight);
-  drawPixelText("Press I to resume", panelX + 40, panelY + 82, 16, UI_COLORS.stoneLight);
+  drawPixelText(
+    "Arrows or WASD move, Enter use, X drop, Esc close", panelX + 40, panelY + 82, 16,
+    UI_COLORS.stoneLight
+  );
   drawPixelText(
     "Gold: " + inventory.gold, panelX + panelWidth - 40, panelY + 42, 16, UI_COLORS.goldLight,
     "right"
@@ -118,7 +129,7 @@ function drawInventoryMenu(
     drawPixelText(
       slot.label, slot.x + slot.w / 2, slot.y - 16, 8, UI_COLORS.stoneLight, "center"
     );
-    drawInventorySlot(slot, visibleDrag, selection);
+    drawInventorySlot(slot, visibleDrag, selection, cursorSlot);
   }
 
   drawPixelText("Bag", 650, panelY + 138, 24, UI_COLORS.white);
@@ -126,7 +137,7 @@ function drawInventoryMenu(
     "Drag to equip, or click", 650, panelY + 172, 16, UI_COLORS.stoneLight
   );
   for (const slot of layout.bagSlots) {
-    drawInventorySlot(slot, visibleDrag, selection);
+    drawInventorySlot(slot, visibleDrag, selection, cursorSlot);
   }
   drawInventoryInformation(infoLines);
   drawInventoryContextMenu(inventory, player, selection);

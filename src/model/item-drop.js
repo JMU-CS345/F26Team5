@@ -1,6 +1,7 @@
 // A collectible item stack placed in the game world.
 
 const ITEM_DROP_SIZE = 12;
+const ITEM_DROP_PICKUP_DELAY = 60; // frames before a thrown-away item can be picked up again
 const ITEM_DROP_BOB_HEIGHT = 3;
 const ITEM_DROP_BOB_SPEED = 0.08;
 
@@ -16,10 +17,14 @@ class ItemDrop {
     this.quantity = stack.quantity;
     this.size = ITEM_DROP_SIZE;
     this.age = 0;
+    this.pickupDelay = 0;
   }
 
   update() {
     this.age++;
+    if (this.pickupDelay > 0) {
+      this.pickupDelay--;
+    }
   }
 
   get bobOffset() {
