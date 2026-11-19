@@ -1,11 +1,12 @@
 // Character appearance (#23). No p5 drawing calls, so Jasmine can test it without a canvas.
 // Cosmetic only: nothing here changes the player's stats.
-// Load this after player-models.js and before game.js and player.js.
+// Load this before game.js and player.js. wizardColors in player-models.js reads it.
 
 // Order matters: it is the order of the rows on the customization screen.
 const APPEARANCE_PARTS = Object.freeze(["skin", "eyes", "hair", "clothing"]);
 
-// The choices for each part. color is RGB, or null for "no hair".
+// The choices for each part. color is RGB, or null to keep the class color (the wizard has no
+// hair, so "hair" is the color of the hat). See wizardColors in player-models.js.
 const APPEARANCE_OPTIONS = Object.freeze({
   skin: [
     { name: "Pale", color: [255, 228, 205] },
@@ -30,6 +31,7 @@ const APPEARANCE_OPTIONS = Object.freeze({
     { name: "None", color: null }
   ],
   clothing: [
+    { name: "Class", color: null },
     { name: "Blue", color: [60, 90, 190] },
     { name: "Red", color: [180, 45, 45] },
     { name: "Green", color: [50, 130, 70] },
@@ -41,8 +43,8 @@ const APPEARANCE_OPTIONS = Object.freeze({
 const DEFAULT_APPEARANCE = Object.freeze({
   skin: "Light",
   eyes: "Blue",
-  hair: "Brown",
-  clothing: "Blue"
+  hair: "None",
+  clothing: "Class"
 });
 
 // Names of the options for one part, in order.
@@ -78,7 +80,7 @@ function cycleAppearance(appearance, part, step) {
   return result;
 }
 
-// RGB color of one part, or null (hair "None").
+// RGB color of one part, or null (hair "None", clothing "Class").
 function getAppearanceColor(appearance, part) {
   const name = makeAppearance(appearance)[part];
   return APPEARANCE_OPTIONS[part].find((option) => option.name === name).color;

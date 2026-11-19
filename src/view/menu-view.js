@@ -32,12 +32,13 @@ function cardCenterX(i, count) {
   return width / 2 + (i - (count - 1) / 2) * 260;
 }
 
-// The model's standing sprite, feet on the line at footY.
-function drawModelPreview(name, centerX, footY) {
-  const model = PLAYER_MODELS[name];
-  const w = model.spriteW * MODEL_PREVIEW_SCALE;
-  const h = model.spriteH * MODEL_PREVIEW_SCALE;
-  image(playerSheets[name], centerX - w / 2, footY - h, w, h, 0, 0, model.spriteW, model.spriteH);
+// The wizard standing in the class colors, feet on the line at footY.
+function drawModelPreview(mageClass, centerX, footY) {
+  const w = SPRITE_W * MODEL_PREVIEW_SCALE;
+  const h = SPRITE_H * MODEL_PREVIEW_SCALE;
+  const colors = wizardColors(mageClass, DEFAULT_APPEARANCE);
+  const idle = FRAME_TABLE.idle.start;
+  drawWizardFrame(colors, idle, SPRITE_ROWS.down, centerX - w / 2, footY - h, w, h);
 }
 
 function drawTitleScreen(menu) {
@@ -47,11 +48,11 @@ function drawTitleScreen(menu) {
 }
 
 // The class screen. The menu holds one item per class.
-function drawClassMenu(menu, modelName) {
+function drawClassMenu(menu) {
   const panelX = width / 2 - 440;
   drawPanel(panelX, 90, 880, 470);
   drawPanelTitle("Choose your class", 140);
-  drawModelPreview(modelName, width / 2, 330);
+  drawModelPreview(MAGE_CLASSES[menu.index], width / 2, 330);
 
   const count = MAGE_CLASSES.length;
   MAGE_CLASSES.forEach((mageClass, i) => {
@@ -195,10 +196,12 @@ function drawCreditsScreen(lines, scroll) {
 
 // Customization screen (#23): a big preview of the player on the left, and one row per part
 // on the right. The < and > buttons and the Start button are p5 DOM buttons, made in sketch.js.
-const CUSTOMIZE_PREVIEW_SCALE = 8;
+const CUSTOMIZE_PREVIEW_SCALE = 7;
 const CUSTOMIZE_PREVIEW_X = 400; // center x of the preview
 const CUSTOMIZE_ROWS_X = 820; // center x of the option names
 const CUSTOMIZE_ROW_GAP = 80;
+// The wizard has no hair, so that part is the color of the hat.
+const APPEARANCE_LABELS = { skin: "SKIN", eyes: "EYES", hair: "HAT", clothing: "ROBE" };
 const CUSTOMIZE_ARROW_SIZE = 56;
 const CUSTOMIZE_ARROW_OFFSET = 190; // from the row center to each arrow's center
 const CUSTOMIZE_START_W = 200;
@@ -218,11 +221,11 @@ function drawCustomizeMenu(game, selectedRow) {
   textSize(28);
   text("Customize your " + game.selectedClass + " Mage", width / 2, 140);
 
-  // Preview: standing and facing down, feet on the same line for both models.
-  const model = PLAYER_MODELS[game.selectedModel];
-  const w = model.spriteW * CUSTOMIZE_PREVIEW_SCALE;
-  const h = model.spriteH * CUSTOMIZE_PREVIEW_SCALE;
-  drawPlayerSprite(game.selectedModel, game.appearance, 0, 0,
+  // Preview: the wizard standing and facing down, feet on a line, in the chosen colors.
+  const w = SPRITE_W * CUSTOMIZE_PREVIEW_SCALE;
+  const h = SPRITE_H * CUSTOMIZE_PREVIEW_SCALE;
+  const colors = wizardColors(game.selectedClass, game.appearance);
+  drawWizardFrame(colors, FRAME_TABLE.idle.start, SPRITE_ROWS.down,
     CUSTOMIZE_PREVIEW_X - w / 2, 500 - h, w, h);
 
   APPEARANCE_PARTS.forEach((part, i) => {
@@ -233,12 +236,14 @@ function drawCustomizeMenu(game, selectedRow) {
     }
     fill(180);
     textSize(18);
-    text(part.toUpperCase(), CUSTOMIZE_ROWS_X, y - 16);
+    text(APPEARANCE_LABELS[part], CUSTOMIZE_ROWS_X, y - 16);
     fill(255);
     textSize(28);
-    text(game.appearance[part], CUSTOMIZE_ROWS_X, y + 12);
     const color = getAppearanceColor(game.appearance, part);
-    if (color !== null) {
+    if (color === null) {
+      text("Class color", CUSTOMIZE_ROWS_X, y + 12); // keeps the color from the class
+    } else {
+      text(game.appearance[part], CUSTOMIZE_ROWS_X, y + 12);
       fill(...color);
       stroke(255);
       rect(CUSTOMIZE_ROWS_X + 90, y - 2, 28, 28, 4);

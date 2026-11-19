@@ -1,5 +1,5 @@
 // Shared item sprite rendering for world drops, inventory slots, and dragged items.
-// Replace this placeholder implementation when real item sprites are available.
+// Icons come from the 16x16 sheets listed in src/model/item-icons.js.
 
 const ITEM_SPRITE_COLORS = {
   weapon: [220, 80, 70],
@@ -8,29 +8,17 @@ const ITEM_SPRITE_COLORS = {
   gold: [245, 195, 45]
 };
 
-const itemSprites = {};
+const itemSheets = {}; // sheet path -> loaded image
 
 async function loadItemSprites() {
-  itemSprites.gold = await loadImageFile("assets/item/gold-coin.png");
-  itemSprites.consumable = await loadImageFile("assets/item/potion.png");
-  itemSprites.weapon = await loadImageFile("assets/item/weapon.png");
-  itemSprites.armor = await loadImageFile("assets/item/armor.png");
+  for (const path of [WEAPON_ICON_SHEET, ITEM_ICON_SHEET, RARITY_FRAME_SHEET]) {
+    itemSheets[path] = await loadImageFile(path);
+  }
 }
 
-function itemSpriteImage(item) {
-  if (item instanceof Weapon) {
-    return itemSprites.weapon;
-  }
-  if (item instanceof Armor) {
-    return itemSprites.armor;
-  }
-  if (item instanceof Gold) {
-    return itemSprites.gold;
-  }
-  if (item instanceof Consumable) {
-    return itemSprites.consumable;
-  }
-  return null;
+// Draws one 16x16 cell of an icon sheet scaled to size x size.
+function drawIconCell(cell, x, y, size) {
+  image(itemSheets[cell.sheet], x, y, size, size, cell.x, cell.y, cell.w, cell.h);
 }
 
 function itemSpriteColor(item) {
@@ -47,20 +35,18 @@ function itemSpriteColor(item) {
 }
 
 function drawItemSprite(item, x, y, size) {
-  const sprite = itemSpriteImage(item);
-  if (sprite !== null) {
-    const scale = Math.min(size / sprite.width, size / sprite.height);
-    const drawWidth = Math.max(1, Math.round(sprite.width * scale));
-    const drawHeight = Math.max(1, Math.round(sprite.height * scale));
-    const drawX = Math.round(x + (size - drawWidth) / 2);
-    const drawY = Math.round(y + (size - drawHeight) / 2);
-    // Generated weapons share one icon, so the rarity color tells them apart.
-    push();
-    if (item instanceof Weapon && item.rarity !== "common") {
-      tint(...getRarity(item.rarity).color);
+  const cell = itemIconCell(item);
+  if (cell !== null && itemSheets[cell.sheet]) {
+    // Scale by a whole number so the pixels stay square.
+    const scale = Math.max(1, Math.floor(size / ICON_SIZE));
+    const drawSize = ICON_SIZE * scale;
+    const drawX = Math.round(x + (size - drawSize) / 2);
+    const drawY = Math.round(y + (size - drawSize) / 2);
+    drawIconCell(cell, drawX, drawY, drawSize);
+    const frame = rarityFrameCell(item.rarity);
+    if (frame !== null) {
+      drawIconCell(frame, drawX, drawY, drawSize);
     }
-    image(sprite, drawX, drawY, drawWidth, drawHeight);
-    pop();
     return;
   }
 

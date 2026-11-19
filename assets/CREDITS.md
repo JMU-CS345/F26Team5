@@ -10,5 +10,10 @@ One line per asset we did not make ourselves: creator, source, license.
 | `assets/ui/hearts.png`, `coin.png`, `slot-box.png`, `panel.png` | drawn for this project | n/a | ours, palette colors only |
 | `assets/audio/*.mp3` (sound effects: swing, hit, shoot, hurt, dash, pickup, chest, menu, death, levelup, perfect) | made for this project | Synthesized with a short Python script (25% and 12.5% band-limited pulse waves, triangle waves, filtered noise, light echo) | made for this project |
 | `assets/audio/music-loop.mp3` (16-bar looping background tune) | made for this project | Composed with a short Python script (pulse melody, triangle bass, filtered noise drums) | made for this project |
+| `assets/enemy/creatures-16bit.png` (derived: `tiny-creatures.png` recolored to the game palette, same cell layout) | Clint Bellanger | https://opengameart.org/content/tiny-creatures | CC0 1.0, text in `assets/enemy/tiny-creatures-license.txt` |
 
-Everything else in `assets/` (Jelly and other enemy sheets, weapons, player sprites, money, and the older `Dungeon*.png` tiles, no longer used by the game) was drawn by Vincent Barr, per the team. `stone-ceiling.png` and `pit.png` were drawn pixel by pixel with a script, in the palette colors.
+Everything else in `assets/` (Jelly and other enemy sheets, weapons, money, and the older `Dungeon*.png` tiles, no longer used by the game) was drawn by Vincent Barr, per the team. `stone-ceiling.png` and `pit.png` were drawn pixel by pixel with a script, in the palette colors.
+
+Derived from the team's art: the enemy sheets Jelly, Bouncer, Spark Bark, Digger and Bat, which were recolored in place to the game palette.
+
+Drawn for this project: the layered wizard in `assets/player/layers/` (body, robe, hat, hood, eyes and flame sheets, original pixel art written pixel by pixel with a script and recolored in the game), `assets/item/weapon-icons.png`, `assets/item/item-icons.png`, `assets/item/rarity-frames.png` and `assets/effects/effects.png`.

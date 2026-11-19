@@ -7,7 +7,7 @@ const FIRE_COOLDOWN = RANGED_DEFAULTS.fireRate; // default shots are slower than
 class Player {
   // mageClass is "Fire", "Ice" or "Mind". It picks the starting stats (see player-stats.js).
   // appearance is the look from the customization screen (see appearance.js). Cosmetic only.
-  constructor(x, y, mageClass = null, modelName = "Tall", appearance = DEFAULT_APPEARANCE) {
+  constructor(x, y, mageClass = null, modelName = "Wizard", appearance = DEFAULT_APPEARANCE) {
     this.pos = new p5.Vector(x, y);
     this.mageClass = mageClass;
     this.modelName = modelName;

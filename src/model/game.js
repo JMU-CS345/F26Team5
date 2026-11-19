@@ -1,6 +1,6 @@
 // Game state model. No p5 drawing calls, so Jasmine can test it without a canvas.
-// Tracks which screen the game is on, and the playermodel, mage class and appearance the
-// player picked.
+// Tracks which screen the game is on, and the mage class and appearance the player picked.
+// There is one playermodel, the layered wizard.
 
 const GAME_STATES = Object.freeze({
   TITLE: "title",

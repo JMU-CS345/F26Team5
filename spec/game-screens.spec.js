@@ -21,7 +21,7 @@ describe("Game title, pause, settings and credits", function () {
   it("goes from New Run to the class menu only from the title", function () {
     expect(game.startCharacterSelect()).toBe(true);
     expect(game.isMenu()).toBe(true);
-    expect(game.selectedModel).toBe("Tall");
+    expect(game.selectedModel).toBe("Wizard");
     expect(game.startCharacterSelect()).toBe(false);
   });
 
@@ -88,7 +88,7 @@ describe("Game title, pause, settings and credits", function () {
     game.pause();
     expect(game.restartRun()).toBe(true);
     expect(game.isPlaying()).toBe(true);
-    expect(game.selectedModel).toBe("Tall");
+    expect(game.selectedModel).toBe("Wizard");
     expect(game.selectedClass).toBe("Fire");
     expect(game.restartRun()).toBe(false);
   });

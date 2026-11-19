@@ -37,7 +37,7 @@
 const ENEMY_SPRITE_SIZE = 16; // every sprite cell is 16x16 pixels in its sheet
 
 const JELLY_SHEET = "assets/enemy/Jelly.png";
-const CREATURE_SHEET = "assets/enemy/tiny-creatures.png";
+const CREATURE_SHEET = "assets/enemy/creatures-16bit.png";
 
 // A frame of the Tiny Creatures sheet by tile number, 10 tiles per row counting from 0.
 function creatureFrame(tile) {

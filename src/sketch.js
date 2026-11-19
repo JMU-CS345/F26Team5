@@ -354,6 +354,7 @@ async function setup() {
   await loadPixelFont();
   await loadHudImages();
   await loadPanelImage();
+  await loadEffectSheets();
   createCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);
   fitToWindow();
   noSmooth();

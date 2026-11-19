@@ -51,7 +51,7 @@ describe("Enemy sprite frames", function () {
     "assets/enemy/Bouncer.png": { w: 149, h: 288 },
     "assets/enemy/Jelly.png": { w: 157, h: 272 },
     "assets/enemy/Spark Bark.png": { w: 128, h: 80 },
-    "assets/enemy/tiny-creatures.png": { w: 160, h: 288 }
+    "assets/enemy/creatures-16bit.png": { w: 160, h: 288 }
   };
 
   for (const name of ENEMY_TYPE_NAMES) {
