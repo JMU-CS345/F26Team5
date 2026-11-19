@@ -14,6 +14,9 @@ function drawInventorySlot(slot, drag, selection = null, cursorSlot = null) {
   push();
   stroke(UI_COLORS.stoneLight);
   strokeWeight(2);
+  if (slot.item instanceof Weapon) {
+    stroke(...getRarity(slot.item.rarity).color);
+  }
   if (isSelected) {
     stroke(UI_COLORS.goldLight);
     strokeWeight(4);
@@ -31,7 +34,15 @@ function drawInventorySlot(slot, drag, selection = null, cursorSlot = null) {
     return;
   }
 
-  drawItemSprite(slot.item, slot.x + 10, slot.y + 8, slot.w - 20);
+  const pad = slot.w / 8;
+  drawItemSprite(slot.item, slot.x + pad, slot.y + pad, slot.w - 2 * pad);
+  if (slot.item.locked) {
+    noStroke();
+    fill(255, 215, 80);
+    textAlign(LEFT, TOP);
+    textSize(14);
+    text("L", slot.x + 4, slot.y + 2);
+  }
   if (slot.quantity > 1) {
     drawPixelText(
       slot.quantity, slot.x + slot.w - 6, slot.y + slot.h - 22, 16, UI_COLORS.white, "right"
@@ -77,6 +88,41 @@ function drawInventoryContextMenu(inventory, player, selection) {
   }
 }
 
+// The card for the selected item: rarity-colored border, its facts and the sell value.
+function drawInventoryCard(selection) {
+  if (selection === null) {
+    return;
+  }
+  const item = selection.item;
+  const lines = inventoryItemInformation(item);
+  const box = { x: 650, y: 515, w: 376, h: 130 };
+  let color = [255, 255, 255];
+  if (item instanceof Weapon) {
+    color = getRarity(item.rarity).color;
+  }
+  push();
+  fill(0);
+  stroke(...color);
+  strokeWeight(2);
+  rect(box.x, box.y, box.w, box.h);
+  noStroke();
+  textAlign(LEFT, TOP);
+  fill(...color);
+  textSize(18);
+  text(lines[0], box.x + 12, box.y + 10, box.w - 24);
+  fill(220);
+  textSize(14);
+  for (let index = 1; index < lines.length; index++) {
+    text(lines[index], box.x + 12, box.y + 32 + (index - 1) * 17, box.w - 24);
+  }
+  if (item.locked) {
+    fill(255, 215, 80);
+    textAlign(RIGHT, TOP);
+    text("Locked", box.x + box.w - 12, box.y + 12);
+  }
+  pop();
+}
+
 function drawInventoryInformation(infoLines) {
   if (infoLines.length === 0) {
     return;
@@ -114,7 +160,7 @@ function drawInventoryMenu(
 
   drawPixelText("Inventory", panelX + 40, panelY + 36, 32, UI_COLORS.goldLight);
   drawPixelText(
-    "Arrows or WASD move, Enter use, X drop, Esc close", panelX + 40, panelY + 82, 16,
+    "Arrows move, Enter equip or use, Esc or I close", panelX + 40, panelY + 82, 16,
     UI_COLORS.stoneLight
   );
   drawPixelText(
@@ -134,11 +180,19 @@ function drawInventoryMenu(
 
   drawPixelText("Bag", 650, panelY + 138, 24, UI_COLORS.white);
   drawPixelText(
-    "Drag to equip, or click", 650, panelY + 172, 16, UI_COLORS.stoneLight
+    inventory.size + "/" + inventory.capacity, 740, panelY + 146, 16, UI_COLORS.goldLight
+  );
+  drawPixelText(
+    "R sort, L lock, X drop", 650, panelY + 172, 16, UI_COLORS.stoneLight
   );
   for (const slot of layout.bagSlots) {
     drawInventorySlot(slot, visibleDrag, selection, cursorSlot);
   }
+  let cardSelection = selection;
+  if (cardSelection === null && cursorSlot !== null) {
+    cardSelection = inventorySelectionFromSlot(cursorSlot);
+  }
+  drawInventoryCard(cardSelection);
   drawInventoryInformation(infoLines);
   drawInventoryContextMenu(inventory, player, selection);
   drawDraggedInventoryItem(visibleDrag, pointerX, pointerY);

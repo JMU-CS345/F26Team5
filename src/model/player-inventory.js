@@ -8,6 +8,20 @@ const PLAYER_EQUIPMENT_TYPES = Object.freeze({
   legs: LegArmor
 });
 
+// The player's bag holds 24 items (6 columns by 4 rows). Equipped gear and gold are separate.
+const BAG_CAPACITY = 24;
+
+// Sort key for the bag: weapons by rarity (best first), then armor, then everything else.
+function bagSortRank(item) {
+  if (item instanceof Weapon) {
+    return 10 + rarityIndex(item.rarity);
+  }
+  if (item instanceof Armor) {
+    return 5;
+  }
+  return 0;
+}
+
 class PlayerInventory extends Inventory {
   constructor(capacityOrOptions = {}) {
     super(capacityOrOptions);
@@ -163,6 +177,42 @@ class PlayerInventory extends Inventory {
     } catch (error) {
       this._restoreState(state);
       throw error;
+    }
+  }
+
+  // Puts a weapon or armor that is not in the bag straight into its equipment slot and
+  // returns the item it replaces (null if the slot was empty). Works with a full bag.
+  swapEquipped(item) {
+    const equipmentName = this._equipmentNameFor(item);
+    if (equipmentName === null) {
+      throw new TypeError("that item cannot be equipped");
+    }
+    const slot = this._equipmentSlots[equipmentName];
+    let previous = null;
+    if (!slot.empty) {
+      previous = slot.remove().item;
+    }
+    slot.insert(new ItemStack(item));
+    return previous;
+  }
+
+  // Reorders the bag: best rarity first, then by name. Equipment and gold stay put.
+  sortBag() {
+    const entries = this.contents().map((e) => ({ item: e.item, quantity: e.quantity }));
+    entries.sort((a, b) => {
+      const byRank = bagSortRank(b.item) - bagSortRank(a.item);
+      if (byRank !== 0) {
+        return byRank;
+      }
+      return a.item.name.localeCompare(b.item.name);
+    });
+    for (const slot of this._slots) {
+      if (!slot.empty) {
+        slot.remove();
+      }
+    }
+    for (const entry of entries) {
+      super.add(entry.item, entry.quantity);
     }
   }
 

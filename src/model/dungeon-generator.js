@@ -1,5 +1,5 @@
 // Dungeon generation. No p5 drawing calls, so Jasmine can test it without a canvas.
-// Load after tile-types.js, room.js, template-room.js and room-templates.js, and before sketch.js.
+// Load after rng.js, tile-types.js, room.js, template-room.js and room-templates.js, and before sketch.js.
 //
 // Every room comes from the pre-made list in room-templates.js, and each drawing decides its
 // own size and where its doors are. This file decides which rooms are used, in what order,
@@ -25,29 +25,6 @@ const SIDES = Object.freeze({
   W: { dx: -1, dy: 0, opposite: "E" }
 });
 const SIDE_NAMES = Object.freeze(Object.keys(SIDES));
-
-// A small seeded random number generator (mulberry32). Same seed, same dungeon, which
-// makes bugs reproducible and tests stable. Returns a function that gives 0 <= n < 1.
-function createRng(seed) {
-  let a = seed >>> 0;
-  return function () {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-// A shuffled copy of a list.
-function shuffle(items, rng) {
-  const copy = items.slice();
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy;
-}
 
 // A room on the dungeon map: { template, wx, wy } where wx, wy is its top-left tile.
 function boxesOverlap(a, b) {

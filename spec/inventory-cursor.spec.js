@@ -13,17 +13,19 @@ describe("InventoryCursor", function () {
   it("moves through the bag grid and stops at the edges", function () {
     cursor.move(1, 0);
     cursor.move(0, 1);
-    expect(cursor.index).toBe(5);
-    cursor.move(1, 0);
-    cursor.move(1, 0);
-    cursor.move(1, 0);
     expect(cursor.index).toBe(7);
+    cursor.move(1, 0);
+    cursor.move(1, 0);
+    cursor.move(1, 0);
+    cursor.move(1, 0);
+    cursor.move(1, 0);
+    expect(cursor.index).toBe(11); // stops at the last column
     cursor.move(0, 1);
     cursor.move(0, 1);
     cursor.move(0, 1);
-    expect(cursor.index).toBe(15);
+    expect(cursor.index).toBe(23);
     cursor.move(0, 1);
-    expect(cursor.index).toBe(15);
+    expect(cursor.index).toBe(23);
   });
 
   it("does not move above the top row", function () {
@@ -70,7 +72,7 @@ describe("InventoryCursor", function () {
   it("maps arrow keys and WASD to moves", function () {
     expect(moveInventoryCursorForKey(cursor, 39)).toBe(true);
     expect(moveInventoryCursorForKey(cursor, 83)).toBe(true);
-    expect(cursor.index).toBe(5);
+    expect(cursor.index).toBe(7);
     expect(moveInventoryCursorForKey(cursor, 65)).toBe(true);
     expect(moveInventoryCursorForKey(cursor, 38)).toBe(true);
     expect(cursor.index).toBe(0);

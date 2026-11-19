@@ -20,13 +20,15 @@ const ENEMY_CHARS = Object.freeze({
   D: "Demon"
 });
 const DOOR_CHAR = "+";
+const CHEST_CHAR = "C"; // a treasure chest standing on floor
 const PLAYER_START_CHAR = "@";
 const ROOM_ROLES = Object.freeze(["start", "normal", "boss"]);
 const SIDE_LABELS = Object.freeze({ N: "north", E: "east", S: "south", W: "west" });
 const DOOR_WIDTH = 2; // tiles. Every door is this wide so any two doors can meet.
 
 function isWalkableChar(ch) {
-  return ch === "." || ch === PLAYER_START_CHAR || ENEMY_CHARS[ch] !== undefined;
+  return ch === "." || ch === PLAYER_START_CHAR || ch === CHEST_CHAR
+    || ENEMY_CHARS[ch] !== undefined;
 }
 
 // Finds every run of + along the four outer walls. Returns a list of
@@ -80,9 +82,10 @@ function doorTiles(cols, rows, side, start) {
 }
 
 // Reads one template into the shape the generator and TemplateRoom use:
-//   { name, role, text, cols, rows, grid, spawns, player, doors }
+//   { name, role, text, cols, rows, grid, spawns, chests, player, doors }
 //   grid    tile types, row by row (doors are walls until opened)
 //   spawns  [{ type, col, row }] one per enemy letter
+//   chests  [{ col, row }] one per C
 //   player  { col, row } where @ is, or null
 //   doors   [{ index, side, start, tiles: [{col, row}, ...] }] one per drawn door
 // Assumes the template already passed validateRoomTemplates.
@@ -96,6 +99,7 @@ function parseRoomTemplate(template) {
     rows: text.length,
     grid: [],
     spawns: [],
+    chests: [],
     player: null,
     doors: []
   };
@@ -105,6 +109,9 @@ function parseRoomTemplate(template) {
       const ch = text[row][col];
       if (ENEMY_CHARS[ch] !== undefined) {
         parsed.spawns.push({ type: ENEMY_CHARS[ch], col, row });
+        tiles.push(TILE.FLOOR);
+      } else if (ch === CHEST_CHAR) {
+        parsed.chests.push({ col, row });
         tiles.push(TILE.FLOOR);
       } else if (ch === PLAYER_START_CHAR) {
         parsed.player = { col, row };
@@ -179,7 +186,8 @@ function validateRoomTemplates(templates = ROOM_TEMPLATES) {
     let starts = 0;
     for (const row of t.rows) {
       for (const ch of row) {
-        if (ROOM_CHARS[ch] === undefined && ENEMY_CHARS[ch] === undefined && ch !== PLAYER_START_CHAR) {
+        if (ROOM_CHARS[ch] === undefined && ENEMY_CHARS[ch] === undefined
+            && ch !== PLAYER_START_CHAR && ch !== CHEST_CHAR) {
           unknown.add(ch);
         }
         if (ch === PLAYER_START_CHAR) {
@@ -286,6 +294,13 @@ class TemplateRoom extends Room {
     this.spawned = false;
     this.tileGrid = [];
     this.generateLayout();
+    // A chest stands in the middle of the tile marked C.
+    for (const spot of template.chests) {
+      this.chests.push(new Chest(
+        this.x + (spot.col + 0.5) * this.tileSize,
+        this.y + (spot.row + 0.5) * this.tileSize
+      ));
+    }
   }
 
   generateLayout() {
