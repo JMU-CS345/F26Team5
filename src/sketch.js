@@ -51,6 +51,7 @@ function enterRoom(r) {
   roomGraphic = getRoomGraphic(r);
   projectiles = [];
   enemyProjectiles = [];
+  clearDyingEnemies(); // death fades from the old room shouldn't show up in the new one
   room.onEnter();
 }
 

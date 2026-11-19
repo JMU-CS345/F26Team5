@@ -8,7 +8,7 @@ const INVENTORY_BAG_ROWS = 4;
 const INVENTORY_DRAG_THRESHOLD = 5;
 const INVENTORY_CONTEXT_WIDTH = 210;
 const INVENTORY_CONTEXT_ROW_HEIGHT = 34;
-const INVENTORY_HUD_BUTTON = Object.freeze({ x: 1040, y: 650, w: 220, h: 50 });
+const INVENTORY_HUD_BUTTON = Object.freeze({ x: 1040, y: 674, w: 220, h: 40 }); // below the panel
 const PLAYER_EQUIPMENT_LABELS = Object.freeze({
   melee: "Melee",
   projectile: "Projectile",
