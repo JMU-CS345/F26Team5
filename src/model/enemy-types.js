@@ -8,10 +8,21 @@
 //   maxHealth      health when spawned
 //   detectionRange pixels. It only acts when the player is this close.
 //   contactDamage  damage when it touches the player
-//   move           a key of ENEMY_MOVES (enemy-behaviors.js)
+//   move           a key of ENEMY_MOVES (enemy-behaviors.js). Hopping moves go straight at the
+//                  player through anything. The others follow the tiles around walls. Every enemy
+//                  needs a clear line of sight to shoot or to use sightSpeed.
+//   vision         optional. "line" means it only sees the player along the row or column of
+//                  tiles it faces, up to detectionRange away. It faces the way it walks, and
+//                  runs to the spot where it last saw the player. Left out, it senses a circle.
+//   sightSpeed     optional, wanderChase only: the speed while the player is in sight. Must be at
+//                  least speed, which is then the speed of hunting the last known spot.
 //   attack         null, or { kind, cooldown, damage, ... }. kind is a key of ENEMY_ATTACKS.
-//                  shoot also needs speed and color, and may have count and spread (degrees).
+//                  shoot also needs speed and color, and may have count and spread (degrees),
+//                  windup (frames of shaking before the shot, aim locked at the start) and
+//                  lead (0 to 1, how far ahead of a walking player to aim).
 //                  melee needs reach, windup and recover (frames) and no speed or color.
+//                  cooldown is the least time between the starts of two shots or swings.
+//                  Both kinds need a clear line of sight to the player.
 //   boss           true shows a health bar at the top of the screen
 //   phases         optional list like [{ below: 0.5, speed: 1.6, move: "chase", attack: {...} }].
 //                  While health / maxHealth is below `below`, the phase's speed, move and
@@ -90,6 +101,8 @@ const ENEMY_TYPES = Object.freeze({
     contactDamage: 1,
     move: "wanderChase",
     wanderSpeed: 0.25,
+    sightSpeed: 1.2,
+    vision: "line",
     attack: null,
     boss: false,
     color: [90, 140, 90],
@@ -104,7 +117,8 @@ const ENEMY_TYPES = Object.freeze({
     contactDamage: 1,
     move: "keepDistance",
     keepRange: 110,
-    attack: { kind: "shoot", cooldown: 110, damage: 1, speed: 2.5, color: [235, 235, 220] },
+    attack: { kind: "shoot", cooldown: 110, damage: 1, speed: 2.5, windup: 18, lead: 0.5,
+      color: [235, 235, 220] },
     boss: false,
     color: [235, 235, 220],
     sprite: { frameTime: 20, frames: [creatureFrame(1)] }
@@ -137,6 +151,7 @@ const ENEMY_TYPES = Object.freeze({
       speed: 2,
       count: 3,
       spread: 20,
+      windup: 16,
       color: [240, 90, 120]
     },
     boss: false,
@@ -193,7 +208,7 @@ const ENEMY_TYPES = Object.freeze({
     contactDamage: 1,
     move: "chase",
     attack: { kind: "shoot", cooldown: 100, damage: 1, speed: 2.2, count: 3, spread: 25,
-      color: [120, 220, 90] },
+      windup: 14, lead: 0.5, color: [120, 220, 90] },
     boss: false,
     color: [120, 220, 90],
     // The Tracking Player row: 8 frames, each 16 wide and 32 tall, standing on the hitbox.
@@ -213,7 +228,8 @@ const ENEMY_TYPES = Object.freeze({
     detectionRange: 400,
     contactDamage: 2,
     move: "chase",
-    attack: { kind: "shoot", cooldown: 75, damage: 1, speed: 3, color: [200, 60, 220] },
+    attack: { kind: "shoot", cooldown: 75, damage: 1, speed: 3, windup: 14, lead: 0.5,
+      color: [200, 60, 220] },
     phases: [
       {
         below: 0.5,
@@ -225,6 +241,8 @@ const ENEMY_TYPES = Object.freeze({
           speed: 3.5,
           count: 3,
           spread: 20,
+          windup: 10,
+          lead: 0.5,
           color: [255, 120, 60]
         }
       }
@@ -320,6 +338,14 @@ function checkEnemyAttack(attackTable, bad) {
   if (attack.spread !== undefined && !isNumberAtLeast(attack.spread, 0)) {
     bad("attack.spread must be at least 0");
   }
+  if (attack.kind !== "melee") {
+    if (attack.windup !== undefined && !isNumberAtLeast(attack.windup, 0)) {
+      bad("attack.windup must be at least 0");
+    }
+    if (attack.lead !== undefined && !(isNumberAtLeast(attack.lead, 0) && attack.lead <= 1)) {
+      bad("attack.lead must be between 0 and 1");
+    }
+  }
   if (attack.kind !== "melee" && !isColor(attack.color)) {
     bad("attack.color must be [r, g, b]");
   }
@@ -406,6 +432,12 @@ function validateEnemyTypes(types = ENEMY_TYPES) {
     }
     if (type.move === "wanderChase" && !isNumberAtLeast(type.wanderSpeed, 0.01)) {
       bad("wanderChase needs wanderSpeed above 0");
+    }
+    if (type.vision !== undefined && type.vision !== "line") {
+      bad('vision must be "line" or left out');
+    }
+    if (type.sightSpeed !== undefined && !isNumberAtLeast(type.sightSpeed, type.speed)) {
+      bad("sightSpeed must be at least speed");
     }
     if (type.move === "keepDistance" && !isNumberAtLeast(type.keepRange, 1)) {
       bad("keepDistance needs keepRange above 0");

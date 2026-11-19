@@ -134,7 +134,8 @@ describe("Enemy spawn-in", function () {
   });
 
   it("acts normally once the spawn frames are over", function () {
-    const zombie = createEnemy("Zombie", 160, 60, true);
+    const zombie = createEnemy("Zombie", 160, 64, true); // on the tile grid
+    zombie.faceDirection(1, 0); // a Zombie only sees straight ahead, and the player is on its right
     placePlayerRightOf(zombie, player, 40);
     for (let i = 0; i < ENEMY_SPAWN_FRAMES; i++) {
       zombie.update(player, room);

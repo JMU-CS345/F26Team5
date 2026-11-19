@@ -4,6 +4,9 @@ const PLAYER_LENGTH = 16;
 const PLAYER_WIDTH = 16;
 const FIRE_COOLDOWN = 15; // frames between shots
 const DEATH_FRAMES = 48; // death animation length (0.8 s at 60 fps)
+const PLAYER_KNOCKBACK_SPEED = 3.5; // pixels per frame at the start of a shove
+const PLAYER_KNOCKBACK_FRAMES = 8; // the player cannot steer for this long after a hit
+const PLAYER_KNOCKBACK_DECAY = 0.8; // the shove keeps this much of its speed each frame
 
 class Player {
   // mageClass is "Fire", "Ice" or "Mind". It picks the starting stats (see player-stats.js).
@@ -22,6 +25,9 @@ class Player {
     this.inventory = new PlayerInventory();
     this.deathFrames = 0; // frames spent dead
     this.fireCooldown = 0; // frames until the player can fire again
+    this.vel = new p5.Vector(0, 0); // pixels moved by the last walk step, for enemies that lead shots
+    this.knockback = new p5.Vector(0, 0); // pixels per frame, shrinks as the shove fades
+    this.knockbackTimer = 0; // frames of shove left
 
     // Animation state. The view reads these to pick a sprite frame.
     this.facing = "down"; // "down", "up", "left" or "right"
@@ -68,17 +74,35 @@ class Player {
   }
 
   // Enemies and hazards should call this instead of changing health directly.
-  takeDamage(amount) {
+  // fromDir is the direction the hit travels. Leave it out for damage with no shove.
+  takeDamage(amount, fromDir) {
     this.health = Math.max(0, this.health - amount);
+    if (amount > 0 && fromDir && fromDir.magSq() > 0 && !this.isDead()) {
+      this.knockback = fromDir.copy().setMag(PLAYER_KNOCKBACK_SPEED);
+      this.knockbackTimer = PLAYER_KNOCKBACK_FRAMES;
+    }
   }
 
-  // Call once per frame. Counts the death animation and the fire cooldown.
-  update() {
+  isKnockedBack() {
+    return this.knockbackTimer > 0;
+  }
+
+  // Call once per frame. Counts the death animation and the fire cooldown, and slides the
+  // player along a shove. Pass the room so the shove stops at walls.
+  update(room) {
     if (this.isDead()) {
       this.deathFrames = Math.min(this.deathFrames + 1, DEATH_FRAMES);
+      this.knockbackTimer = 0;
     }
     if (this.fireCooldown > 0) {
       this.fireCooldown--;
+    }
+    if (this.knockbackTimer > 0) {
+      if (room) {
+        moveWithCollision(this, this.knockback.x, this.knockback.y, room);
+      }
+      this.knockback.mult(PLAYER_KNOCKBACK_DECAY);
+      this.knockbackTimer--;
     }
   }
 
@@ -88,8 +112,9 @@ class Player {
   }
 
   move(dir, room) {
-    if (this.isDead() || dir.magSq() === 0) {
-      this.walkFrames = 0;
+    this.vel.set(0, 0);
+    if (this.isDead() || this.isKnockedBack() || dir.magSq() === 0) {
+      this.walkFrames = 0; // a shove takes the steering away until it fades
       return;
     }
     if (!this.isArmUp()) {
@@ -97,7 +122,10 @@ class Player {
     }
     this.walkFrames++;
     const step = dir.copy().setMag(this.speed);
+    const startX = this.pos.x;
+    const startY = this.pos.y;
     moveWithCollision(this, step.x, step.y, room);
+    this.vel.set(this.pos.x - startX, this.pos.y - startY);
   }
 
   getBounds() {
