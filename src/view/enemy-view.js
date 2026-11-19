@@ -63,13 +63,10 @@ function drawBossBar(enemy) {
   const barWidth = 480;
   const barHeight = 16;
   const x = (CANVAS_WIDTH - barWidth) / 2;
-  const y = 24;
+  const y = 44;
   push();
-  textAlign(CENTER, BOTTOM);
-  textSize(14);
   noStroke();
-  fill(255);
-  text(enemy.typeName, CANVAS_WIDTH / 2, y - 4);
+  drawPixelText(enemy.typeName, CANVAS_WIDTH / 2, y - 20, 16, UI_COLORS.white, "center");
   fill(40);
   rect(x, y, barWidth, barHeight);
   fill(220, 50, 50);

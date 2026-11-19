@@ -84,51 +84,18 @@ function drawPlayer(player) {
     lerp(255, 0, t));
 }
 
-function drawHealthBar(player) {
-  noStroke();
-  fill(PALETTE.panel);
-  rect(20, 20, 240, 28);
-  fill(PALETTE.fire);
-  rect(20, 20, map(player.health, 0, player.maxHealth, 0, 240), 28);
-  fill(PALETTE.white);
-  textSize(24);
-  textAlign(LEFT, CENTER);
-  text(player.health + " / " + player.maxHealth, 276, 34);
-}
-
 function goldHudText(inventory) {
   return `Gold: ${inventory.gold}`;
 }
 
-function drawGoldHud(inventory) {
-  noStroke();
-  fill(PALETTE.white);
-  textSize(24);
-  textAlign(LEFT, CENTER);
-  text(goldHudText(inventory), 400, 34);
-}
-
 function drawInventoryHudButton(active = false) {
-  push();
-  fill(PALETTE.ink);
-  stroke(PALETTE.white);
-  strokeWeight(active ? 2 : 1);
-  rect(
-    INVENTORY_HUD_BUTTON.x,
-    INVENTORY_HUD_BUTTON.y,
-    INVENTORY_HUD_BUTTON.w,
-    INVENTORY_HUD_BUTTON.h
-  );
-  noStroke();
-  fill(PALETTE.white);
-  textAlign(CENTER, CENTER);
-  textSize(20);
-  text(
-    active ? "Close Inventory" : "Inventory [I]",
-    INVENTORY_HUD_BUTTON.x + INVENTORY_HUD_BUTTON.w / 2,
-    INVENTORY_HUD_BUTTON.y + INVENTORY_HUD_BUTTON.h / 2
-  );
-  pop();
+  const b = INVENTORY_HUD_BUTTON;
+  drawPanel(b.x, b.y, b.w, b.h);
+  let label = "Items [I]"; // short, so it fits inside the panel frame at size 16
+  if (active) {
+    label = "Close [I]";
+  }
+  drawPixelText(label, b.x + b.w / 2, b.y + b.h / 2 - 8, 16, UI_COLORS.white, "center");
 }
 
 // The Restart button is a p5 DOM button, made in sketch.js.
@@ -136,8 +103,5 @@ function drawDeathScreen() {
   noStroke();
   fill(0, 0, 0, 180);
   rect(0, 0, width, height);
-  fill(PALETTE.fire);
-  textAlign(CENTER, CENTER);
-  textSize(72);
-  text("You died", width / 2, height / 2 - 60);
+  drawPixelText("You died", width / 2, height / 2 - 96, 64, UI_COLORS.fire, "center");
 }

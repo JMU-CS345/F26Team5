@@ -12,25 +12,18 @@ const CLASS_COLORS = {
 };
 
 function drawClassMenu() {
-  noStroke();
-  fill(255);
-  textAlign(CENTER, CENTER);
-  textSize(64);
-  text("Mage Quest", width / 2, height / 2 - 240);
-  textSize(28);
-  text("Choose your class", width / 2, height / 2 - 170);
-  textSize(18);
-  fill(180);
-  text("Click a class or press 1, 2 or 3", width / 2, height / 2 + 120);
+  drawPixelText("Mage Quest", width / 2, height / 2 - 272, 64, UI_COLORS.goldLight, "center");
+  drawPixelText("Choose your class", width / 2, height / 2 - 184, 24, UI_COLORS.white, "center");
+  drawPixelText(
+    "Click a class or press 1, 2 or 3", width / 2, height / 2 + 112, 16, UI_COLORS.stoneLight,
+    "center"
+  );
 }
 
-// Shows the chosen class during a run, top right.
+// Shows the chosen class during a run, under the HUD boxes.
 function drawClassLabel(mageClass) {
-  noStroke();
-  fill(...CLASS_COLORS[mageClass]);
-  textSize(24);
-  textAlign(RIGHT, CENTER);
-  text(mageClass + " Mage", width - 20, 34);
+  const c = CLASS_COLORS[mageClass];
+  drawPixelText(mageClass + " Mage", 20, 100, 16, color(c[0], c[1], c[2]));
 }
 
 // Top of the model buttons, a bit below the middle of the canvas.
@@ -46,13 +39,10 @@ function modelSlotCenterX(i) {
 }
 
 function drawModelMenu() {
-  noStroke();
-  fill(255);
-  textAlign(CENTER, CENTER);
-  textSize(64);
-  text("Mage Quest", width / 2, height / 2 - 240);
-  textSize(28);
-  text("Choose your playermodel", width / 2, height / 2 - 170);
+  drawPixelText("Mage Quest", width / 2, height / 2 - 272, 64, UI_COLORS.goldLight, "center");
+  drawPixelText(
+    "Choose your playermodel", width / 2, height / 2 - 184, 24, UI_COLORS.white, "center"
+  );
 
   // Each model standing and facing down, feet on one shared line above the buttons.
   PLAYER_MODEL_NAMES.forEach((name, i) => {
@@ -66,9 +56,10 @@ function drawModelMenu() {
     );
   });
 
-  textSize(18);
-  fill(180);
-  text("Click a model or press 1 or 2", width / 2, height / 2 + 200);
+  drawPixelText(
+    "Click a model or press 1 or 2", width / 2, height / 2 + 192, 16, UI_COLORS.stoneLight,
+    "center"
+  );
 }
 
 // Customization screen (#23): a big preview of the player on the left, and one row per part

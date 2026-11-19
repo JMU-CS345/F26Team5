@@ -52,6 +52,7 @@ function enterRoom(r) {
   roomGraphic = getRoomGraphic(r);
   projectiles = [];
   enemyProjectiles = [];
+  clearDyingEnemies(); // death fades from the old room shouldn't show up in the new one
   room.onEnter();
 }
 
@@ -266,6 +267,9 @@ async function setup() {
   await loadEnemySheets();
   await loadItemSprites();
   pixelDensity(1); // one canvas pixel per art pixel, even on high-DPI screens
+  await loadPixelFont();
+  await loadHudImages();
+  await loadPanelImage();
   createCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);
   fitToWindow();
   noSmooth();
@@ -469,8 +473,7 @@ function drawRunScene() {
   }
   drawDyingEnemies(!game.isInventory());
   pop();
-  drawHealthBar(player);
-  drawGoldHud(player.inventory);
+  drawHud(player);
   drawFirstBossBar();
   drawClassLabel(player.mageClass);
   drawMinimap(dungeon, room);
