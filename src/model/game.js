@@ -96,13 +96,13 @@ class Game {
     return true;
   }
 
-  // Moves one part of the look to the next (step 1) or previous (step -1) option.
-  // Only works on the customization screen.
-  changeAppearance(part, step) {
-    if (!this.isCustomizing() || !APPEARANCE_PARTS.includes(part)) {
+  // Sets one part of the look (body, eyes, shirt or pants) to a hex color like "#3c78e6".
+  // Only works on the customization screen, and only for a real part and a valid color.
+  changeAppearance(part, hex) {
+    if (!this.isCustomizing() || !APPEARANCE_PARTS.includes(part) || !isValidHex(hex)) {
       return false;
     }
-    this.appearance = cycleAppearance(this.appearance, part, step);
+    this.appearance = setAppearanceColor(this.appearance, part, hex);
     return true;
   }
 

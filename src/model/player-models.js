@@ -6,12 +6,12 @@
 const PLAYER_MODELS = Object.freeze({
   Tall: {
     sheet: "assets/player/16x32 Player.png",
-    // White layers for #23, tinted to the chosen colors. Hair and clothing are placeholders
-    // cut from the body sprite until there is real art. Same layout as the body sheet.
+    // White layers for #23, tinted to the chosen colors and drawn over the body sheet. Each one
+    // has exactly the same layout as the body sheet, so frame (col, row) lines up everywhere.
     layerSheets: {
-      eyes: "assets/player/customization/16x32 Eye Color.png",
-      hair: "assets/player/customization/16x32 Hair.png",
-      clothing: "assets/player/customization/16x32 Clothing.png"
+      eyes: "assets/player/customization/16x32 Eyes.png",
+      shirt: "assets/player/customization/16x32 Shirt.png",
+      pants: "assets/player/customization/16x32 Pants.png"
     },
     spriteW: 16,
     spriteH: 32,
@@ -26,9 +26,9 @@ const PLAYER_MODELS = Object.freeze({
   Short: {
     sheet: "assets/player/16x16 Player.png",
     layerSheets: {
-      eyes: "assets/player/customization/16x16 Eye Color.png",
-      hair: "assets/player/customization/16x16 Hair.png",
-      clothing: "assets/player/customization/16x16 Clothing.png"
+      eyes: "assets/player/customization/16x16 Eyes.png",
+      shirt: "assets/player/customization/16x16 Shirt.png",
+      pants: "assets/player/customization/16x16 Pants.png"
     },
     spriteW: 16,
     spriteH: 16,
