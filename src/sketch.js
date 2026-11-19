@@ -427,9 +427,8 @@ function draw() {
   if (!room.cleared && room.enemies.every((e) => e.isDead())) {
     room.onClear();
   }
-  if (player.showDeathScreen()) {
+  if (playerJustDied(game, player)) {
     activeDialogue.close();
-    game.playerDied();
     playSfx("death");
   }
   if (game.isDead()) {
