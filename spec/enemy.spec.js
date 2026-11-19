@@ -289,3 +289,205 @@ describe("Demon", function () {
     expect(room.enemies.length).toBe(0);
   });
 });
+
+describe("Enemy dialogue freeze and room grace", function () {
+  const room = new NormalRoom(0, 0, 640, 320);
+
+  it("does not move or count timers while frozen", function () {
+    const demon = new Enemy(50, 100, "Demon");
+    const player = new Player(0, 0);
+    placePlayerRightOf(demon, player, 150);
+    demon.update(player, room, true);
+    expect(demon.pos.x).toBe(50);
+    expect(demon.age).toBe(0);
+  });
+
+  it("moves again once unfrozen", function () {
+    const demon = new Enemy(50, 100, "Demon");
+    const player = new Player(0, 0);
+    placePlayerRightOf(demon, player, 150);
+    demon.update(player, room, true);
+    demon.update(player, room, false);
+    expect(demon.pos.x).toBeGreaterThan(50);
+  });
+
+  it("cannot hurt the player during the grace period", function () {
+    const demon = new Enemy(50, 100, "Demon");
+    const player = new Player(60, 110);
+    demon.graceTimer = ROOM_GRACE_FRAMES;
+    expect(demon.damagePlayer(player)).toBe(false);
+    expect(player.health).toBe(player.maxHealth);
+  });
+
+  it("can hurt the player once the grace period expires", function () {
+    const demon = new Enemy(50, 100, "Demon");
+    const player = new Player(60, 110);
+    demon.graceTimer = ROOM_GRACE_FRAMES;
+    for (let i = 0; i < ROOM_GRACE_FRAMES; i++) {
+      demon.update(player, room);
+    }
+    expect(demon.graceTimer).toBe(0);
+    expect(demon.damagePlayer(player)).toBe(true);
+  });
+
+  it("template enemies start the grace period when the room loads", function () {
+    const parsed = ROOM_TEMPLATES.map(parseRoomTemplate).find((t) => t.spawns.length > 0);
+    const templateRoom = new TemplateRoom(0, 0, parsed);
+    templateRoom.onEnter();
+    expect(templateRoom.enemies.length).toBeGreaterThan(0);
+    for (const enemy of templateRoom.enemies) {
+      expect(enemy.graceTimer).toBe(ROOM_GRACE_FRAMES);
+    }
+  });
+});
+
+describe("Enemy freeze, stagger and shot flash", function () {
+  let room;
+  let player;
+
+  beforeEach(function () {
+    room = new NormalRoom(0, 0, 640, 400);
+    player = new Player(300, 200, "Fire");
+  });
+
+  function placeNear(enemy, distance) {
+    const c = enemy.getCenter();
+    player.pos.set(c.x + distance - 8, c.y - 8);
+  }
+
+  it("freezes for 12 frames after hitting the player, not 30", function () {
+    expect(ENEMY_FREEZE_FRAMES).toBe(12);
+    const enemy = new Enemy(100, 200, "Zombie");
+    placeNear(enemy, 4);
+    expect(enemy.damagePlayer(player)).toBe(true);
+    expect(enemy.freezeTimer).toBe(ENEMY_FREEZE_FRAMES);
+    expect(enemy.damageCooldown).toBe(ENEMY_DAMAGE_COOLDOWN);
+    const x = enemy.pos.x;
+    player.pos.set(400, 200);
+    for (let i = 0; i < ENEMY_FREEZE_FRAMES; i++) {
+      enemy.update(player, room);
+    }
+    expect(enemy.pos.x).toBe(x);
+    enemy.update(player, room);
+    expect(enemy.pos.x).not.toBe(x); // walking again while the damage cooldown still runs
+    expect(enemy.damageCooldown).toBeGreaterThan(0);
+  });
+
+  it("still cannot hurt the player again until the damage cooldown ends", function () {
+    const enemy = new Enemy(100, 200, "Zombie");
+    placeNear(enemy, 4);
+    enemy.damagePlayer(player);
+    player.iFrames = 0;
+    for (let i = 0; i < ENEMY_FREEZE_FRAMES + 2; i++) {
+      enemy.update(player, room);
+    }
+    expect(enemy.damagePlayer(player)).toBe(false);
+  });
+
+  it("a hit during a Bouncer windup cancels it and staggers", function () {
+    const bouncer = new Enemy(100, 200, "Bouncer");
+    bouncer.setState("windup", 15);
+    bouncer.takeDamage(1);
+    expect(bouncer.state).toBe("recover");
+    expect(bouncer.stateTimer).toBe(ENEMY_STAGGER_FRAMES);
+    expect(bouncer.freezeTimer).toBe(ENEMY_STAGGER_FRAMES);
+  });
+
+  it("a stagger holds an enemy still for 12 frames", function () {
+    const zombie = new Enemy(100, 200, "Zombie");
+    zombie.setState("windup", 15);
+    zombie.takeDamage(1);
+    zombie.knockbackTimer = 0;
+    const x = zombie.pos.x;
+    placeNear(zombie, 60);
+    for (let i = 0; i < ENEMY_STAGGER_FRAMES; i++) {
+      zombie.update(player, room);
+    }
+    expect(zombie.pos.x).toBe(x);
+  });
+
+  it("a hit outside a windup does not stagger", function () {
+    const bouncer = new Enemy(100, 200, "Bouncer");
+    bouncer.setState("idle", 15);
+    bouncer.takeDamage(1);
+    expect(bouncer.freezeTimer).toBe(0);
+    bouncer.setState("attack", 5);
+    bouncer.takeDamage(1);
+    expect(bouncer.state).toBe("attack");
+  });
+
+  it("bosses are never staggered", function () {
+    const boss = new Enemy(100, 200, "Demon");
+    expect(boss.type.boss).toBe(true);
+    boss.setState("windup", 15);
+    boss.takeDamage(1);
+    expect(boss.state).toBe("windup");
+    expect(boss.freezeTimer).toBe(0);
+  });
+
+  it("a hit cancels a shot flash", function () {
+    const skeleton = new Enemy(100, 200, "Skeleton");
+    placeNear(skeleton, 100);
+    skeleton.attackTimer = 0;
+    skeleton.tryAttack(player);
+    expect(skeleton.shotFlash).toBe(ENEMY_SHOT_FLASH_FRAMES);
+    skeleton.takeDamage(1);
+    expect(skeleton.shotFlash).toBe(0);
+    expect(skeleton.shotFlashing).toBe(false);
+    expect(skeleton.tryAttack(player)).toEqual([]); // frozen
+  });
+
+  it("flashes for 10 frames before a shooter fires", function () {
+    const skeleton = new Enemy(100, 200, "Skeleton");
+    placeNear(skeleton, 100);
+    skeleton.attackTimer = 0;
+    expect(skeleton.tryAttack(player)).toEqual([]);
+    expect(skeleton.isTelegraphing()).toBe(true);
+    for (let i = 0; i < ENEMY_SHOT_FLASH_FRAMES - 1; i++) {
+      skeleton.update(player, room);
+      expect(skeleton.tryAttack(player)).toEqual([]);
+    }
+    skeleton.update(player, room);
+    expect(skeleton.shotFlash).toBe(0);
+    expect(skeleton.tryAttack(player).length).toBe(1);
+    expect(skeleton.isTelegraphing()).toBe(false);
+  });
+
+  it("calls the shot off when the player leaves sight", function () {
+    const skeleton = new Enemy(100, 200, "Skeleton");
+    placeNear(skeleton, 100);
+    skeleton.attackTimer = 0;
+    skeleton.tryAttack(player);
+    placeNear(skeleton, 2000);
+    skeleton.tryAttack(player);
+    expect(skeleton.shotFlash).toBe(0);
+    expect(skeleton.shotFlashing).toBe(false);
+  });
+
+  it("gives every shooter type a flash", function () {
+    for (const name of ENEMY_TYPE_NAMES) {
+      const type = ENEMY_TYPES[name];
+      if (!type.attack || type.attack.kind !== "shoot") {
+        continue;
+      }
+      const enemy = new Enemy(100, 200, name);
+      placeNear(enemy, 60);
+      enemy.attackTimer = 0;
+      expect(enemy.tryAttack(player)).withContext(name).toEqual([]);
+      expect(enemy.shotFlash).withContext(name).toBe(ENEMY_SHOT_FLASH_FRAMES);
+    }
+  });
+
+  it("finds the swing box on each of the four sides", function () {
+    const enemy = new Enemy(100, 200, "Bouncer");
+    const c = enemy.getCenter();
+    enemy.facingDir = "right";
+    expect(enemy.getSwingBox(26).x).toBe(c.x);
+    enemy.facingDir = "left";
+    expect(enemy.getSwingBox(26).x).toBe(c.x - 26);
+    enemy.facingDir = "up";
+    expect(enemy.getSwingBox(26).y).toBe(c.y - 26);
+    enemy.facingDir = "down";
+    expect(enemy.getSwingBox(26).y).toBe(c.y);
+  });
+});

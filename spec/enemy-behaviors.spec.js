@@ -199,7 +199,7 @@ describe("Shooting (shoot attack)", function () {
 
   it("aims at the player: right", function () {
     placePlayerRightOf(skeleton, player, 100);
-    const shot = skeleton.tryAttack(player)[0];
+    const shot = shootNow(skeleton, player)[0];
     expect(shot.vel.x).toBeGreaterThan(0);
     expect(shot.vel.y).toBeCloseTo(0, 5);
   });
@@ -207,7 +207,7 @@ describe("Shooting (shoot attack)", function () {
   it("aims at the player: down", function () {
     const center = skeleton.getCenter();
     player.pos.set(center.x - 8, center.y + 100 - 8);
-    const shot = skeleton.tryAttack(player)[0];
+    const shot = shootNow(skeleton, player)[0];
     expect(shot.vel.y).toBeGreaterThan(0);
     expect(shot.vel.x).toBeCloseTo(0, 5);
   });
@@ -215,7 +215,7 @@ describe("Shooting (shoot attack)", function () {
   it("uses the attack's damage, speed and color", function () {
     placePlayerRightOf(skeleton, player, 100);
     const attack = ENEMY_TYPES.Skeleton.attack;
-    const shot = skeleton.tryAttack(player)[0];
+    const shot = shootNow(skeleton, player)[0];
     expect(shot.damage).toBe(attack.damage);
     expect(shot.vel.mag()).toBeCloseTo(attack.speed, 5);
     expect(shot.color).toEqual(attack.color);
@@ -223,7 +223,7 @@ describe("Shooting (shoot attack)", function () {
 
   it("starts from the middle of the enemy", function () {
     placePlayerRightOf(skeleton, player, 100);
-    const shot = skeleton.tryAttack(player)[0];
+    const shot = shootNow(skeleton, player)[0];
     const center = skeleton.getCenter();
     expect(shot.pos.x + shot.length / 2).toBeCloseTo(center.x, 5);
     expect(shot.pos.y + shot.width / 2).toBeCloseTo(center.y, 5);
@@ -238,7 +238,7 @@ describe("Shooting (shoot attack)", function () {
       expect(skeleton.tryAttack(player)).toEqual([]);
     }
     skeleton.update(player, room);
-    expect(skeleton.tryAttack(player).length).toBe(1);
+    expect(shootNow(skeleton, player).length).toBe(1);
   });
 
   it("does not fire or lose its charge when the player is out of range", function () {
@@ -251,7 +251,7 @@ describe("Shooting (shoot attack)", function () {
     placePlayerRightOf(skeleton, player, ENEMY_TYPES.Skeleton.detectionRange + 40);
     skeleton.tryAttack(player);
     placePlayerRightOf(skeleton, player, 100);
-    expect(skeleton.tryAttack(player).length).toBe(1);
+    expect(shootNow(skeleton, player).length).toBe(1);
   });
 
   it("does not aim when the player is exactly on top of it", function () {
@@ -269,7 +269,7 @@ describe("Shooting (shoot attack)", function () {
     const eye = createEnemy("Eyeball", 100, 100);
     eye.attackTimer = 0;
     placePlayerRightOf(eye, player, 120);
-    const shots = eye.tryAttack(player);
+    const shots = shootNow(eye, player);
     const spread = (ENEMY_TYPES.Eyeball.attack.spread * Math.PI) / 180;
     expect(shots.length).toBe(3);
     const angles = shots.map((s) => s.vel.heading());
@@ -297,6 +297,6 @@ describe("Eyeball turret (none)", function () {
     }
     expect(eye.pos.x).toBe(100);
     expect(eye.pos.y).toBe(100);
-    expect(eye.tryAttack(player).length).toBe(3);
+    expect(shootNow(eye, player).length).toBe(3);
   });
 });

@@ -329,5 +329,8 @@ class TemplateRoom extends Room {
 
   onEnter() {
     this.spawnEnemies();
+    for (const enemy of this.enemies) {
+      enemy.graceTimer = ROOM_GRACE_FRAMES; // no cheap hits at the door
+    }
   }
 }

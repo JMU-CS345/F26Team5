@@ -174,11 +174,35 @@ describe("Melee attack and hopSwing", function () {
 
   it("only hits in the facing direction", function () {
     placePlayerRightOf(enemy, player, 20);
-    enemy.facingLeft = true;
+    enemy.facingDir = "left";
     enemy.setState("attack", 5);
     expect(enemy.meleeHit(player)).toBe(false);
-    enemy.facingLeft = false;
+    enemy.facingDir = "right";
     expect(enemy.meleeHit(player)).toBe(true);
+  });
+
+  it("swings in all four directions", function () {
+    const reach = enemy.type.attack.reach;
+    const offsets = {
+      right: new p5.Vector(reach - 6, 0),
+      left: new p5.Vector(-reach + 6, 0),
+      up: new p5.Vector(0, -reach + 6),
+      down: new p5.Vector(0, reach - 6)
+    };
+    const opposite = { right: "left", left: "right", up: "down", down: "up" };
+    for (const facing of Object.keys(offsets)) {
+      for (const side of [facing, opposite[facing]]) {
+        const target = new Player(0, 0);
+        const c = enemy.getCenter();
+        target.pos.set(c.x + offsets[side].x - 8, c.y + offsets[side].y - 8);
+        enemy.facingDir = facing;
+        enemy.swingHit = false;
+        enemy.damageCooldown = 0;
+        enemy.setState("attack", 5);
+        expect(enemy.meleeHit(target)).withContext(facing + " at " + side)
+          .toBe(facing === side);
+      }
+    }
   });
 
   it("does not hit outside the attack state", function () {

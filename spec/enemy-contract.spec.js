@@ -126,7 +126,7 @@ describe("Every enemy type", function () {
           enemy.attackTimer = 0;
           const centerOf = (shot) =>
             new p5.Vector(shot.pos.x + shot.length / 2, shot.pos.y + shot.width / 2);
-          for (const shot of enemy.tryAttack(player)) {
+          for (const shot of shootNow(enemy, player)) {
             const before = p5.Vector.dist(centerOf(shot), player.getCenter());
             shot.update(room);
             expect(p5.Vector.dist(centerOf(shot), player.getCenter())).toBeLessThan(before);
@@ -137,7 +137,7 @@ describe("Every enemy type", function () {
           it("shoots projectiles that can hurt the player", function () {
             placePlayer(type.detectionRange / 2);
             enemy.attackTimer = 0;
-            const shots = enemy.tryAttack(player);
+            const shots = shootNow(enemy, player);
             expect(shots.length).toBe(type.attack.count || 1);
             for (const shot of shots) {
               expect(shot instanceof Projectile).toBe(true);
@@ -156,7 +156,7 @@ describe("Every enemy type", function () {
           it("starts the cooldown again after it fires", function () {
             placePlayer(type.detectionRange / 2);
             enemy.attackTimer = 0;
-            enemy.tryAttack(player);
+            shootNow(enemy, player);
             expect(enemy.attackTimer).toBe(type.attack.cooldown);
             expect(enemy.tryAttack(player)).toEqual([]);
           });
