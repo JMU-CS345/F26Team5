@@ -14,8 +14,23 @@ const CREDITS = Object.freeze({
       source: "opengameart.org/content/tiny-creatures"
     }),
     Object.freeze({
+      asset: "assets/tiles/dungeon/ (brick and door tiles)",
+      description: "Recolored from Tiny Dungeon tiles",
+      creator: "Kenney",
+      license: "CC0 1.0",
+      source: "opengameart.org/content/tiny-dungeon"
+    }),
+    Object.freeze({
+      asset: "assets/ui/pixel-font.png",
+      description: "Intrepid Monochrome 8-bit Font, recolored to white",
+      creator: "Hammer Forged Games",
+      license: "CC0",
+      source: "opengameart.org/content/intrepid-monochrome-8-bit-font"
+    }),
+    Object.freeze({
       asset: "Everything else in assets/",
-      description: "Jelly and other enemy sheets, weapons, player sprites, tiles, money",
+      description: "Jelly and other enemy sheets, weapons, money. The wizard, UI, icons, "
+        + "audio and some tiles were made for this project by script",
       creator: "Vincent Barr",
       license: "Drawn for this project",
       source: "Team project"

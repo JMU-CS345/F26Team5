@@ -226,10 +226,7 @@ class Player {
     this.fireCooldown = stats.fireRate;
     const element = stats.element || this.mageClass;
     let damage = this.getDamage(stats.damage, element);
-    const isDefaultShot = stats.weapon === null;
-    if (isDefaultShot) {
-      damage = classMatchDamage(damage, element, this.mageClass); // elements bonus
-    }
+    damage = classMatchDamage(damage, element, this.mageClass); // elements bonus
     const shots = [];
     for (let i = 0; i < stats.projectileCount; i++) {
       let offset = 0;
@@ -245,10 +242,8 @@ class Player {
         { range: stats.range, pierce: stats.pierce, onHit: stats.onHit, weapon: stats.weapon,
           owner: this }
       );
-      if (isDefaultShot) {
-        shot.element = element; // only the default shot carries a status for now
-        shot.classMatch = isClassMatch(element, this.mageClass);
-      }
+      shot.element = element;
+      shot.classMatch = isClassMatch(element, this.mageClass);
       shots.push(shot);
     }
     playCombatSfx("shoot");

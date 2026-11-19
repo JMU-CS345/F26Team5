@@ -46,6 +46,13 @@ function applyMusicVolume(audio) {
   audio.volume = volumeFor("music", loadSettings());
 }
 
+// Settings changes reach music that is already playing.
+function refreshMusicVolume() {
+  if (musicAudio !== null) {
+    applyMusicVolume(musicAudio);
+  }
+}
+
 // Starts the loop if it is not already playing. Safe to call on every key press.
 function playMusic() {
   musicRequested = true;

@@ -32,10 +32,12 @@ describe("Ranged shots", function () {
     expect(shot.pierce).toBe(2);
   });
 
-  it("takes damage from the weapon, scaled by the class", function () {
+  it("takes damage from the weapon, scaled by the class and the class match", function () {
     equip(wand({ damage: 4 }));
     const shot = player.fireAll(right)[0];
-    expect(shot.damage).toBeCloseTo(player.getDamage(4, player.mageClass), 5);
+    expect(shot.damage).toBeCloseTo(
+      player.getDamage(4, player.mageClass) * CLASS_MATCH_DAMAGE_MULT, 5
+    );
   });
 
   it("waits the weapon fire rate between shots", function () {

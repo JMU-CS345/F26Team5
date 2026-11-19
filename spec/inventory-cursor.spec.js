@@ -178,3 +178,25 @@ describe("keyboard inventory actions", function () {
     expect(pickupItemDrops(player, room).length).toBe(1);
   });
 });
+
+describe("syncInventoryCursorToSelection", function () {
+  it("moves the cursor to a clicked bag item and an equipped item", function () {
+    const inventory = new Player(0, 0, "Fire").inventory;
+    const cursor = new InventoryCursor();
+    syncInventoryCursorToSelection(cursor, inventory, { sourceKind: "bag", index: 5 });
+    expect(cursor.section).toBe("bag");
+    expect(cursor.index).toBe(5);
+    syncInventoryCursorToSelection(cursor, inventory, {
+      sourceKind: "equipment", equipmentName: "head"
+    });
+    expect(cursor.section).toBe("equipment");
+    expect(cursor.index).toBe(Object.keys(PLAYER_EQUIPMENT_TYPES).indexOf("head"));
+  });
+
+  it("leaves the cursor alone when nothing is selected", function () {
+    const cursor = new InventoryCursor();
+    cursor.index = 3;
+    syncInventoryCursorToSelection(cursor, new Player(0, 0, "Fire").inventory, null);
+    expect(cursor.index).toBe(3);
+  });
+});

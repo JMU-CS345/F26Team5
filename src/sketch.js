@@ -239,6 +239,9 @@ function restartRun() {
 // Settings changes save right away.
 function changeSetting() {
   saveSettings(gameSettings);
+  refreshBindings();
+  gameFeel.refreshSettings();
+  refreshMusicVolume();
 }
 
 function stepVolume(volume, direction) {
@@ -473,7 +476,6 @@ function drawScreen() {
   }
   if (game.isPaused()) {
     // Nothing below the menu updates, so enemies, shots and timers all stay where they were.
-    drawRoom(room, roomGraphic);
     drawRunScene();
     drawPauseMenu(pauseMenu);
     return;
@@ -528,6 +530,9 @@ function drawScreen() {
   for (const drop of room.items) {
     drop.update();
   }
+  for (const chest of room.chests) {
+    chest.update(); // the lid and the rarity beam animate from this
+  }
   const pickedUp = pickupItemDrops(player, room);
   for (const drop of pickedUp) {
     runStats.recordPickup(drop.item);
@@ -536,7 +541,6 @@ function drawScreen() {
     playSfx("pickup");
   }
 
-  const healthBeforeHits = player.health;
   // Enemies and their shots stand still while someone is talking.
   if (!player.isDead() && !activeDialogue.isActive()) {
     const enemySteps = enemyClock.steps(player.getEnemyTimeScale());
@@ -585,9 +589,6 @@ function drawScreen() {
   enemyProjectiles = enemyProjectiles.filter((p) => p.alive);
   const deadThisFrame = removeDeadEnemies(room);
   handleDeadEnemies(deadThisFrame);
-  if (player.health < healthBeforeHits) {
-    playSfx("hurt");
-  }
 
   if (player.health < lastPlayerHealth) {
     gameFeel.onPlayerHurt();
@@ -852,6 +853,10 @@ function keyPressed() {
     return false;
   }
   if (game.isCustomizing()) {
+    if (keyCode === ESCAPE) {
+      goToTitle();
+      return false;
+    }
     const action = getCustomizeAction(key);
     if (action && action.type === "row") {
       customizeRow = nextCustomizeRow(customizeRow, action.step);
@@ -983,6 +988,7 @@ function mouseReleased() {
       inventoryDrag.startX,
       inventoryDrag.startY
     );
+    syncInventoryCursorToSelection(inventoryCursor, player.inventory, inventorySelection);
     inventoryInfoLines = [];
   }
   inventoryDrag = null;

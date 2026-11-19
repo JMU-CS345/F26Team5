@@ -145,6 +145,21 @@ function inventorySelectionFromSlot(slot) {
   });
 }
 
+// A click picks an item, so the keyboard cursor moves there too and L, X and Enter agree.
+function syncInventoryCursorToSelection(cursor, inventory, selection) {
+  if (selection === null) {
+    return;
+  }
+  if (selection.sourceKind === "equipment") {
+    const slots = inventoryUiLayout(inventory).equipmentSlots;
+    cursor.section = "equipment";
+    cursor.index = slots.findIndex((slot) => slot.equipmentName === selection.equipmentName);
+    return;
+  }
+  cursor.section = "bag";
+  cursor.index = selection.index;
+}
+
 function equipmentNameForItem(item) {
   for (const [equipmentName, acceptedType] of Object.entries(PLAYER_EQUIPMENT_TYPES)) {
     if (item instanceof acceptedType) {

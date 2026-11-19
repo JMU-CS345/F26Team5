@@ -44,6 +44,14 @@ describe("Class-match bonus", function () {
         CLASS_MATCH_DAMAGE_MULT, 5);
     });
 
+    it("keeps the element and the bonus with the starting weapons equipped", function () {
+      const player = new Player(0, 0, "Fire");
+      giveLoadout(player, createRng(2));
+      const shot = player.fire(right);
+      expect(shot.element).toBe("Fire");
+      expect(shot.classMatch).toBe(true);
+    });
+
     it("has no element and no bonus without a class", function () {
       const shot = new Player(0, 0, null).fire(right);
       expect(shot.element).toBeNull();

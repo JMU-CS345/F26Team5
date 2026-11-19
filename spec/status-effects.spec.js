@@ -323,4 +323,17 @@ describe("Status effects", function () {
       expect(enemy.status).toEqual(createStatus());
     });
   });
+
+  describe("damage over time", function () {
+    it("burn damage does not flash or interrupt the enemy, a real hit does", function () {
+      const enemy = new Enemy(100, 100, "Zombie");
+      spyOn(enemy, "staggerIfWindingUp");
+      enemy.takeDamage(0.25, null, 1, false);
+      expect(enemy.hurtTimer).toBe(0);
+      expect(enemy.staggerIfWindingUp).not.toHaveBeenCalled();
+      enemy.takeDamage(0.25);
+      expect(enemy.hurtTimer).toBeGreaterThan(0);
+      expect(enemy.staggerIfWindingUp).toHaveBeenCalled();
+    });
+  });
 });

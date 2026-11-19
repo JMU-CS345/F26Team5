@@ -152,14 +152,15 @@ class Enemy {
 
   // fromDir is the direction the hit travels. Leave it out for damage with no shove.
   // power scales the shove (1 is normal, a finisher uses more).
-  takeDamage(amount, fromDir, power = 1) {
-    if (amount > 0) {
+  // isHit is false for damage over time (burn), which should not flash or interrupt attacks.
+  takeDamage(amount, fromDir, power = 1, isHit = true) {
+    if (amount > 0 && isHit) {
       this.hurtTimer = ENEMY_HURT_FRAMES;
     }
     if (amount > 0 && fromDir) {
       this.applyKnockback(fromDir, ENEMY_KNOCKBACK_SPEED * power);
     }
-    if (amount > 0 && !this.type.boss) {
+    if (amount > 0 && isHit && !this.type.boss) {
       this.staggerIfWindingUp();
     }
     const phaseBefore = this.getPhase();
@@ -436,7 +437,6 @@ class Enemy {
       const push = Math.min(ENEMY_SEPARATION_SPEED, minDist - dist);
       moveWithCollision(this, (dx / dist) * push, (dy / dist) * push, room);
     }
-    this.freezeTimer = Math.max(0, this.freezeTimer - 1); // counted after the move
   }
 
   // Remembers which way the player is. The art picks its direction from these.

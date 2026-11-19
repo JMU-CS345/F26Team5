@@ -70,7 +70,7 @@ function tickStatusEffects(enemy) {
     status.burn--;
     status.burnTick--;
     if (status.burnTick <= 0) {
-      enemy.takeDamage(STATUS_BURN_DAMAGE);
+      enemy.takeDamage(STATUS_BURN_DAMAGE, null, 1, false);
       status.burnTick = STATUS_BURN_INTERVAL;
     }
     if (status.burn <= 0) {
