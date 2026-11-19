@@ -372,14 +372,19 @@ describe("Enemy freeze, stagger and shot flash", function () {
     expect(enemy.freezeTimer).toBe(ENEMY_FREEZE_FRAMES);
     expect(enemy.damageCooldown).toBe(ENEMY_DAMAGE_COOLDOWN);
     enemy.knockbackTimer = 0; // the recoil from the hit is its own thing
-    const x = enemy.pos.x;
+    const start = enemy.pos.copy();
     player.pos.set(400, 200);
     for (let i = 0; i < ENEMY_FREEZE_FRAMES; i++) {
       enemy.update(player, room);
     }
-    expect(enemy.pos.x).toBe(x);
-    enemy.update(player, room);
-    expect(enemy.pos.x).not.toBe(x); // walking again while the damage cooldown still runs
+    expect(enemy.pos.x).toBe(start.x);
+    expect(enemy.pos.y).toBe(start.y);
+    // Tile walkers pick a route first and may walk up or down, so allow a few frames and
+    // either axis.
+    for (let i = 0; i < 20 && enemy.pos.dist(start) === 0; i++) {
+      enemy.update(player, room);
+    }
+    expect(enemy.pos.dist(start)).toBeGreaterThan(0); // walking again, the cooldown still runs
     expect(enemy.damageCooldown).toBeGreaterThan(0);
   });
 
