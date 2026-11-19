@@ -1,11 +1,10 @@
 // Game state model. No p5 drawing calls, so Jasmine can test it without a canvas.
-// Tracks which screen the game is on, and the playermodel, mage class and appearance the
-// player picked.
+// Tracks which screen the game is on, and the mage class and appearance the player picked.
+// There is one playermodel, the layered wizard.
 
 const GAME_STATES = Object.freeze({
-  MODEL: "model", // character creator, step 1: pick a playermodel
-  MENU: "menu", // character creator, step 2: pick a class
-  CUSTOMIZE: "customize", // character creator, step 3: pick the look (#23)
+  MENU: "menu", // character creator, step 1: pick a class
+  CUSTOMIZE: "customize", // character creator, step 2: pick the look (#23)
   PLAYING: "playing",
   INVENTORY: "inventory",
   DEAD: "dead"
@@ -16,17 +15,13 @@ const MAGE_CLASSES = Object.freeze(["Fire", "Ice", "Mind"]);
 
 class Game {
   constructor() {
-    this.state = GAME_STATES.MODEL;
-    this.selectedModel = null;
+    this.state = GAME_STATES.MENU;
+    this.selectedModel = PLAYER_MODEL_NAMES[0];
     this.selectedClass = null;
     this.appearance = makeAppearance(); // kept between runs, so it starts as last time's look
   }
 
-  isModelSelect() {
-    return this.state === GAME_STATES.MODEL;
-  }
-
-  // The class menu, the second step of the character creator.
+  // The class menu, the first step of the character creator.
   isMenu() {
     return this.state === GAME_STATES.MENU;
   }
@@ -74,17 +69,6 @@ class Game {
     return false;
   }
 
-  // Picks a playermodel and moves on to the class menu. Only works on the model
-  // screen, and only for a real model.
-  selectModel(modelName) {
-    if (!this.isModelSelect() || !PLAYER_MODEL_NAMES.includes(modelName)) {
-      return false;
-    }
-    this.selectedModel = modelName;
-    this.state = GAME_STATES.MENU;
-    return true;
-  }
-
   // Picks a class and moves on to the customization screen. Only works from the class
   // menu, and only for a real class, so a stray key press cannot change it mid-game.
   selectClass(mageClass) {
@@ -130,9 +114,8 @@ class Game {
     if (!this.isDead()) {
       return false;
     }
-    this.selectedModel = null;
     this.selectedClass = null;
-    this.state = GAME_STATES.MODEL;
+    this.state = GAME_STATES.MENU;
     return true;
   }
 }

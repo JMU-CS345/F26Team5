@@ -1,98 +1,84 @@
 // Drawing code for the player, health bar and death screen.
 // Reads the model, never changes it.
 
-// Walking rows on every sheet. The weapon rows are the same order, 4 rows lower.
-const FACING_ROW = { down: 0, up: 1, right: 2, left: 3 };
-const WEAPON_ROW_OFFSET = 4;
-const STEP_TIME = 8; // game frames per walk frame
+const layerImages = {}; // layer name -> loaded key-colored sheet
+const recolorCache = new Map(); // recolorKey -> recolored sheet
 
-const playerSheets = {}; // model name -> default image, used by the menu preview
-const playerClassSheets = {}; // sheet path -> loaded image
-// model name -> { eyes, hair, clothing }: white layers drawn over the body and tinted to the
-// player's chosen colors (#23).
-const appearanceLayers = {};
-
-// Call once in setup(), with await.
+// Call once in setup(), with await. The sheets come from layer-data.js (data: addresses),
+// because Firefox will not let a page read pixels from picture files opened from disk.
 async function loadPlayerSheets() {
-  for (const name of PLAYER_MODEL_NAMES) {
-    const model = PLAYER_MODELS[name];
-    playerSheets[name] = await loadImageFile(model.sheet);
-    playerClassSheets[model.sheet] = playerSheets[name];
-    for (const mageClass of Object.keys(model.classSheets)) {
-      const path = model.classSheets[mageClass];
-      if (!playerClassSheets[path]) {
-        playerClassSheets[path] = await loadImageFile(path);
+  const model = PLAYER_MODELS[PLAYER_MODEL_NAMES[0]];
+  for (const name of model.layers) {
+    layerImages[name] = await loadImageFile(LAYER_DATA[name]);
+  }
+}
+
+// Returns a copy of img with each [from, to] color pair swapped. Pixels not listed stay.
+function recolorLayer(img, pairs) {
+  const out = createImage(img.width, img.height);
+  img.loadPixels();
+  out.loadPixels();
+  for (let i = 0; i < img.pixels.length; i += 4) {
+    let r = img.pixels[i];
+    let g = img.pixels[i + 1];
+    let b = img.pixels[i + 2];
+    for (const pair of pairs) {
+      const from = pair[0];
+      if (from[0] === r && from[1] === g && from[2] === b) {
+        r = pair[1][0];
+        g = pair[1][1];
+        b = pair[1][2];
+        break;
       }
     }
-    const paths = model.layerSheets;
-    appearanceLayers[name] = {
-      eyes: await loadImageFile(paths.eyes),
-      hair: await loadImageFile(paths.hair),
-      clothing: await loadImageFile(paths.clothing)
-    };
+    out.pixels[i] = r;
+    out.pixels[i + 1] = g;
+    out.pixels[i + 2] = b;
+    out.pixels[i + 3] = img.pixels[i + 3];
   }
+  out.updatePixels();
+  return out;
 }
 
-// Draws one frame of a player with their look: the body tinted to the skin color, then the
-// clothing, hair and eye layers on top. alpha fades the whole thing (the death animation).
-// Used in the game and for the preview on the customization screen.
-function drawPlayerSprite(modelName, appearance, col, row, x, y, w, h, alpha = 255,
-  body = playerSheets[modelName]) {
-  const model = PLAYER_MODELS[modelName];
-  const sx = col * model.spriteW;
-  const sy = row * model.spriteH;
-  const layers = [
-    [body, [255, 255, 255]], // class sheets are already colored, so skin waits for the wizard
-    [appearanceLayers[modelName].clothing, getAppearanceColor(appearance, "clothing")],
-    [appearanceLayers[modelName].hair, getAppearanceColor(appearance, "hair")],
-    [appearanceLayers[modelName].eyes, getAppearanceColor(appearance, "eyes")]
-  ];
-  for (const [picture, color] of layers) {
-    if (color === null) {
-      continue; // no hair
-    }
-    tint(color[0], color[1], color[2], alpha);
-    image(picture, x, y, w, h, sx, sy, model.spriteW, model.spriteH);
+// The recolored sheet of one layer, made once per layer and look.
+function getLayerSheet(layerName, colors) {
+  const key = recolorKey(layerName, colors);
+  if (!recolorCache.has(key)) {
+    recolorCache.set(key, recolorLayer(layerImages[layerName], recolorPairs(layerName, colors)));
   }
-  noTint();
+  return recolorCache.get(key);
 }
 
-// Which row and column of the player's sheet to draw.
-function getPlayerFrame(player) {
-  const model = PLAYER_MODELS[player.modelName];
-  let row = FACING_ROW[player.facing];
-  if (player.isArmUp()) {
-    row += WEAPON_ROW_OFFSET;
+// Draws every layer of one frame cell into the box at left, top. colors comes from
+// wizardColors. Used in the game and for the preview on the customization screen.
+function drawWizardFrame(colors, col, row, left, top, w, h) {
+  for (const name of layersForStyle(colors.hatStyle)) {
+    const sheet = getLayerSheet(name, colors);
+    image(sheet, left, top, w, h, col * SPRITE_W, row * SPRITE_H, SPRITE_W, SPRITE_H);
   }
-  let col = 0; // standing, or the single shooting pose when the arm is up
-  if (player.walkFrames > 0) {
-    const cycle = model.walkCycles[player.facing];
-    col = cycle[Math.floor(player.walkFrames / STEP_TIME) % cycle.length];
-  }
-  return { row, col };
 }
 
 function drawPlayer(player) {
-  // Alive: t is 0, so full size and fully opaque. Dying: fade out and shrink.
+  // Alive: fully opaque. Dying: fade out over the KO frames.
   const t = player.deathFrames / DEATH_FRAMES;
   if (t >= 1) {
     return;
   }
-  const model = PLAYER_MODELS[player.modelName];
-  const sw = model.spriteW;
-  const sh = model.spriteH;
-  const f = getPlayerFrame(player);
+  const f = playerFrame(player);
+  const origin = spriteOrigin(player.pos, player.width, player.length);
+  const colors = wizardColors(player.mageClass, player.appearance);
 
-  const w = lerp(sw, 0, t);
-  const h = lerp(sh, 0, t);
-  // The hitbox is the bottom 16x16 of the sprite. The tall sprite starts a hitbox-height
-  // higher, and the short sprite sits exactly on the hitbox.
-  const left = player.pos.x + (sw - w) / 2;
-  const top = player.pos.y - (sh - player.width) + (sh - h) / 2;
-
-  const sheet = playerClassSheets[playerSheetPath(player.modelName, player.mageClass)];
-  drawPlayerSprite(player.modelName, player.appearance, f.col, f.row, left, top, w, h,
-    lerp(255, 0, t), sheet);
+  tint(255, lerp(255, 0, t));
+  push();
+  if (f.flip) {
+    // Mirror around the sprite's own center, so left uses the right-facing frame.
+    translate(origin.left + SPRITE_W / 2, 0);
+    scale(-1, 1);
+    translate(-(origin.left + SPRITE_W / 2), 0);
+  }
+  drawWizardFrame(colors, f.col, f.row, origin.left, origin.top, SPRITE_W, SPRITE_H);
+  pop();
+  noTint();
 }
 
 function drawHealthBar(player) {

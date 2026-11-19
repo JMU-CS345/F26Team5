@@ -37,23 +37,23 @@ describe("Appearance", function () {
     expect(look.hair).toBe(DEFAULT_APPEARANCE.hair);
   });
 
-  it("has eye, hair and clothing layer images for every player model", function () {
-    for (const name of PLAYER_MODEL_NAMES) {
-      const layers = PLAYER_MODELS[name].layerSheets;
-      expect(Object.keys(layers).sort()).toEqual(["clothing", "eyes", "hair"]);
+  it("has a wizard layer to tint for every part", function () {
+    const layers = PLAYER_MODELS.Wizard.layers;
+    for (const layer of ["body", "eyes", "hat", "robe"]) {
+      expect(layers).toContain(layer);
     }
   });
 
-  it("gives a color for each part, and no color for no hair", function () {
+  it("gives a color for each part, and no color for no hat color or class clothing", function () {
     expect(getAppearanceColor(makeAppearance(), "skin").length).toBe(3);
     expect(getAppearanceColor(makeAppearance({ hair: "None" }), "hair")).toBeNull();
+    expect(getAppearanceColor(makeAppearance({ clothing: "Class" }), "clothing")).toBeNull();
   });
 });
 
 describe("Customization in the character creator", function () {
   function gameAtCustomize(mageClass = "Fire") {
     const game = new Game();
-    game.selectModel("Tall");
     game.selectClass(mageClass);
     return game;
   }
@@ -76,7 +76,6 @@ describe("Customization in the character creator", function () {
   it("only changes the look on the customization screen", function () {
     const game = new Game();
     expect(game.changeAppearance("skin", 1)).toBe(false);
-    game.selectModel("Tall");
     game.selectClass("Ice");
     game.finishCustomization();
     expect(game.changeAppearance("skin", 1)).toBe(false);
@@ -103,7 +102,7 @@ describe("Customization in the character creator", function () {
 
   it("gives the player their own copy of the look", function () {
     const game = gameAtCustomize();
-    const player = new Player(0, 0, "Fire", "Tall", game.appearance);
+    const player = new Player(0, 0, "Fire", "Wizard", game.appearance);
     player.appearance.skin = "Dark";
     expect(game.appearance.skin).toBe(DEFAULT_APPEARANCE.skin);
   });
@@ -114,8 +113,8 @@ describe("Customization in the character creator", function () {
 
   it("does not change stats (cosmetic only)", function () {
     for (const mageClass of MAGE_CLASSES) {
-      const plain = new Player(0, 0, mageClass, "Tall");
-      const styled = new Player(0, 0, mageClass, "Tall", {
+      const plain = new Player(0, 0, mageClass, "Wizard");
+      const styled = new Player(0, 0, mageClass, "Wizard", {
         skin: "Dark", eyes: "Red", hair: "None", clothing: "Gray"
       });
       expect(styled.stats).toEqual(plain.stats);
@@ -124,14 +123,13 @@ describe("Customization in the character creator", function () {
     }
   });
 
-  it("keeps the look for the next run, on any model", function () {
+  it("keeps the look for the next run, on any class", function () {
     const game = gameAtCustomize();
     game.changeAppearance("clothing", 1);
     const look = { ...game.appearance };
     game.finishCustomization();
     game.playerDied();
     game.newRun();
-    game.selectModel("Short");
     game.selectClass("Mind");
     expect(game.appearance).toEqual(look);
   });

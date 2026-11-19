@@ -1,18 +1,11 @@
 describe("Game state", function () {
   let game;
 
-  // A game that has already picked a model, so it is on the class menu.
-  function gameAtClassMenu() {
-    const g = new Game();
-    g.selectModel("Tall");
-    return g;
-  }
-
   beforeEach(function () {
-    game = gameAtClassMenu();
+    game = new Game();
   });
 
-  it("is on the class menu with no class chosen once a model is picked", function () {
+  it("starts on the class menu with no class chosen", function () {
     expect(game.state).toBe(GAME_STATES.MENU);
     expect(game.isMenu()).toBe(true);
     expect(game.selectedClass).toBeNull();
@@ -24,7 +17,7 @@ describe("Game state", function () {
 
   it("saves the chosen class and moves on to customization", function () {
     for (const mageClass of MAGE_CLASSES) {
-      const fresh = gameAtClassMenu();
+      const fresh = new Game();
       expect(fresh.selectClass(mageClass)).toBe(true);
       expect(fresh.selectedClass).toBe(mageClass);
       expect(fresh.isCustomizing()).toBe(true);
@@ -84,12 +77,12 @@ describe("Game state", function () {
     expect(game.isMenu()).toBe(true);
   });
 
-  it("goes back to the model screen when a new run starts", function () {
+  it("goes back to the class menu when a new run starts", function () {
     game.selectClass("Fire");
     game.finishCustomization();
     game.playerDied();
     expect(game.newRun()).toBe(true);
-    expect(game.isModelSelect()).toBe(true);
+    expect(game.isMenu()).toBe(true);
     expect(game.selectedClass).toBeNull();
   });
 
@@ -106,7 +99,6 @@ describe("Game state", function () {
     game.finishCustomization();
     game.playerDied();
     game.newRun();
-    game.selectModel("Tall");
     expect(game.selectClass("Mind")).toBe(true);
     expect(game.selectedClass).toBe("Mind");
   });

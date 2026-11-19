@@ -16,7 +16,6 @@ let room; // the room the player is in right now
 let roomGraphic; // the picture of that room
 let roomGraphics = new Map(); // room id -> picture, built the first time the room is entered
 let restartShown = false;
-let modelButtons = [];
 let customizeButtons = []; // the < and > buttons for each part, and the Start button
 let customizeRow = 0; // highlighted row on the customization screen
 let inventoryDrag = null;
@@ -174,18 +173,6 @@ function finishCustomization() {
   }
 }
 
-// Picks a playermodel in the character creator and moves on to the class menu.
-function chooseModel(modelName) {
-  if (game.selectModel(modelName)) {
-    for (const button of modelButtons) {
-      button.hide();
-    }
-    for (const button of classButtons) {
-      button.show();
-    }
-  }
-}
-
 // Ends the run and goes back to the start of the character creator.
 function showMenu() {
   if (activeDialogue) {
@@ -195,22 +182,9 @@ function showMenu() {
     return;
   }
   restartButton.hide();
-  for (const button of modelButtons) {
+  for (const button of classButtons) {
     button.show();
   }
-}
-
-function makeModelButtons() {
-  PLAYER_MODEL_NAMES.forEach((name, i) => {
-    const button = createButton(i + 1 + ". " + name);
-    button.size(MODEL_BUTTON_W, MENU_BUTTON_H);
-    button.position(modelSlotCenterX(i) - MODEL_BUTTON_W / 2, modelButtonY());
-    button.style("background-color", "rgb(90, 90, 110)");
-    button.style("color", "white");
-    button.style("font-size", "24px");
-    button.mousePressed(() => chooseModel(name));
-    modelButtons.push(button);
-  });
 }
 
 function makeCustomizeButtons() {
@@ -279,10 +253,6 @@ async function setup() {
   restartButton.mousePressed(showMenu);
   restartButton.hide();
   makeClassButtons();
-  for (const button of classButtons) {
-    button.hide(); // the class menu comes after the model screen
-  }
-  makeModelButtons();
   makeCustomizeButtons();
   for (const button of customizeButtons) {
     button.hide(); // the customization screen comes after the class menu
@@ -321,10 +291,6 @@ function draw() {
   background(0);
   updateBackground();
   drawBackground();
-  if (game.isModelSelect()) {
-    drawModelMenu();
-    return;
-  }
   if (game.isMenu()) {
     drawClassMenu();
     return;
@@ -547,10 +513,6 @@ function keyPressed() {
   if (keyCode === 114) {
     debugOverlay = !debugOverlay;
     return false;
-  }
-  if (game.isModelSelect()) {
-    chooseModel(getModelForKey(key));
-    return;
   }
   if (game.isMenu()) {
     chooseClass(getClassForKey(key));
