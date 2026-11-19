@@ -66,6 +66,7 @@ function enterRoom(r) {
   enemyProjectiles = [];
   clearDyingEnemies(); // death fades from the old room shouldn't show up in the new one
   room.onEnter();
+  room.startEnemyDelay(); // enemies by the door hold still a moment, so they cannot hit on arrival
 }
 
 // Walks the player through an exit into the next room.
@@ -545,7 +546,7 @@ function drawScreen() {
       }
       e.damagePlayer(player);
       e.meleeHit(player);
-      for (const shot of e.tryAttack(player)) {
+      for (const shot of e.tryAttack(player, room)) {
         enemyProjectiles.push(shot);
       }
     }

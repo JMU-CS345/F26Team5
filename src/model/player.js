@@ -25,6 +25,7 @@ class Player {
     this.knockback = new p5.Vector(0, 0); // pixels per frame, shrinks as the shove fades
     this.knockbackTimer = 0;
     this.velocity = new p5.Vector(0, 0); // walking speed this frame, eased by move()
+    this.vel = new p5.Vector(0, 0); // last walk step, for enemies that lead shots
     this.lunge = new p5.Vector(0, 0); // forward distance a swing still has to cover
 
     // Dash state.
@@ -459,7 +460,7 @@ class Player {
     const reduced = Math.max(MIN_HIT_DAMAGE, amount - this.getDefense());
     this.health = Math.max(0, this.health - Math.min(amount, reduced));
     this.iFrames = HIT_IFRAMES;
-    if (fromDir && fromDir.magSq() > 0) {
+    if (fromDir && fromDir.magSq() > 0 && !this.isDead()) {
       this.knockback = fromDir.copy().setMag(PLAYER_KNOCKBACK_SPEED);
       this.knockbackTimer = PLAYER_KNOCKBACK_FRAMES;
     }
@@ -507,6 +508,7 @@ class Player {
   // lockFacing keeps the facing while walking (Classic strafe). Speed eases toward the
   // held direction, so starting and stopping take a few frames.
   move(dir, room, lockFacing = false) {
+    this.vel.set(0, 0);
     if (this.isDead() || this.knockbackTimer > 0 || this.isDashing()) {
       this.velocity.set(0, 0);
       this.walkFrames = 0;
@@ -528,7 +530,10 @@ class Player {
       return;
     }
     this.walkFrames++;
+    const startX = this.pos.x;
+    const startY = this.pos.y;
     moveWithCollision(this, this.velocity.x, this.velocity.y, room);
+    this.vel.set(this.pos.x - startX, this.pos.y - startY);
   }
 
   getBounds() {

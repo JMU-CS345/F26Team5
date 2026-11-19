@@ -14,6 +14,12 @@ function placePlayerRightOf(enemy, player, distance) {
   player.pos.set(center.x + distance - player.length / 2, center.y - player.width / 2);
 }
 
+// Calls tryAttack and, when the enemy starts its telegraph (windup) instead of firing, lets the
+// windup run out so the shot comes out. For specs about the shot itself, not the telegraph.
+function tryAttackThroughWindup(enemy, player, room) {
+  return shootNow(enemy, player, room);
+}
+
 describe("Enemy movement", function () {
   let room;
   let enemy;
@@ -262,11 +268,12 @@ describe("Demon", function () {
 
   it("chases the player", function () {
     const room = new NormalRoom(0, 0, 640, 320);
-    const demon = new Enemy(50, 100, "Demon");
+    const demon = new Enemy(48, 96, "Demon"); // on the tile grid, so it runs straight along its row
     const player = new Player(0, 0);
     placePlayerRightOf(demon, player, 150);
     demon.update(player, room);
-    expect(demon.pos.x).toBeCloseTo(50 + demon.speed, 5);
+    expect(demon.pos.x).toBeCloseTo(48 + demon.speed, 5);
+    expect(demon.pos.y).toBe(96);
   });
 
   it("hurts the player by its contact damage", function () {
@@ -307,7 +314,9 @@ describe("Enemy dialogue freeze and room grace", function () {
     const player = new Player(0, 0);
     placePlayerRightOf(demon, player, 150);
     demon.update(player, room, true);
-    demon.update(player, room, false);
+    for (let i = 0; i < 5; i++) {
+      demon.update(player, room, false); // the tile walker takes a frame to pick a route
+    }
     expect(demon.pos.x).toBeGreaterThan(50);
   });
 
@@ -362,6 +371,7 @@ describe("Enemy freeze, stagger and shot flash", function () {
     expect(enemy.damagePlayer(player)).toBe(true);
     expect(enemy.freezeTimer).toBe(ENEMY_FREEZE_FRAMES);
     expect(enemy.damageCooldown).toBe(ENEMY_DAMAGE_COOLDOWN);
+    enemy.knockbackTimer = 0; // the recoil from the hit is its own thing
     const x = enemy.pos.x;
     player.pos.set(400, 200);
     for (let i = 0; i < ENEMY_FREEZE_FRAMES; i++) {
@@ -389,7 +399,7 @@ describe("Enemy freeze, stagger and shot flash", function () {
     bouncer.setState("windup", 15);
     bouncer.takeDamage(1);
     expect(bouncer.state).toBe("recover");
-    expect(bouncer.stateTimer).toBe(ENEMY_STAGGER_FRAMES);
+    expect(bouncer.stateTimer).toBe(bouncer.getAttack().recover);
     expect(bouncer.freezeTimer).toBe(ENEMY_STAGGER_FRAMES);
   });
 
@@ -425,46 +435,36 @@ describe("Enemy freeze, stagger and shot flash", function () {
     expect(boss.freezeTimer).toBe(0);
   });
 
-  it("a hit cancels a shot flash", function () {
+  it("a hit cancels the windup and its flash", function () {
     const skeleton = new Enemy(100, 200, "Skeleton");
     placeNear(skeleton, 100);
     skeleton.attackTimer = 0;
-    skeleton.tryAttack(player);
-    expect(skeleton.shotFlash).toBe(ENEMY_SHOT_FLASH_FRAMES);
+    skeleton.tryAttack(player, room);
+    expect(skeleton.shotFlash).toBe(skeleton.getAttack().windup);
     skeleton.takeDamage(1);
     expect(skeleton.shotFlash).toBe(0);
-    expect(skeleton.shotFlashing).toBe(false);
-    expect(skeleton.tryAttack(player)).toEqual([]); // frozen
+    expect(skeleton.state).toBe("idle");
+    expect(skeleton.tryAttack(player, room)).toEqual([]); // frozen
   });
 
-  it("flashes for 10 frames before a shooter fires", function () {
+  it("flashes through the windup before a shooter fires", function () {
     const skeleton = new Enemy(100, 200, "Skeleton");
+    const windup = skeleton.getAttack().windup;
     placeNear(skeleton, 100);
     skeleton.attackTimer = 0;
-    expect(skeleton.tryAttack(player)).toEqual([]);
+    expect(skeleton.tryAttack(player, room)).toEqual([]);
     expect(skeleton.isTelegraphing()).toBe(true);
-    for (let i = 0; i < ENEMY_SHOT_FLASH_FRAMES - 1; i++) {
+    for (let i = 0; i < windup - 1; i++) {
       skeleton.update(player, room);
-      expect(skeleton.tryAttack(player)).toEqual([]);
+      expect(skeleton.tryAttack(player, room)).toEqual([]);
     }
     skeleton.update(player, room);
     expect(skeleton.shotFlash).toBe(0);
-    expect(skeleton.tryAttack(player).length).toBe(1);
+    expect(skeleton.tryAttack(player, room).length).toBe(1);
     expect(skeleton.isTelegraphing()).toBe(false);
   });
 
-  it("calls the shot off when the player leaves sight", function () {
-    const skeleton = new Enemy(100, 200, "Skeleton");
-    placeNear(skeleton, 100);
-    skeleton.attackTimer = 0;
-    skeleton.tryAttack(player);
-    placeNear(skeleton, 2000);
-    skeleton.tryAttack(player);
-    expect(skeleton.shotFlash).toBe(0);
-    expect(skeleton.shotFlashing).toBe(false);
-  });
-
-  it("gives every shooter type a flash", function () {
+  it("gives every shooter type a flash for its windup", function () {
     for (const name of ENEMY_TYPE_NAMES) {
       const type = ENEMY_TYPES[name];
       if (!type.attack || type.attack.kind !== "shoot") {
@@ -473,8 +473,8 @@ describe("Enemy freeze, stagger and shot flash", function () {
       const enemy = new Enemy(100, 200, name);
       placeNear(enemy, 60);
       enemy.attackTimer = 0;
-      expect(enemy.tryAttack(player)).withContext(name).toEqual([]);
-      expect(enemy.shotFlash).withContext(name).toBe(ENEMY_SHOT_FLASH_FRAMES);
+      expect(enemy.tryAttack(player, room)).withContext(name).toEqual([]);
+      expect(enemy.shotFlash).withContext(name).toBe(type.attack.windup);
     }
   });
 

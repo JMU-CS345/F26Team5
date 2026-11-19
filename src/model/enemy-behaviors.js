@@ -2,27 +2,39 @@
 // Model code: no p5 drawing calls. To add a behavior, add one function here and name it
 // in a type's row. A behavior uses only the enemy, player and room it is given.
 
+// Moves that go straight at the player and ignore walls: the enemy hops at the player whenever
+// it is in detection range, and a wall just stops the hop. Add a hopping move's name here.
+// Every other move walks whole tiles around walls. Walkers notice the player anywhere in
+// detection range, but shooting and sight speed need a clear line of sight.
+const ENEMY_DIRECT_MOVES = Object.freeze(["hop", "hopSwing"]);
+
 // A move runs once per frame while the enemy is alive and not frozen by a hit.
 const ENEMY_MOVES = Object.freeze({
   // Stands still, for turrets.
   none: function (enemy, player, room) {},
 
-  // Walks straight at the player once the player is inside detection range.
+  // Follows the tiles to the player in straight lines, around walls, once the player is in range.
   chase: function (enemy, player, room) {
-    enemy.moveToward(player, room);
+    enemy.moveAlongTiles(player, room);
   },
 
-  // Ambles in a random direction until the player is seen, then chases at full speed.
+  // Ambles along a straight line in a random direction until the player is noticed, then follows
+  // the tiles to them. It speeds up to type.sightSpeed while the player is in its line of sight.
+  // With type.vision "line" it only notices the player along the row or column it faces, runs to
+  // the spot where it saw them even if they step away, then goes back to ambling.
   wanderChase: function (enemy, player, room) {
-    if (enemy.canSee(player)) {
-      enemy.moveToward(player, room);
+    if (enemy.getTarget(player, room)) {
+      enemy.moveAlongTiles(player, room, enemy.canSee(player, room) ? enemy.getSightSpeed() : undefined);
       return;
     }
     enemy.wanderTimer--;
     if (enemy.wanderTimer <= 0 || !enemy.wanderDir) {
-      enemy.wanderDir = p5.Vector.fromAngle(enemy.rng() * 2 * Math.PI);
+      const roll = Math.floor(enemy.rng() * 4); // right, down, left or up
+      enemy.wanderDir = p5.Vector.fromAngle((roll * Math.PI) / 2);
+      enemy.wanderDir.set(Math.round(enemy.wanderDir.x), Math.round(enemy.wanderDir.y));
       enemy.wanderTimer = ENEMY_WANDER_FRAMES;
     }
+    enemy.faceDirection(enemy.wanderDir.x, enemy.wanderDir.y); // look where it is stumbling
     const before = enemy.pos.copy();
     const dx = enemy.wanderDir.x * enemy.type.wanderSpeed;
     const dy = enemy.wanderDir.y * enemy.type.wanderSpeed;
@@ -35,30 +47,30 @@ const ENEMY_MOVES = Object.freeze({
     }
   },
 
-  // Walks toward the player until keepRange away and backs off when closer. For shooters.
+  // Follows the tiles toward the player until keepRange away and backs off along a straight line
+  // when closer. For shooters. (Standing still for a shot is handled by Enemy.update.)
   keepDistance: function (enemy, player, room) {
-    if (!enemy.canSee(player)) {
+    const target = enemy.getTarget(player, room);
+    if (!target) {
       return;
     }
-    const toPlayer = player.getCenter().sub(enemy.getCenter());
-    const distance = toPlayer.mag();
+    const distance = target.dist(enemy.getCenter());
     const keepRange = enemy.type.keepRange;
-    if (distance > keepRange + ENEMY_KEEP_SLACK) {
-      toPlayer.setMag(enemy.getSpeed());
-    } else if (distance < keepRange - ENEMY_KEEP_SLACK) {
-      toPlayer.setMag(-enemy.getSpeed());
-    } else {
-      return;
+    const inSight = enemy.canSee(player, room);
+    if (distance > keepRange + ENEMY_KEEP_SLACK || (!inSight && distance >= 2)) {
+      enemy.walkTileRoute(target, room); // out of sight, close in on the last known spot
+    } else if (inSight && distance < keepRange - ENEMY_KEEP_SLACK) {
+      backAway(enemy, target, room);
     }
-    moveWithCollision(enemy, toPlayer.x, toPlayer.y, room);
   },
 
   // Zigzags toward the player. enemy.age counts frames, so the wobble is repeatable.
   erratic: function (enemy, player, room) {
-    if (!enemy.canSee(player)) {
+    const target = enemy.getTarget(player, room);
+    if (!target) {
       return;
     }
-    const step = player.getCenter().sub(enemy.getCenter()).setMag(enemy.getSpeed());
+    const step = target.sub(enemy.getCenter()).setMag(enemy.getSpeed());
     step.rotate(Math.sin(enemy.age / ENEMY_WOBBLE_TIME) * ENEMY_WOBBLE_ANGLE);
     moveWithCollision(enemy, step.x, step.y, room);
   },
@@ -69,6 +81,7 @@ const ENEMY_MOVES = Object.freeze({
   },
 
   // Hops like hop, but swings when the player is within attack.reach at the end of a rest.
+  // attack.cooldown is the least time between the starts of two swings.
   hopSwing: function (enemy, player, room) {
     const attack = enemy.getAttack();
     if (enemy.state === "windup" && enemy.stateTimer === 0) {
@@ -78,10 +91,14 @@ const ENEMY_MOVES = Object.freeze({
       enemy.setState("recover", attack.recover);
     } else if (enemy.state === "recover" && enemy.stateTimer === 0) {
       enemy.setState("idle", enemy.type.hopRest);
-    } else if (enemy.state === "idle" && enemy.stateTimer === 0 && enemy.canSee(player)) {
+    } else if (enemy.state === "idle" && enemy.stateTimer === 0) {
+      const inSight = enemy.canSee(player, room);
       const distance = player.getCenter().sub(enemy.getCenter()).mag();
-      if (distance <= attack.reach) {
-        enemy.setState("windup", attack.windup);
+      if (inSight && distance <= attack.reach) {
+        if (enemy.attackTimer === 0) {
+          enemy.setState("windup", attack.windup);
+          enemy.attackTimer = attack.cooldown;
+        } // else the swing is still cooling down, so stand ready
       } else {
         hopStep(enemy, player, room, "hop");
       }
@@ -103,14 +120,15 @@ function hopStep(enemy, player, room, dashState) {
     }
     return;
   }
-  if (enemy.stateTimer > 0 || !enemy.canSee(player)) {
+  const target = enemy.stateTimer > 0 ? null : enemy.getTarget(player, room);
+  if (!target) {
     return;
   }
-  const toPlayer = player.getCenter().sub(enemy.getCenter());
-  if (toPlayer.magSq() === 0) {
+  const toTarget = target.sub(enemy.getCenter());
+  if (toTarget.magSq() === 0) {
     return; // no direction to dash in
   }
-  enemy.hopDir = toPlayer.setMag(1);
+  enemy.hopDir = toTarget.setMag(1);
   enemy.setState(dashState, type.hopFrames);
   hopMove(enemy, room);
 }
@@ -120,50 +138,96 @@ function hopMove(enemy, room) {
   moveWithCollision(enemy, enemy.hopDir.x * speed, enemy.hopDir.y * speed, room);
 }
 
+const ENEMY_MAX_LEAD_FRAMES = 45; // a shot never leads the player by more than this many frames
 const ENEMY_WANDER_FRAMES = 120; // how long a wandering enemy keeps one direction
 const ENEMY_KEEP_SLACK = 8; // pixels of give around keepRange so shooters do not jitter
 const ENEMY_WOBBLE_TIME = 8; // bigger is a slower zigzag
 const ENEMY_WOBBLE_ANGLE = 1.2; // radians, the widest swing to either side of the player
 
+// One frame of backing straight away from a point: along the longer axis, or the other one when
+// a wall blocks that.
+function backAway(enemy, from, room) {
+  const c = enemy.getCenter();
+  const sx = Math.sign(c.x - from.x) || 1;
+  const sy = Math.sign(c.y - from.y) || 1;
+  const speed = enemy.getSpeed();
+  const horizontalFirst = Math.abs(c.x - from.x) >= Math.abs(c.y - from.y);
+  const tries = horizontalFirst ? [[sx, 0], [0, sy]] : [[0, sy], [sx, 0]];
+  for (const [dx, dy] of tries) {
+    const x = enemy.pos.x;
+    const y = enemy.pos.y;
+    moveWithCollision(enemy, dx * speed, dy * speed, room);
+    if (enemy.pos.x !== x || enemy.pos.y !== y) {
+      return;
+    }
+  }
+}
+
+// The vector from the enemy to where a shot should go.
+function shootAim(enemy, player, attack) {
+  const center = enemy.getCenter();
+  const point = player.getCenter();
+  if (attack.lead && player.vel) {
+    const flight = Math.min(point.dist(center) / attack.speed, ENEMY_MAX_LEAD_FRAMES);
+    point.add(player.vel.copy().mult(flight * attack.lead));
+  }
+  return point.sub(center);
+}
+
+// Builds the projectiles for one volley along aim.
+function fireShots(enemy, aim, attack) {
+  const center = enemy.getCenter();
+  const count = attack.count || 1;
+  const step = ((attack.spread || 0) * Math.PI) / 180;
+  const shots = [];
+  for (let i = 0; i < count; i++) {
+    const dir = aim.copy();
+    dir.rotate((i - (count - 1) / 2) * step);
+    const shot = new Projectile(center.x, center.y, dir, attack.damage, attack.speed);
+    shot.color = attack.color.slice(); // a copy, so the table is never shared
+    shots.push(shot);
+  }
+  return shots;
+}
+
 // An attack runs once per frame and returns an array of new projectiles, often empty.
 const ENEMY_ATTACKS = Object.freeze({
   // Fires count projectiles at the player, spread degrees apart, once the cooldown is over.
-  shoot: function (enemy, player) {
+  // Needs a clear line of sight. Optional attack.windup frames telegraph the shot (the enemy
+  // shakes and the aim is locked when the windup starts), and attack.lead from 0 to 1 aims
+  // ahead of a walking player.
+  shoot: function (enemy, player, room) {
     const attack = enemy.getAttack();
+    if (enemy.state === "windup" && !(attack.windup > 0)) {
+      enemy.setState("idle", 0); // a phase swapped to an attack with no windup
+    }
+    if (enemy.state === "windup") {
+      if (enemy.stateTimer > 0) {
+        return [];
+      }
+      const locked = enemy.aimDir;
+      enemy.aimDir = null;
+      enemy.setState("idle", 0);
+      return locked && locked.magSq() > 0 ? fireShots(enemy, locked, attack) : [];
+    }
     if (enemy.attackTimer > 0) {
       return [];
     }
-    if (!enemy.canSee(player)) {
-      enemy.shotFlashing = false; // lost sight, so the shot is called off
-      enemy.shotFlash = 0;
+    if (!enemy.canSee(player, room)) {
       return [];
     }
-    if (!enemy.shotFlashing) {
-      enemy.shotFlashing = true; // flash first, the shot follows when the flash ends
-      enemy.shotFlash = ENEMY_SHOT_FLASH_FRAMES;
-      return [];
-    }
-    if (enemy.shotFlash > 0) {
-      return [];
-    }
-    const center = enemy.getCenter();
-    const aim = player.getCenter().sub(center);
+    const aim = shootAim(enemy, player, attack);
     if (aim.magSq() === 0) {
       return []; // no direction to aim, and a zero vector would give NaN
     }
-    enemy.shotFlashing = false;
     enemy.attackTimer = attack.cooldown;
-    const count = attack.count || 1;
-    const step = ((attack.spread || 0) * Math.PI) / 180;
-    const shots = [];
-    for (let i = 0; i < count; i++) {
-      const dir = aim.copy();
-      dir.rotate((i - (count - 1) / 2) * step);
-      const shot = new Projectile(center.x, center.y, dir, attack.damage, attack.speed);
-      shot.color = attack.color.slice(); // a copy, so the table is never shared
-      shots.push(shot);
+    if (attack.windup > 0) {
+      enemy.aimDir = aim;
+      enemy.shotFlash = attack.windup; // the view flashes the enemy while it winds up
+      enemy.setState("windup", attack.windup);
+      return [];
     }
-    return shots;
+    return fireShots(enemy, aim, attack);
   },
 
   // Melee does not fire anything. Enemy.meleeHit hurts the player during the attack state.

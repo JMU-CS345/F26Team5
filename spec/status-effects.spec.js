@@ -117,9 +117,7 @@ describe("Status effects", function () {
       expect(enemy.tryAttack(player)).toEqual([]);
       tickFrames(enemy, STATUS_STUN_FRAMES);
       enemy.attackTimer = 0;
-      enemy.tryAttack(player); // starts the shot flash
-      enemy.shotFlash = 0;
-      expect(enemy.tryAttack(player).length).toBeGreaterThan(0);
+      expect(shootNow(enemy, player).length).toBeGreaterThan(0);
     });
 
     it("does not stun bosses", function () {

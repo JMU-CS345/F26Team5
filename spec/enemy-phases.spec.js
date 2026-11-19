@@ -82,7 +82,7 @@ describe("Enemy phases", function () {
 
   describe("in play", function () {
     it("moves at the phase speed", function () {
-      const demon = createEnemy("Demon", 100, 100);
+      const demon = createEnemy("Demon", 96, 96); // on the tile grid, so it runs straight along its row
       placePlayer(demon, 200);
       demon.health = 10;
       const startX = demon.pos.x;
@@ -95,7 +95,7 @@ describe("Enemy phases", function () {
       placePlayer(demon, 200);
       demon.health = 10;
       demon.attackTimer = 0;
-      expect(shootNow(demon, player).length).toBe(3);
+      expect(tryAttackThroughWindup(demon, player).length).toBe(3);
       expect(demon.attackTimer).toBe(50);
     });
 
@@ -103,7 +103,7 @@ describe("Enemy phases", function () {
       const demon = createEnemy("Demon", 100, 100);
       placePlayer(demon, 200);
       demon.attackTimer = 0;
-      expect(shootNow(demon, player).length).toBe(1);
+      expect(tryAttackThroughWindup(demon, player).length).toBe(1);
       expect(demon.attackTimer).toBe(75);
     });
   });

@@ -66,6 +66,10 @@ describe("Every enemy type", function () {
       });
 
       it("acts like its move says when the player is in range", function () {
+        enemy.pos.set(96, 96); // on the tile grid, so a walker runs straight at the player
+        if (type.vision === "line") {
+          enemy.faceDirection(1, 0); // it only sees straight ahead, and the player is on its right
+        }
         placePlayer(type.detectionRange * 0.9);
         const before = enemy.pos.copy();
         const distanceBefore = p5.Vector.dist(enemy.getCenter(), player.getCenter());
@@ -85,6 +89,10 @@ describe("Every enemy type", function () {
       });
 
       it("faces the player", function () {
+        if (type.vision === "line") {
+          return; // line vision enemies face the way they walk, see "Zombie line vision"
+        }
+        enemy.pos.set(320, 200); // mid room, so the player (to the left) is on the floor and in sight
         placePlayer(-type.detectionRange / 2);
         enemy.update(player, room);
         expect(enemy.facingLeft).toBe(true);
@@ -137,7 +145,7 @@ describe("Every enemy type", function () {
           it("shoots projectiles that can hurt the player", function () {
             placePlayer(type.detectionRange / 2);
             enemy.attackTimer = 0;
-            const shots = shootNow(enemy, player);
+            const shots = tryAttackThroughWindup(enemy, player);
             expect(shots.length).toBe(type.attack.count || 1);
             for (const shot of shots) {
               expect(shot instanceof Projectile).toBe(true);
