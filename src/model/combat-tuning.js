@@ -5,13 +5,13 @@
 const MELEE_BUFFER_FRAMES = 8; // a press this early before a swing ends still chains
 const COMBO_RESET_FRAMES = 20; // idle this long after a swing and the combo starts over
 const COMBO_LENGTH = 3;
+const SPIN_HOLD_FRAMES = 18; // hold melee this long and the swing becomes a spin
 const FINISHER_DAMAGE = 1.5;
 const FINISHER_KNOCKBACK = 2;
 const FINISHER_REACH = 1.15;
 const FINISHER_EXTRA_FRAMES = 3;
 
-// Spin
-const SPIN_CHARGE_FRAMES = 30; // hold melee this long, then let go for a spin
+// Spin (no input starts it yet: a plain hold only repeats swings)
 const SPIN_DAMAGE = 1.5;
 const SPIN_KNOCKBACK = 1.5;
 const SPIN_REACH = 1.3;

@@ -93,11 +93,49 @@ describe("input with bindings", function () {
     expect(player.aim).toEqual(new p5.Vector(0, -1)); // remembered
   });
 
-  it("buffers melee and dash from key presses", function () {
+  // Reads real held keys, aims, and returns the aim as rounded x,y.
+  function aimFrom(player, bindings, ...codes) {
+    const input = readPlayerInput(held(...codes), player, false, bindings);
+    aimPlayer(player, input, bindings);
+    return [Math.round(player.aim.x * 100) / 100, Math.round(player.aim.y * 100) / 100];
+  }
+
+  it("aims Twin-stick along the held WASD keys in all 8 directions", function () {
+    const h = Math.round(Math.SQRT1_2 * 100) / 100;
+    const cases = [
+      [[87], [0, -1]], [[83], [0, 1]], [[65], [-1, 0]], [[68], [1, 0]],
+      [[87, 68], [h, -h]], [[87, 65], [-h, -h]], [[83, 68], [h, h]], [[83, 65], [-h, h]]
+    ];
+    for (const [codes, expected] of cases) {
+      const player = new Player(0, 0, "Fire");
+      player.setAim(new p5.Vector(0, -1)); // an old aim must not win over the keys
+      expect(aimFrom(player, twin, ...codes)).toEqual(expected);
+    }
+  });
+
+  it("aims Twin-stick along the arrows over WASD, then WASD, then the last aim", function () {
+    const player = new Player(0, 0, "Fire");
+    expect(aimFrom(player, twin, 68, 37)).toEqual([-1, 0]); // arrow left beats moving right
+    expect(aimFrom(player, twin, 83)).toEqual([0, 1]);
+    expect(aimFrom(player, twin)).toEqual([0, 1]); // nothing held keeps it
+  });
+
+  it("starts a Twin-stick aim from the facing", function () {
+    const player = new Player(0, 0, "Fire");
+    expect(aimFrom(player, twin)).toEqual([0, 1]);
+  });
+
+  it("still aims Classic from the movement keys", function () {
+    const player = new Player(0, 0, "Fire");
+    expect(aimFrom(player, classic, 68)).toEqual([1, 0]);
+    expect(aimFrom(player, classic, 65, 16)).toEqual([1, 0]); // strafe keeps the aim
+  });
+
+  it("records a melee press and buffers a dash press", function () {
     const player = new Player(0, 0, "Fire");
     pressCombatKey(player, "melee");
     pressCombatKey(player, "dash");
-    expect(player.meleeBuffer).toBe(MELEE_BUFFER_FRAMES);
+    expect(player.meleePressed).toBe(true); // the swing starts when the key comes up
     expect(player.dashBuffer).toBe(DASH_BUFFER_FRAMES);
   });
 

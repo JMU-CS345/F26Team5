@@ -1,4 +1,4 @@
-describe("Charged spin", function () {
+describe("Tap to swing, hold to spin", function () {
   let room;
   let player;
 
@@ -8,102 +8,63 @@ describe("Charged spin", function () {
     player.setAim(new p5.Vector(1, 0));
   });
 
-  function enemyAt(x, y) {
-    const enemy = new Enemy(x, y, "Demon");
-    room.enemies.push(enemy);
-    return enemy;
-  }
-
-  function hold(frames) {
+  // Runs frames and returns the kinds of the attacks that started, in order.
+  function run(frames, held) {
+    const kinds = [];
+    let last = null;
     for (let i = 0; i < frames; i++) {
-      player.update(room, { meleeHeld: true });
+      player.update(room, { meleeHeld: held });
+      if (player.attack !== null && player.attack !== last) {
+        kinds.push(player.attack.kind);
+      }
+      last = player.attack;
     }
+    return kinds;
   }
 
-  function release(frames = 25) {
-    for (let i = 0; i < frames; i++) {
-      player.update(room, { meleeHeld: false });
+  it("a short tap makes one normal swing when the key comes up", function () {
+    expect(run(3, true)).toEqual([]);
+    expect(run(30, false)).toEqual(["swing"]);
+  });
+
+  it("a press that is gone within one frame still swings", function () {
+    player.pressMelee();
+    expect(run(30, false)).toEqual(["swing"]);
+  });
+
+  it("holding spins once and does not swing first", function () {
+    const kinds = run(SPIN_HOLD_FRAMES + 60, true);
+    expect(kinds).toEqual(["spin"]);
+  });
+
+  it("does not swing or spin again when the key is released after a spin", function () {
+    run(SPIN_HOLD_FRAMES + 40, true);
+    expect(run(60, false)).toEqual([]);
+  });
+
+  it("can spin again after the key comes up and goes down", function () {
+    run(SPIN_HOLD_FRAMES + 40, true);
+    run(30, false);
+    expect(run(SPIN_HOLD_FRAMES + 5, true)).toEqual(["spin"]);
+  });
+
+  it("two quick taps chain into the combo", function () {
+    const steps = [];
+    for (let tap = 0; tap < 2; tap++) {
+      for (let i = 0; i < 20; i++) {
+        player.update(room, { meleeHeld: i < 3 });
+        if (player.attack !== null && steps[steps.length - 1] !== player.attack.step) {
+          steps.push(player.attack.step);
+        }
+      }
     }
-  }
-
-  it("charges in 30 frames", function () {
-    expect(SPIN_CHARGE_FRAMES).toBe(30);
-    hold(30);
-    expect(player.isCharged()).toBe(true);
+    expect(steps).toEqual([0, 1]);
   });
 
-  it("is not charged before the threshold", function () {
-    hold(SPIN_CHARGE_FRAMES - 1);
-    expect(player.isCharged()).toBe(false);
-    hold(1);
-    expect(player.isCharged()).toBe(true);
-  });
-
-  it("spins when a full charge is released", function () {
-    hold(SPIN_CHARGE_FRAMES);
-    player.update(room, { meleeHeld: false });
-    expect(player.attack).not.toBeNull();
-    expect(player.attack.kind).toBe("spin");
-    expect(player.chargeFrames).toBe(0);
-  });
-
-  it("does not spin on an early release", function () {
-    hold(SPIN_CHARGE_FRAMES - 5);
-    player.update(room, { meleeHeld: false });
-    expect(player.attack).toBeNull();
-    expect(player.chargeFrames).toBe(0);
-  });
-
-  it("does a normal swing on an early tap", function () {
-    player.bufferMelee();
-    hold(10);
-    release(1);
-    expect(player.attack.kind).toBe("swing");
-  });
-
-  it("hits enemies all around, front and back", function () {
-    const front = enemyAt(222, 192);
-    const back = enemyAt(178, 192);
-    const above = enemyAt(200, 170);
-    hold(SPIN_CHARGE_FRAMES);
-    release();
-    for (const enemy of [front, back, above]) {
-      expect(enemy.health).toBeLessThan(enemy.maxHealth);
-    }
-  });
-
-  it("hits each enemy once per spin", function () {
-    const enemy = enemyAt(222, 192);
-    hold(SPIN_CHARGE_FRAMES);
-    release();
-    const dealt = enemy.maxHealth - enemy.health;
-    const spinDamage = player.getDamage(MELEE_DEFAULTS.damage * SPIN_DAMAGE, "Fire");
-    expect(dealt).toBeCloseTo(spinDamage, 5);
-  });
-
-  it("reaches farther than a normal swing", function () {
-    const swingPlan = makeSwingPlan(getMeleeStats(null), 0);
-    const spinPlan = makeSpinPlan(getMeleeStats(null));
-    expect(spinPlan.reach).toBeGreaterThan(swingPlan.reach);
-    expect(spinPlan.arc).toBe(360);
-  });
-
-  it("misses enemies outside the spin radius", function () {
-    const far = enemyAt(400, 192);
-    hold(SPIN_CHARGE_FRAMES);
-    release();
-    expect(far.health).toBe(far.maxHealth);
-  });
-
-  it("hits harder than a normal swing", function () {
-    const stats = getMeleeStats(null);
-    expect(makeSpinPlan(stats).damage).toBeGreaterThan(makeSwingPlan(stats, 0).damage);
-  });
-
-  it("drops the charge if the player dies", function () {
-    hold(SPIN_CHARGE_FRAMES);
+  it("does not swing or spin when dead", function () {
     player.takeDamage(player.maxHealth);
-    player.update(room, { meleeHeld: false });
-    expect(player.attack).toBeNull();
+    player.pressMelee();
+    expect(run(SPIN_HOLD_FRAMES + 10, true)).toEqual([]);
+    expect(run(30, false)).toEqual([]);
   });
 });

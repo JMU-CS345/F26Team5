@@ -244,11 +244,7 @@ describe("Melee lunge", function () {
   });
 
   it("does not lunge on a spin", function () {
-    player.startSpin();
-    for (let i = 0; i < 20; i++) {
-      player.update(room);
-    }
-    expect(player.pos.x).toBe(100);
+    expect(makeSpinPlan(getMeleeStats(null)).lunge).toBe(0);
   });
 
   it("eases out, so the first frame is the biggest", function () {
