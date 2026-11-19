@@ -204,6 +204,8 @@ const CUSTOMIZE_ROWS_X = 820; // center x of the option names
 const CUSTOMIZE_ROW_GAP = 80;
 const CUSTOMIZE_ARROW_SIZE = 56;
 const CUSTOMIZE_ARROW_OFFSET = 190; // from the row center to each arrow's center
+const CUSTOMIZE_START_W = 200;
+const CUSTOMIZE_START_H = 80;
 
 // Center y of the nth customization row.
 function customizeRowY(i) {

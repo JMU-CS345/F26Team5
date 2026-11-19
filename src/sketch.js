@@ -331,9 +331,9 @@ function makeCustomizeButtons() {
     }
   });
   const start = createButton("Start run");
-  start.size(MODEL_BUTTON_W, MENU_BUTTON_H);
+  start.size(CUSTOMIZE_START_W, CUSTOMIZE_START_H);
   start.position(
-    CUSTOMIZE_ROWS_X - MODEL_BUTTON_W / 2,
+    CUSTOMIZE_ROWS_X - CUSTOMIZE_START_W / 2,
     customizeRowY(APPEARANCE_PARTS.length) + 10
   );
   start.style("background-color", "rgb(60, 140, 80)");
