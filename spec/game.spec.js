@@ -134,3 +134,24 @@ describe("Player class", function () {
     expect(new Player(50, 50).mageClass).toBeNull();
   });
 });
+
+describe("playerJustDied", function () {
+  it("reports a death once, so the death sound cannot repeat every frame", function () {
+    const game = new Game();
+    game.startCharacterSelect();
+    game.selectClass("Fire");
+    game.finishCustomization();
+    const player = new Player(100, 100, "Fire");
+    expect(playerJustDied(game, player)).toBe(false); // alive
+    player.takeDamage(player.maxHealth + 100);
+    let reports = 0;
+    for (let i = 0; i < DEATH_FRAMES + 100; i++) {
+      player.update(new NormalRoom(0, 0, 640, 400), {});
+      if (playerJustDied(game, player)) {
+        reports++;
+      }
+    }
+    expect(reports).toBe(1);
+    expect(game.isDead()).toBe(true);
+  });
+});

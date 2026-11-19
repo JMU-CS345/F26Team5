@@ -113,6 +113,7 @@ function startRun() {
   lootRun = new LootRun(dungeon.seed + 1, doorDistances(dungeon.rooms, 0));
   lootRun.assign(dungeon);
   enterRoom(dungeon.start);
+  playMusic();
   const spawn = room.getPlayerSpawn(); // the @ in the start room's drawing
   player = new Player(
     spawn.x - PLAYER_LENGTH / 2,
@@ -153,6 +154,7 @@ function startRun() {
 // Picks a class on the menu and moves on to the customization screen.
 function chooseClass(mageClass) {
   if (game.selectClass(mageClass)) {
+    playSfx("menu");
     customizeRow = 0;
     for (const button of customizeButtons) {
       button.show();
@@ -524,13 +526,15 @@ function drawScreen() {
   for (const drop of room.items) {
     drop.update();
   }
-  for (const chest of room.chests) {
-    chest.update();
-  }
-  for (const drop of pickupItemDrops(player, room)) {
+  const pickedUp = pickupItemDrops(player, room);
+  for (const drop of pickedUp) {
     runStats.recordPickup(drop.item);
   }
+  if (pickedUp.length > 0) {
+    playSfx("pickup");
+  }
 
+  const healthBeforeHits = player.health;
   // Enemies and their shots stand still while someone is talking.
   if (!player.isDead() && !activeDialogue.isActive()) {
     const enemySteps = enemyClock.steps(player.getEnemyTimeScale());
@@ -579,6 +583,9 @@ function drawScreen() {
   enemyProjectiles = enemyProjectiles.filter((p) => p.alive);
   const deadThisFrame = removeDeadEnemies(room);
   handleDeadEnemies(deadThisFrame);
+  if (player.health < healthBeforeHits) {
+    playSfx("hurt");
+  }
 
   if (player.health < lastPlayerHealth) {
     gameFeel.onPlayerHurt();
@@ -594,9 +601,9 @@ function drawScreen() {
     }
     room.items.push(...rollClearDrops(room, lootRun));
   }
-  if (player.showDeathScreen()) {
+  if (playerJustDied(game, player)) {
     activeDialogue.close();
-    game.playerDied();
+    playSfx("death");
   }
   if (game.isDead()) {
     drawDeathScreen(runStats);
@@ -708,6 +715,9 @@ function handleDeadEnemies(dead) {
     runStats.recordKill();
     room.items.push(...rollEnemyDrops(enemy, lootRun, room));
   }
+  if (dead.length > 0) {
+    playSfx("death");
+  }
   if (findDeadBosses(dead).length > 0) {
     room.bossDefeated = true;
   }
@@ -804,6 +814,7 @@ function handleInventoryKey() {
 }
 
 function keyPressed() {
+  playMusic(); // browsers only allow audio after a key press, so the first one starts the loop
   if (keyCode === 114) {
     debugOverlay = !debugOverlay;
     return false;

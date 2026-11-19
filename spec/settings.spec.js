@@ -23,8 +23,8 @@ describe("settings", function () {
   it("returns the defaults when nothing is saved", function () {
     expect(loadSettings(fakeStorage())).toEqual({
       controls: "classic",
-      musicVolume: 0.5,
-      sfxVolume: 0.7,
+      musicVolume: 0.4,
+      sfxVolume: 0.55,
       screenShake: true,
       damageNumbers: true
     });
@@ -62,7 +62,7 @@ describe("settings", function () {
     const loaded = loadSettings(fakeStorage(text));
     expect(loaded.controls).toBe("classic");
     expect(loaded.musicVolume).toBe(1);
-    expect(loaded.sfxVolume).toBe(0.7);
+    expect(loaded.sfxVolume).toBe(0.55);
     expect(loaded.screenShake).toBe(true);
   });
 

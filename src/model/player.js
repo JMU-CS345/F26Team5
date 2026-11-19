@@ -421,7 +421,7 @@ class Player {
     if (this.dashCharges === DASH_CHARGES) {
       this.dashRecharge = 0;
     }
-    playCombatSfx("dodge");
+    playCombatSfx("perfect");
   }
 
   // How fast enemies run right now. 1 is normal, the sketch scales their update with it.
