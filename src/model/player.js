@@ -7,10 +7,12 @@ const DEATH_FRAMES = 48; // death animation length (0.8 s at 60 fps)
 
 class Player {
   // mageClass is "Fire", "Ice" or "Mind". It picks the starting stats (see player-stats.js).
-  constructor(x, y, mageClass = null, modelName = "Tall") {
+  // appearance is the look from the customization screen (see appearance.js). Cosmetic only.
+  constructor(x, y, mageClass = null, modelName = "Tall", appearance = DEFAULT_APPEARANCE) {
     this.pos = new p5.Vector(x, y);
     this.mageClass = mageClass;
     this.modelName = modelName;
+    this.appearance = makeAppearance(appearance);
     this.length = PLAYER_LENGTH;
     this.width = PLAYER_WIDTH;
     this.stats = getStatsForClass(mageClass);
