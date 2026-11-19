@@ -1,9 +1,11 @@
 // Game state model. No p5 drawing calls, so Jasmine can test it without a canvas.
-// Tracks which screen the game is on, and the playermodel and mage class the player picked.
+// Tracks which screen the game is on, and the playermodel, mage class and appearance the
+// player picked.
 
 const GAME_STATES = Object.freeze({
   MODEL: "model", // character creator, step 1: pick a playermodel
   MENU: "menu", // character creator, step 2: pick a class
+  CUSTOMIZE: "customize", // character creator, step 3: pick the look (#23)
   PLAYING: "playing",
   INVENTORY: "inventory",
   DEAD: "dead"
@@ -17,6 +19,7 @@ class Game {
     this.state = GAME_STATES.MODEL;
     this.selectedModel = null;
     this.selectedClass = null;
+    this.appearance = makeAppearance(); // kept between runs, so it starts as last time's look
   }
 
   isModelSelect() {
@@ -26,6 +29,11 @@ class Game {
   // The class menu, the second step of the character creator.
   isMenu() {
     return this.state === GAME_STATES.MENU;
+  }
+
+  // The customization screen, the last step of the character creator.
+  isCustomizing() {
+    return this.state === GAME_STATES.CUSTOMIZE;
   }
 
   isPlaying() {
@@ -77,13 +85,32 @@ class Game {
     return true;
   }
 
-  // Picks a class and starts the run. Only works from the class menu, and only for a
-  // real class, so a stray key press cannot start a run mid-game.
+  // Picks a class and moves on to the customization screen. Only works from the class
+  // menu, and only for a real class, so a stray key press cannot change it mid-game.
   selectClass(mageClass) {
     if (!this.isMenu() || !MAGE_CLASSES.includes(mageClass)) {
       return false;
     }
     this.selectedClass = mageClass;
+    this.state = GAME_STATES.CUSTOMIZE;
+    return true;
+  }
+
+  // Moves one part of the look to the next (step 1) or previous (step -1) option.
+  // Only works on the customization screen.
+  changeAppearance(part, step) {
+    if (!this.isCustomizing() || !APPEARANCE_PARTS.includes(part)) {
+      return false;
+    }
+    this.appearance = cycleAppearance(this.appearance, part, step);
+    return true;
+  }
+
+  // Finishes the character creator and starts the run.
+  finishCustomization() {
+    if (!this.isCustomizing()) {
+      return false;
+    }
     this.state = GAME_STATES.PLAYING;
     return true;
   }
@@ -97,7 +124,8 @@ class Game {
     return true;
   }
 
-  // Starting a new run goes back to the start of the character creator.
+  // Starting a new run goes back to the start of the character creator. The appearance is
+  // kept, so the customization screen starts on the last look.
   newRun() {
     if (!this.isDead()) {
       return false;
