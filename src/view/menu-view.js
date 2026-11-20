@@ -72,20 +72,44 @@ function drawModelMenu() {
 }
 
 // Customization screen (#23): a big preview of the player on the left, and one row per part
-// on the right. The < and > buttons and the Start button are p5 DOM buttons, made in sketch.js.
+// on the right. Each row has a color picker and a hex code box. Both are p5 DOM elements, made in
+// sketch.js, and are placed using the helpers below so they line up with what is drawn here.
 const CUSTOMIZE_PREVIEW_SCALE = 8;
 const CUSTOMIZE_PREVIEW_X = 400; // center x of the preview
-const CUSTOMIZE_ROWS_X = 820; // center x of the option names
+const CUSTOMIZE_ROWS_X = 820; // center x of the rows
 const CUSTOMIZE_ROW_GAP = 80;
-const CUSTOMIZE_ARROW_SIZE = 56;
-const CUSTOMIZE_ARROW_OFFSET = 190; // from the row center to each arrow's center
+const CUSTOMIZE_PANEL_W = 460;
+const CUSTOMIZE_PANEL_H = 64;
+const CUSTOMIZE_PICKER_W = 72;
+const CUSTOMIZE_PICKER_H = 48;
+const CUSTOMIZE_HEX_W = 190;
 
 // Center y of the nth customization row.
 function customizeRowY(i) {
   return 230 + i * CUSTOMIZE_ROW_GAP;
 }
 
-function drawCustomizeMenu(game, selectedRow) {
+// Left edge of the rows' panels.
+function customizePanelLeft() {
+  return CUSTOMIZE_ROWS_X - CUSTOMIZE_PANEL_W / 2;
+}
+
+// Top-left corner of the color picker and the hex box on the nth row.
+function customizePickerPosition(i) {
+  return {
+    x: customizePanelLeft() + 150,
+    y: customizeRowY(i) - CUSTOMIZE_PICKER_H / 2
+  };
+}
+
+function customizeHexPosition(i) {
+  return {
+    x: customizePanelLeft() + 150 + CUSTOMIZE_PICKER_W + 16,
+    y: customizeRowY(i) - CUSTOMIZE_PICKER_H / 2
+  };
+}
+
+function drawCustomizeMenu(game) {
   noStroke();
   fill(255);
   textAlign(CENTER, CENTER);
@@ -103,27 +127,17 @@ function drawCustomizeMenu(game, selectedRow) {
 
   APPEARANCE_PARTS.forEach((part, i) => {
     const y = customizeRowY(i);
-    if (i === selectedRow) {
-      fill(255, 255, 255, 30);
-      rect(CUSTOMIZE_ROWS_X - 230, y - 32, 460, 64, 8);
-    }
-    fill(180);
-    textSize(18);
-    text(part.toUpperCase(), CUSTOMIZE_ROWS_X, y - 16);
+    fill(255, 255, 255, 30);
+    rect(customizePanelLeft(), y - CUSTOMIZE_PANEL_H / 2, CUSTOMIZE_PANEL_W, CUSTOMIZE_PANEL_H, 8);
     fill(255);
-    textSize(28);
-    text(game.appearance[part], CUSTOMIZE_ROWS_X, y + 12);
-    const color = getAppearanceColor(game.appearance, part);
-    if (color !== null) {
-      fill(...color);
-      stroke(255);
-      rect(CUSTOMIZE_ROWS_X + 90, y - 2, 28, 28, 4);
-      noStroke();
-    }
+    textSize(24);
+    textAlign(LEFT, CENTER);
+    text(part.toUpperCase(), customizePanelLeft() + 24, y);
   });
 
+  textAlign(CENTER, CENTER);
   textSize(18);
   fill(180);
-  text("Click the arrows, or use W/S and A/D (or the arrow keys). Enter to start.",
+  text("Click a color box to pick a color, or type a hex code like #3c78e6. Enter to start.",
     width / 2, height - 50);
 }

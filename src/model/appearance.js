@@ -3,83 +3,85 @@
 // Load this after player-models.js and before game.js and player.js.
 
 // Order matters: it is the order of the rows on the customization screen.
-const APPEARANCE_PARTS = Object.freeze(["skin", "eyes", "hair", "clothing"]);
+// "body" tints the playermodel's own sprite sheet. The other three are layers drawn on top.
+const APPEARANCE_PARTS = Object.freeze(["body", "eyes", "shirt", "pants"]);
 
-// The choices for each part. color is RGB, or null for "no hair".
-const APPEARANCE_OPTIONS = Object.freeze({
-  skin: [
-    { name: "Pale", color: [255, 228, 205] },
-    { name: "Light", color: [241, 194, 153] },
-    { name: "Tan", color: [205, 150, 105] },
-    { name: "Brown", color: [150, 100, 65] },
-    { name: "Dark", color: [96, 64, 44] }
-  ],
-  eyes: [
-    { name: "Blue", color: [60, 120, 230] },
-    { name: "Green", color: [50, 170, 80] },
-    { name: "Brown", color: [110, 70, 35] },
-    { name: "Red", color: [220, 40, 40] },
-    { name: "Purple", color: [150, 80, 210] }
-  ],
-  hair: [
-    { name: "Brown", color: [110, 70, 40] },
-    { name: "Black", color: [35, 35, 40] },
-    { name: "Blonde", color: [235, 205, 95] },
-    { name: "Red", color: [190, 65, 30] },
-    { name: "White", color: [235, 235, 240] },
-    { name: "None", color: null }
-  ],
-  clothing: [
-    { name: "Blue", color: [60, 90, 190] },
-    { name: "Red", color: [180, 45, 45] },
-    { name: "Green", color: [50, 130, 70] },
-    { name: "Purple", color: [120, 60, 160] },
-    { name: "Gray", color: [120, 120, 130] }
-  ]
-});
+// The layer parts, bottom to top. Each one has a sheet in PLAYER_MODELS[model].layerSheets.
+// Pants go under the shirt, and the eyes go on top of everything.
+const APPEARANCE_LAYER_ORDER = Object.freeze(["pants", "shirt", "eyes"]);
 
+// Every part is a hex color like "#f1c299". The color picker and the hex box both produce these.
 const DEFAULT_APPEARANCE = Object.freeze({
-  skin: "Light",
-  eyes: "Blue",
-  hair: "Brown",
-  clothing: "Blue"
+  body: "#f1c299",
+  eyes: "#3c78e6",
+  shirt: "#3c5abe",
+  pants: "#5a4632"
 });
 
-// Names of the options for one part, in order.
-function getAppearanceOptionNames(part) {
-  return APPEARANCE_OPTIONS[part].map((option) => option.name);
+// Turns "#F1C299", "f1c299", "#fc9" or " #fc9 " into "#f1c299". Returns null if it is not a
+// real hex color, so a typo in the hex box can never reach the drawing code.
+function normalizeHex(text) {
+  if (typeof text !== "string") {
+    return null;
+  }
+  let hex = text.trim().replace(/^#/, "");
+  if (/^[0-9a-fA-F]{3}$/.test(hex)) {
+    hex = hex.split("").map((digit) => digit + digit).join("");
+  }
+  if (!/^[0-9a-fA-F]{6}$/.test(hex)) {
+    return null;
+  }
+  return "#" + hex.toLowerCase();
 }
 
-function isValidAppearanceChoice(part, name) {
-  return APPEARANCE_PARTS.includes(part) && getAppearanceOptionNames(part).includes(name);
+function isValidHex(text) {
+  return normalizeHex(text) !== null;
 }
 
-// Returns a new, complete appearance. Missing or unknown choices fall back to the default,
-// so a bad value can never reach the drawing code.
+// "#f1c299" -> [241, 194, 153]. Returns null for anything that is not a hex color.
+function hexToRgb(text) {
+  const hex = normalizeHex(text);
+  if (hex === null) {
+    return null;
+  }
+  return [
+    parseInt(hex.slice(1, 3), 16),
+    parseInt(hex.slice(3, 5), 16),
+    parseInt(hex.slice(5, 7), 16)
+  ];
+}
+
+// [241, 194, 153] -> "#f1c299". Values are clamped to 0-255.
+function rgbToHex(rgb) {
+  return "#" + rgb.map((value) => {
+    const clamped = Math.max(0, Math.min(255, Math.round(value)));
+    return clamped.toString(16).padStart(2, "0");
+  }).join("");
+}
+
+// Returns a new, complete appearance. Missing or invalid colors fall back to the default,
+// and valid ones are cleaned up into "#rrggbb", so a bad value can never reach the drawing code.
 function makeAppearance(choices = {}) {
   const appearance = {};
   for (const part of APPEARANCE_PARTS) {
-    const name = choices[part];
-    appearance[part] = isValidAppearanceChoice(part, name) ? name : DEFAULT_APPEARANCE[part];
+    appearance[part] = normalizeHex(choices[part]) || DEFAULT_APPEARANCE[part];
   }
   return appearance;
 }
 
-// Returns a new appearance with one part moved to the next (step 1) or previous (step -1)
-// option. Wraps around at both ends. Unknown parts leave the appearance unchanged.
-function cycleAppearance(appearance, part, step) {
+// Returns a new appearance with one part set to a new color. An unknown part or an invalid
+// color leaves the appearance unchanged.
+function setAppearanceColor(appearance, part, hex) {
   const result = makeAppearance(appearance);
-  if (!APPEARANCE_PARTS.includes(part)) {
+  const color = normalizeHex(hex);
+  if (!APPEARANCE_PARTS.includes(part) || color === null) {
     return result;
   }
-  const names = getAppearanceOptionNames(part);
-  const index = names.indexOf(result[part]);
-  result[part] = names[(index + step + names.length) % names.length];
+  result[part] = color;
   return result;
 }
 
-// RGB color of one part, or null (hair "None").
+// RGB color of one part, as [r, g, b].
 function getAppearanceColor(appearance, part) {
-  const name = makeAppearance(appearance)[part];
-  return APPEARANCE_OPTIONS[part].find((option) => option.name === name).color;
+  return hexToRgb(makeAppearance(appearance)[part]);
 }

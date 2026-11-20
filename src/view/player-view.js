@@ -7,7 +7,7 @@ const WEAPON_ROW_OFFSET = 4;
 const STEP_TIME = 8; // game frames per walk frame
 
 const playerSheets = {}; // model name -> loaded image
-// model name -> { eyes, hair, clothing }: white layers drawn over the body and tinted to the
+// model name -> { pants, shirt, eyes }: white layers drawn over the body and tinted to the
 // player's chosen colors (#23).
 const appearanceLayers = {};
 
@@ -16,31 +16,26 @@ async function loadPlayerSheets() {
   for (const name of PLAYER_MODEL_NAMES) {
     playerSheets[name] = await loadImageFile(PLAYER_MODELS[name].sheet);
     const paths = PLAYER_MODELS[name].layerSheets;
-    appearanceLayers[name] = {
-      eyes: await loadImageFile(paths.eyes),
-      hair: await loadImageFile(paths.hair),
-      clothing: await loadImageFile(paths.clothing)
-    };
+    appearanceLayers[name] = {};
+    for (const layer of APPEARANCE_LAYER_ORDER) {
+      appearanceLayers[name][layer] = await loadImageFile(paths[layer]);
+    }
   }
 }
 
-// Draws one frame of a player with their look: the body tinted to the skin color, then the
-// clothing, hair and eye layers on top. alpha fades the whole thing (the death animation).
-// Used in the game and for the preview on the customization screen.
+// Draws one frame of a player with their look: the body sheet tinted to the body color, then
+// the pants, shirt and eye layers on top, each tinted to its own color. Every layer is cut from
+// the same (col, row) cell as the body, so they always line up. alpha fades the whole thing
+// (the death animation). Used in the game and for the preview on the customization screen.
 function drawPlayerSprite(modelName, appearance, col, row, x, y, w, h, alpha = 255) {
   const model = PLAYER_MODELS[modelName];
   const sx = col * model.spriteW;
   const sy = row * model.spriteH;
-  const layers = [
-    [playerSheets[modelName], getAppearanceColor(appearance, "skin")],
-    [appearanceLayers[modelName].clothing, getAppearanceColor(appearance, "clothing")],
-    [appearanceLayers[modelName].hair, getAppearanceColor(appearance, "hair")],
-    [appearanceLayers[modelName].eyes, getAppearanceColor(appearance, "eyes")]
-  ];
+  const layers = [[playerSheets[modelName], getAppearanceColor(appearance, "body")]];
+  for (const layer of APPEARANCE_LAYER_ORDER) {
+    layers.push([appearanceLayers[modelName][layer], getAppearanceColor(appearance, layer)]);
+  }
   for (const [picture, color] of layers) {
-    if (color === null) {
-      continue; // no hair
-    }
     tint(color[0], color[1], color[2], alpha);
     image(picture, x, y, w, h, sx, sy, model.spriteW, model.spriteH);
   }
