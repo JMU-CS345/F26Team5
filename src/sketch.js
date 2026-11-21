@@ -588,6 +588,7 @@ function drawScreen() {
     heldInputBlocked || activeDialogue.isActive()
   );
   aimPlayer(player, input);
+  applyAutoAim(player, input, room);
   player.move(input.move, room, input.strafe);
   for (const drop of room.items) {
     drop.update();
@@ -641,6 +642,7 @@ function drawScreen() {
   }
   projectiles = projectiles.filter((p) => p.alive);
 
+  slashEnemyShots(player, enemyProjectiles);
   for (const p of enemyProjectiles) {
     if (activeDialogue.isActive()) {
       break;
@@ -732,6 +734,7 @@ function drawRunScene(shake = { x: 0, y: 0 }) {
   }
   drawPlayer(player);
   drawMeleeAttack(player);
+  drawAimRing(player.aimTarget);
   for (const e of room.enemies) {
     drawEnemy(e);
     if (debugOverlay) {

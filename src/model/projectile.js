@@ -25,11 +25,13 @@ class Projectile {
     this.onHit = options.onHit || null;
     this.weapon = options.weapon || null;
     this.owner = options.owner || null;
+    this.target = null; // enemy the shot homes on while it lives
     this.traveled = 0; // pixels flown so far
     this.hitTargets = []; // so a piercing shot hurts each target once
   }
 
   update(room) {
+    steerShot(this);
     this.pos.add(this.vel);
     this.traveled += this.vel.mag();
     if (this.traveled >= this.range || room.collidesWithWall(this.getBounds())) {

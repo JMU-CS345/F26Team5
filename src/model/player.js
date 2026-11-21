@@ -49,6 +49,7 @@ class Player {
     this.meleePressed = false; // melee went down since the last update
     this.holdFrames = 0; // frames melee has been down
     this.spinDone = false; // this hold already spun, so wait for the key to come up
+    this.aimTarget = null; // auto-aim enemy of this frame, set by applyAutoAim
     this.aim = new p5.Vector(0, 1); // the way melee and Twin-stick shots point, starts facing
     this.lastHits = []; // melee hits made in the latest update, for the game feel code
     this.room = null; // the room of the latest update, for weapon hooks that look for enemies
@@ -121,7 +122,7 @@ class Player {
       applyDashStrike(plan);
       this.dashAge = 1000; // one strike per dash
     }
-    this.beginAttack(new MeleeAttack(this, stats, plan, this.aim));
+    this.beginAttack(new MeleeAttack(this, stats, plan, meleeSwingDir(this, plan.reach)));
     this.comboStep = step;
     this.meleeBuffer = 0;
   }
@@ -242,6 +243,7 @@ class Player {
         { range: stats.range, pierce: stats.pierce, onHit: stats.onHit, weapon: stats.weapon,
           owner: this }
       );
+      shot.target = this.aimTarget;
       shot.element = element;
       shot.classMatch = isClassMatch(element, this.mageClass);
       shots.push(shot);

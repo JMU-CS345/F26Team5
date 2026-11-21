@@ -1,8 +1,14 @@
 // Every combat number lives here, so feel is tuned in one place. Frames are at 60 fps and
 // distances are pixels. No p5 drawing calls.
 
+// Default weapon numbers (items.js reads these). Melee out-damages ranged 2 to 3 times.
+const DEFAULT_MELEE_DAMAGE = 1.5;
+const DEFAULT_MELEE_SWING_FRAMES = 14;
+const DEFAULT_MELEE_ARC = 90; // degrees
+const DEFAULT_FIRE_RATE = 24; // frames between shots
+
 // Melee combo
-const MELEE_BUFFER_FRAMES = 8; // a press this early before a swing ends still chains
+const MELEE_BUFFER_FRAMES = 10; // a press this early before a swing ends still chains
 const COMBO_RESET_FRAMES = 20; // idle this long after a swing and the combo starts over
 const COMBO_LENGTH = 3;
 const SPIN_HOLD_FRAMES = 18; // hold melee this long and the swing becomes a spin

@@ -79,17 +79,17 @@ const WEAPON_ELEMENTS = Object.freeze(["Fire", "Ice", "Mind"]);
 
 // What a weapon does when it leaves a stat out. The starter dagger is exactly this.
 const MELEE_DEFAULTS = Object.freeze({
-  damage: 2,
+  damage: DEFAULT_MELEE_DAMAGE,
   reach: 28, // pixels from the player's center
-  swingFrames: 12,
+  swingFrames: DEFAULT_MELEE_SWING_FRAMES,
   knockback: 12, // pixels the target slides
-  arc: 100 // degrees
+  arc: DEFAULT_MELEE_ARC // degrees
 });
 
 // Shots are weaker and slower than melee on purpose.
 const RANGED_DEFAULTS = Object.freeze({
   damage: 1,
-  fireRate: 30, // frames between shots
+  fireRate: DEFAULT_FIRE_RATE, // frames between shots
   shotSpeed: 5, // pixels per frame
   range: 200, // pixels before the shot fades
   projectileCount: 1,
