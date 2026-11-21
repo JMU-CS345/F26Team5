@@ -136,6 +136,15 @@ function equipmentNameForItem(item) {
   return null;
 }
 
+// Where the held item and tooltip anchor: the mouse, or the keyboard cursor's slot once the
+// keyboard was used last (otherwise they sit at the stale mouse spot).
+function inventoryPointerFor(keyboardMode, pointer, slot) {
+  if (!keyboardMode || slot === null || slot === undefined) {
+    return pointer;
+  }
+  return { x: slot.x + slot.w / 2, y: slot.y + slot.h / 2 };
+}
+
 // What the player wears in the slot this item would go in, or null (potions and gold have no slot).
 function equippedForItem(inventory, item) {
   const name = equipmentNameForItem(item);

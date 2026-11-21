@@ -21,6 +21,7 @@ let lastKillCenter = null; // where the last enemy died, for the clear reward
 let inventorySelection = null;
 let inventoryInfoLines = [];
 let inventoryCursor = new InventoryCursor();
+let inventoryKeyboardMode = false; // true after a key press in the inventory, false after the mouse
 let gameSettings; // loaded from localStorage in setup()
 let runStats = new RunStats();
 let titleMenu;
@@ -546,7 +547,8 @@ function drawScreen() {
     return;
   }
   if (game.isInventory()) {
-    const pointer = canvasPointer();
+    const cursorSlot = inventoryCursorSlot(player.inventory, inventoryCursor);
+    const pointer = inventoryPointerFor(inventoryKeyboardMode, canvasPointer(), cursorSlot);
     drawRunScene();
     drawInventoryMenu(
       player.inventory,
@@ -556,7 +558,7 @@ function drawScreen() {
       inventoryInfoLines,
       pointer.x,
       pointer.y,
-      inventoryCursorSlot(player.inventory, inventoryCursor)
+      cursorSlot
     );
     drawInventoryHudButton(true);
     return;
@@ -723,14 +725,6 @@ function drawRunScene(shake = { x: 0, y: 0 }) {
   for (const drop of room.items) {
     drawItemDrop(drop);
   }
-  const floorWeapon = findWeaponDropUnderPlayer(player, room);
-  if (floorWeapon !== null && game.isPlaying()) {
-    drawWeaponCard(
-      floorWeapon.item,
-      player.inventory.getEquipped(weaponSlotName(floorWeapon.item)),
-      !player.inventory.canAdd(floorWeapon.item)
-    );
-  }
   for (const p of projectiles) {
     drawProjectile(p);
   }
@@ -754,6 +748,15 @@ function drawRunScene(shake = { x: 0, y: 0 }) {
   drawHitSparks(gameFeel);
   drawDamageNumbers(gameFeel);
   pop();
+  // The card is drawn in screen space; inside the zoomed world it landed off screen.
+  const floorWeapon = findWeaponDropUnderPlayer(player, room);
+  if (floorWeapon !== null && game.isPlaying()) {
+    drawWeaponCard(
+      floorWeapon.item,
+      player.inventory.getEquipped(weaponSlotName(floorWeapon.item)),
+      !player.inventory.canAdd(floorWeapon.item)
+    );
+  }
   drawHud(player);
   drawFirstBossBar();
   drawClassLabel(player.mageClass);
@@ -868,6 +871,7 @@ function toggleTopRightNpc() {
 // Keys inside the inventory: arrows move the cursor, Enter picks up, places or equips, R sorts,
 // L locks, Q drinks a potion, X drops.
 function handleInventoryKey() {
+  inventoryKeyboardMode = true;
   if (keyCode === ESCAPE) {
     toggleInventoryMenu();
     return;
@@ -992,7 +996,8 @@ function keyPressed() {
       toggleTopRightNpc();
       return false;
     }
-    if (debugOverlay && action === null && key.toLowerCase() === "k") {
+    // K is also the Classic fire key, so this one skips the action check.
+    if (debugOverlay && key.toLowerCase() === "k") {
       clearRoomDebug(room);
       return false;
     }
@@ -1042,7 +1047,12 @@ function keyPressed() {
 }
 
 
+function mouseMoved() {
+  inventoryKeyboardMode = false; // the held item and tooltip follow the mouse again
+}
+
 function mousePressed() {
+  inventoryKeyboardMode = false;
   const pointer = canvasPointer();
   if ((game.isPlaying() || game.isInventory())
       && inventoryHudButtonAt(pointer.x, pointer.y)) {

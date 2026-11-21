@@ -114,6 +114,14 @@ describe("Inventory controls and context actions", () => {
     expect(equippedForItem(inventory, new Helmet({ id: "h2", name: "Hat 2" }))).toBe(hat);
   });
 
+  it("anchors the held item to the keyboard cursor slot only in keyboard mode", () => {
+    const slot = { x: 100, y: 200, w: 48, h: 48 };
+    const mouse = { x: 5, y: 6 };
+    expect(inventoryPointerFor(false, mouse, slot)).toEqual(mouse);
+    expect(inventoryPointerFor(true, mouse, slot)).toEqual({ x: 124, y: 224 });
+    expect(inventoryPointerFor(true, mouse, null)).toEqual(mouse);
+  });
+
   it("does not duplicate or lose an item across context-menu swaps", () => {
     const inventory = new PlayerInventory(1);
     const player = { health: 5, maxHealth: 5 };
