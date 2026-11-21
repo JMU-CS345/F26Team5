@@ -39,6 +39,43 @@ function makePotion() {
   });
 }
 
+// Moves a drop onto the nearest floor so it never sits in a wall. Falls back to (homeX, homeY),
+// the death point, when no floor is within 3 tiles. A room without tiles leaves it alone.
+function settleDrop(drop, room, homeX, homeY) {
+  if (typeof room.collidesWithWall !== "function") {
+    return;
+  }
+  const size = drop.size;
+  if (!room.collidesWithWall({ x: drop.x, y: drop.y, w: size, h: size })) {
+    return;
+  }
+  const ts = room.tileSize;
+  const col = Math.floor((drop.x + size / 2 - room.x) / ts);
+  const row = Math.floor((drop.y + size / 2 - room.y) / ts);
+  let best = null;
+  let bestDist = Infinity;
+  for (let r = row - 3; r <= row + 3; r++) {
+    for (let c = col - 3; c <= col + 3; c++) {
+      if (!room.canStandAt(c, r)) {
+        continue;
+      }
+      // The spot in that tile closest to where the drop was.
+      const x = constrainNumber(drop.x, room.x + c * ts, room.x + (c + 1) * ts - size);
+      const y = constrainNumber(drop.y, room.y + r * ts, room.y + (r + 1) * ts - size);
+      const dist = Math.hypot(x - drop.x, y - drop.y);
+      if (dist < bestDist) {
+        best = { x: x, y: y };
+        bestDist = dist;
+      }
+    }
+  }
+  if (best === null) {
+    best = { x: homeX, y: homeY };
+  }
+  drop.x = best.x;
+  drop.y = best.y;
+}
+
 // Weapons laid out in a row centered on (x, y).
 function weaponDropRow(weapons, x, y) {
   return weapons.map((weapon, i) => {
@@ -67,6 +104,9 @@ function rollEnemyDrops(enemy, lootRun, room) {
   }
   if (table.bossGear) {
     drops.push(...weaponDropRow(lootRun.rollBossGear(room), x, y - DROP_SPACING));
+  }
+  for (const drop of drops) {
+    settleDrop(drop, room, x, y);
   }
   return drops;
 }
