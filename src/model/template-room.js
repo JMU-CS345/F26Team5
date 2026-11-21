@@ -317,12 +317,31 @@ class TemplateRoom extends Room {
   }
 
   // Creates the template's enemies, once. Each stands in the middle of its tile.
+  // The first half of the list appears now, the second half later (see room-flow.js). A boss
+  // room only gets its boss.
   spawnEnemies() {
     if (this.spawned) {
       return;
     }
     this.spawned = true;
-    for (const spawn of this.template.spawns) {
+    let spawns = this.template.spawns;
+    const bosses = spawns.filter((s) => ENEMY_TYPES[s.type].boss);
+    if (this.role === "boss" && bosses.length > 0) {
+      spawns = bosses;
+    }
+    const firstCount = Math.ceil(spawns.length / 2);
+    this.addEnemies(spawns.slice(0, firstCount));
+    this.pendingWave = spawns.slice(firstCount);
+  }
+
+  // Creates the second wave.
+  spawnPendingWave() {
+    this.addEnemies(this.pendingWave);
+    this.pendingWave = [];
+  }
+
+  addEnemies(spawns) {
+    for (const spawn of spawns) {
       const type = ENEMY_TYPES[spawn.type];
       const centerX = this.x + (spawn.col + 0.5) * this.tileSize;
       const centerY = this.y + (spawn.row + 0.5) * this.tileSize;

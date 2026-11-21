@@ -45,7 +45,6 @@ const ROOM_X = (CANVAS_WIDTH - ROOM_WIDTH) / 2;
 const ROOM_Y = (CANVAS_HEIGHT - ROOM_HEIGHT) / 2;
 const NPC_TOP_RIGHT_X = ROOM_X + ROOM_WIDTH - 48;
 const NPC_TOP_RIGHT_Y = ROOM_Y + 32;
-const DUNGEON_ROOM_COUNT = 10;
 let worldCamera = { x: 0, y: 0 }; // world position of the screen's top-left corner
 let pageScale = 1; // set by fitToWindow(), also used to line up the page background
 let pageLeft = 0;
@@ -68,6 +67,7 @@ function enterRoom(r) {
   clearDyingEnemies(); // death fades from the old room shouldn't show up in the new one
   room.onEnter();
   room.startEnemyDelay(); // enemies by the door hold still a moment, so they cannot hit on arrival
+  enterRoomFlow(dungeon, room); // seals the doors of a combat room
 }
 
 // Walks the player through an exit into the next room.
@@ -107,7 +107,6 @@ function startRun() {
   }
   roomGraphics.clear();
   dungeon = generateDungeon({
-    roomCount: DUNGEON_ROOM_COUNT,
     screenX: ROOM_X,
     screenY: ROOM_Y
   });
@@ -651,6 +650,7 @@ function drawScreen() {
   enemyProjectiles = enemyProjectiles.filter((p) => p.alive);
   const deadThisFrame = removeDeadEnemies(room);
   handleDeadEnemies(deadThisFrame);
+  updateRoomFlow(room);
 
   if (player.health < lastPlayerHealth) {
     gameFeel.onPlayerHurt();
@@ -658,7 +658,7 @@ function drawScreen() {
   lastPlayerHealth = player.health;
   gameFeel.update();
   drawRunScene(shake);
-  if (!room.cleared && room.enemies.every((e) => e.isDead())) {
+  if (!room.cleared && roomWaveDone(room)) {
     room.onClear();
     // A room with no enemies at all is not counted, only one the player emptied.
     if (deadThisFrame.length > 0) {
@@ -706,6 +706,7 @@ function drawRunScene(shake = { x: 0, y: 0 }) {
   scale(WORLD_ZOOM);
   translate(-worldCamera.x, -worldCamera.y);
   drawRoom(room, roomGraphic);
+  drawRoomFlow(room, player);
   for (const chest of room.chests) {
     drawChest(chest);
   }
@@ -778,6 +779,7 @@ function handleDeadEnemies(dead) {
   for (const enemy of dead) {
     startEnemyDeath(enemy);
     runStats.recordKill();
+    recordKill(room, enemy);
     room.items.push(...rollEnemyDrops(enemy, lootRun, room));
   }
   if (dead.length > 0) {
@@ -959,6 +961,10 @@ function keyPressed() {
     // Debug keys only work while the F3 overlay is on.
     if (debugOverlay && action === null && key.toLowerCase() === "n") {
       toggleTopRightNpc();
+      return false;
+    }
+    if (debugOverlay && action === null && key.toLowerCase() === "k") {
+      clearRoomDebug(room);
       return false;
     }
     if (debugOverlay && action === null && key.toLowerCase() === "b") {

@@ -19,6 +19,12 @@ class Room {
     this.chests = [];
     this.exits = [];
     this.cleared = false;
+    this.state = "unvisited"; // "unvisited", "active" or "cleared"
+    this.visited = false; // set when the player first walks in, the minimap reads it
+    this.lastKillPos = null; // { x, y } centre of the last enemy that died here
+    this.activeFrames = 0; // frames spent in the active state, for the anti-softlock arrow
+    this.pendingWave = []; // spawn spots of the second wave, not created yet
+    this.waveTimer = 0; // frames since the first wave was beaten
 
     // Filled in by the dungeon generator.
     this.id = null;
@@ -56,6 +62,31 @@ class Room {
   // marks the room as cleared
   onClear() {
     this.cleared = true;
+    this.state = "cleared";
+    this.openDoors();
+  }
+
+  // True while a later wave still has to appear, so the room is not clear yet.
+  hasPendingWave() {
+    return this.pendingWave.length > 0;
+  }
+
+  // Every exit tile becomes a solid closed door.
+  sealDoors() {
+    for (const exit of this.exits) {
+      for (const tile of exit.tiles) {
+        this.setTile(tile.col, tile.row, TILE.DOOR_CLOSED);
+      }
+    }
+  }
+
+  // Every exit tile goes back to an open door.
+  openDoors() {
+    for (const exit of this.exits) {
+      for (const tile of exit.tiles) {
+        this.setTile(tile.col, tile.row, TILE.DOOR_OPEN);
+      }
+    }
   }
 
   // The tile type at a grid position. Outside the room counts as wall.

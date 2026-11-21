@@ -222,7 +222,8 @@ describe("parseRoomTemplate and TemplateRoom", function () {
     expect(room.enemies.length).toBe(0);
     room.spawnEnemies();
     room.spawnEnemies();
-    expect(room.enemies.length).toBe(2);
+    expect(room.enemies.length).toBe(1); // the first wave, the second waits
+    expect(room.pendingWave.length).toBe(1);
   });
 
   it("puts each enemy in the middle of its tile", function () {
@@ -235,7 +236,7 @@ describe("parseRoomTemplate and TemplateRoom", function () {
 
   it("spawns its enemies when the player walks in", function () {
     room.onEnter();
-    expect(room.enemies.length).toBe(2);
+    expect(room.enemies.length).toBe(1); // first wave; the second follows (see room-flow.spec.js)
   });
 
   it("finds every drawn door, in the order north, east, south, west", function () {
