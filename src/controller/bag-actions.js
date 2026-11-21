@@ -33,12 +33,14 @@ function dropBagItem(player, room, selection) {
   if (selection === null || selection.sourceKind !== "bag" || selection.item.locked) {
     return false;
   }
-  const inventory = player.inventory;
-  const quantity = inventory.quantityOf(selection.item);
-  if (quantity < 1) {
+  const grid = player.inventory.grid;
+  const entry = grid.itemAt(selection.index % INVENTORY_BAG_COLUMNS,
+    Math.floor(selection.index / INVENTORY_BAG_COLUMNS));
+  if (entry === null || entry.item !== selection.item) {
     return false;
   }
-  inventory.remove(selection.item, quantity);
+  const quantity = entry.quantity; // only the selected stack, not every stack of the item
+  grid.removeEntry(entry);
   const center = player.getCenter();
   const drop = new ItemDrop(
     center.x - ITEM_DROP_SIZE / 2,

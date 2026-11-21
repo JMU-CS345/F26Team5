@@ -331,8 +331,10 @@ function dropInventoryCursorItem(inventory, player, cursor) {
         return null;
       }
       quantity = 1;
+      inventory.remove(slot.item, quantity); // unequip put it in the bag
+    } else {
+      inventory.grid.removeEntry(slot.entry); // this stack only
     }
-    inventory.remove(slot.item, quantity);
   } catch (error) {
     return null;
   }
