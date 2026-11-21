@@ -32,13 +32,38 @@ function cardCenterX(i, count) {
   return width / 2 + (i - (count - 1) / 2) * 260;
 }
 
-// The wizard standing in the class colors, feet on the line at footY.
-function drawModelPreview(mageClass, centerX, footY) {
-  const w = SPRITE_W * MODEL_PREVIEW_SCALE;
-  const h = SPRITE_H * MODEL_PREVIEW_SCALE;
-  const colors = wizardColors(mageClass, DEFAULT_APPEARANCE);
-  const idle = FRAME_TABLE.idle.start;
-  drawWizardFrame(colors, idle, SPRITE_ROWS.down, centerX - w / 2, footY - h, w, h);
+// The chosen model standing and facing down, feet on the line at footY.
+function drawModelPreview(modelName, appearance, centerX, footY) {
+  const model = PLAYER_MODELS[modelName];
+  const w = model.spriteW * MODEL_PREVIEW_SCALE;
+  const h = model.spriteH * MODEL_PREVIEW_SCALE;
+  drawPlayerSprite(modelName, appearance, 0, 0, centerX - w / 2, footY - h, w, h);
+}
+
+// The model screen, step 1 of the character creator. The menu holds one item per model.
+function drawModelMenu(menu) {
+  drawPanel(width / 2 - 440, 90, 880, 470);
+  drawPanelTitle("Choose your playermodel", 140);
+  const count = PLAYER_MODEL_NAMES.length;
+  PLAYER_MODEL_NAMES.forEach((name, i) => {
+    const x = cardCenterX(i, count);
+    drawModelPreview(name, DEFAULT_APPEARANCE, x, 330);
+    noStroke();
+    fill(80, 80, 110);
+    rect(x - 110, 375, 220, 90);
+    fill(255);
+    textAlign(CENTER, CENTER);
+    textSize(28);
+    text(i + 1 + ". " + name, x, 420);
+    if (i === menu.index) {
+      noFill();
+      stroke(...SKIN_GOLD);
+      strokeWeight(4);
+      rect(x - 114, 371, 228, 98);
+      noStroke();
+    }
+  });
+  drawFooterHint("Left/Right move, Enter pick, 1-2 quick pick, Esc back");
 }
 
 function drawTitleScreen(menu) {
@@ -48,11 +73,11 @@ function drawTitleScreen(menu) {
 }
 
 // The class screen. The menu holds one item per class.
-function drawClassMenu(menu) {
+function drawClassMenu(menu, modelName, appearance) {
   const panelX = width / 2 - 440;
   drawPanel(panelX, 90, 880, 470);
   drawPanelTitle("Choose your class", 140);
-  drawModelPreview(MAGE_CLASSES[menu.index], width / 2, 330);
+  drawModelPreview(modelName, appearance, width / 2, 330);
 
   const count = MAGE_CLASSES.length;
   MAGE_CLASSES.forEach((mageClass, i) => {
@@ -195,24 +220,44 @@ function drawCreditsScreen(lines, scroll) {
 }
 
 // Customization screen (#23): a big preview of the player on the left, and one row per part
-// on the right. The < and > buttons and the Start button are p5 DOM buttons, made in sketch.js.
-const CUSTOMIZE_PREVIEW_SCALE = 7;
+// on the right. Each row has a color picker and a hex code box. Both are p5 DOM elements, made in
+// sketch.js, and are placed using the helpers below so they line up with what is drawn here.
+const CUSTOMIZE_PREVIEW_SCALE = 8;
 const CUSTOMIZE_PREVIEW_X = 400; // center x of the preview
-const CUSTOMIZE_ROWS_X = 820; // center x of the option names
+const CUSTOMIZE_ROWS_X = 820; // center x of the rows
 const CUSTOMIZE_ROW_GAP = 80;
-// The wizard has no hair, so that part is the color of the hat.
-const APPEARANCE_LABELS = { skin: "SKIN", eyes: "EYES", hair: "HAT", clothing: "ROBE" };
-const CUSTOMIZE_ARROW_SIZE = 56;
-const CUSTOMIZE_ARROW_OFFSET = 190; // from the row center to each arrow's center
-const CUSTOMIZE_START_W = 200;
-const CUSTOMIZE_START_H = 80;
+const CUSTOMIZE_PANEL_W = 460;
+const CUSTOMIZE_PANEL_H = 64;
+const CUSTOMIZE_PICKER_W = 72;
+const CUSTOMIZE_PICKER_H = 48;
+const CUSTOMIZE_HEX_W = 190;
 
 // Center y of the nth customization row.
 function customizeRowY(i) {
   return 230 + i * CUSTOMIZE_ROW_GAP;
 }
 
-function drawCustomizeMenu(game, selectedRow) {
+// Left edge of the rows' panels.
+function customizePanelLeft() {
+  return CUSTOMIZE_ROWS_X - CUSTOMIZE_PANEL_W / 2;
+}
+
+// Top-left corner of the color picker and the hex box on the nth row.
+function customizePickerPosition(i) {
+  return {
+    x: customizePanelLeft() + 150,
+    y: customizeRowY(i) - CUSTOMIZE_PICKER_H / 2
+  };
+}
+
+function customizeHexPosition(i) {
+  return {
+    x: customizePanelLeft() + 150 + CUSTOMIZE_PICKER_W + 16,
+    y: customizeRowY(i) - CUSTOMIZE_PICKER_H / 2
+  };
+}
+
+function drawCustomizeMenu(game) {
   noStroke();
   fill(255);
   textAlign(CENTER, CENTER);
@@ -221,38 +266,26 @@ function drawCustomizeMenu(game, selectedRow) {
   textSize(28);
   text("Customize your " + game.selectedClass + " Mage", width / 2, 140);
 
-  // Preview: the wizard standing and facing down, feet on a line, in the chosen colors.
-  const w = SPRITE_W * CUSTOMIZE_PREVIEW_SCALE;
-  const h = SPRITE_H * CUSTOMIZE_PREVIEW_SCALE;
-  const colors = wizardColors(game.selectedClass, game.appearance);
-  drawWizardFrame(colors, FRAME_TABLE.idle.start, SPRITE_ROWS.down,
+  // Preview: standing and facing down, feet on the same line for both models.
+  const model = PLAYER_MODELS[game.selectedModel];
+  const w = model.spriteW * CUSTOMIZE_PREVIEW_SCALE;
+  const h = model.spriteH * CUSTOMIZE_PREVIEW_SCALE;
+  drawPlayerSprite(game.selectedModel, game.appearance, 0, 0,
     CUSTOMIZE_PREVIEW_X - w / 2, 500 - h, w, h);
 
   APPEARANCE_PARTS.forEach((part, i) => {
     const y = customizeRowY(i);
-    if (i === selectedRow) {
-      fill(255, 255, 255, 30);
-      rect(CUSTOMIZE_ROWS_X - 230, y - 32, 460, 64, 8);
-    }
-    fill(180);
-    textSize(18);
-    text(APPEARANCE_LABELS[part], CUSTOMIZE_ROWS_X, y - 16);
+    fill(255, 255, 255, 30);
+    rect(customizePanelLeft(), y - CUSTOMIZE_PANEL_H / 2, CUSTOMIZE_PANEL_W, CUSTOMIZE_PANEL_H, 8);
     fill(255);
-    textSize(28);
-    const color = getAppearanceColor(game.appearance, part);
-    if (color === null) {
-      text("Class color", CUSTOMIZE_ROWS_X, y + 12); // keeps the color from the class
-    } else {
-      text(game.appearance[part], CUSTOMIZE_ROWS_X, y + 12);
-      fill(...color);
-      stroke(255);
-      rect(CUSTOMIZE_ROWS_X + 90, y - 2, 28, 28, 4);
-      noStroke();
-    }
+    textSize(24);
+    textAlign(LEFT, CENTER);
+    text(part.toUpperCase(), customizePanelLeft() + 24, y);
   });
 
+  textAlign(CENTER, CENTER);
   textSize(18);
   fill(180);
-  text("Click the arrows, or use W/S and A/D (or the arrow keys). Enter to start.",
+  text("Click a color box to pick a color, or type a hex code like #3c78e6. Enter to start.",
     width / 2, height - 50);
 }

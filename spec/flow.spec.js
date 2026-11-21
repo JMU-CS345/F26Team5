@@ -5,6 +5,7 @@
 function makeRun(mageClass) {
   const game = new Game();
   game.startCharacterSelect();
+  game.selectModel("Tall");
   game.selectClass(mageClass);
   game.finishCustomization();
   const room = new NormalRoom(0, 0, 160, 160);
@@ -25,6 +26,7 @@ describe("game flow", function () {
   it("starts a run when a class is picked", function () {
     const game = new Game();
     game.startCharacterSelect();
+    game.selectModel("Tall");
     game.selectClass(getClassForKey("1"));
     game.finishCustomization();
     expect(game.isPlaying()).toBe(true);
@@ -76,18 +78,19 @@ describe("character creator", () => {
   beforeEach(() => {
     game = new Game();
     game.startCharacterSelect();
+    game.selectModel("Tall");
   });
 
-  it("starts on the class menu with the default model", () => {
+  it("starts on the class menu with the picked model", () => {
     expect(game.isMenu()).toBe(true);
-    expect(game.selectedModel).toBe("Wizard");
+    expect(game.selectedModel).toBe("Tall");
   });
 
   it("keeps the picked model when a class is picked", () => {
     game.selectClass("Ice");
     game.finishCustomization();
     expect(game.isPlaying()).toBe(true);
-    expect(game.selectedModel).toBe("Wizard");
+    expect(game.selectedModel).toBe("Tall");
     expect(game.selectedClass).toBe("Ice");
   });
 
@@ -103,7 +106,7 @@ describe("character creator", () => {
 });
 
 describe("Player model name", () => {
-  it("defaults to the wizard model", () => {
-    expect(new Player(0, 0, "Fire").modelName).toBe("Wizard");
+  it("defaults to the tall model", () => {
+    expect(new Player(0, 0, "Fire").modelName).toBe("Tall");
   });
 });

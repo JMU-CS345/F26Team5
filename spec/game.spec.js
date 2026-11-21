@@ -5,6 +5,7 @@ describe("Game state", function () {
   function gameAtClassMenu() {
     const g = new Game();
     g.startCharacterSelect();
+    g.selectModel("Tall");
     return g;
   }
 
@@ -106,6 +107,7 @@ describe("Game state", function () {
     game.playerDied();
     game.backToTitle();
     game.startCharacterSelect();
+    game.selectModel("Tall");
     expect(game.selectClass("Mind")).toBe(true);
     expect(game.selectedClass).toBe("Mind");
   });
@@ -139,6 +141,7 @@ describe("playerJustDied", function () {
   it("reports a death once, so the death sound cannot repeat every frame", function () {
     const game = new Game();
     game.startCharacterSelect();
+    game.selectModel("Tall");
     game.selectClass("Fire");
     game.finishCustomization();
     const player = new Player(100, 100, "Fire");
@@ -153,5 +156,18 @@ describe("playerJustDied", function () {
     }
     expect(reports).toBe(1);
     expect(game.isDead()).toBe(true);
+  });
+});
+
+describe("getModelForKey", function () {
+  it("maps 1 and 2 to the models in menu order", function () {
+    expect(getModelForKey("1")).toBe("Tall");
+    expect(getModelForKey("2")).toBe("Short");
+  });
+
+  it("ignores every other key", function () {
+    for (const key of ["0", "3", "a", "Enter", "ArrowLeft"]) {
+      expect(getModelForKey(key)).toBeNull();
+    }
   });
 });

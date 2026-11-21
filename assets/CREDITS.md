@@ -16,4 +16,4 @@ Everything else in `assets/` (Jelly and other enemy sheets, weapons, money, and 
 
 Derived from the team's art: the enemy sheets Jelly, Bouncer, Spark Bark, Digger and Bat, which were recolored in place to the game palette.
 
-Drawn for this project: the layered wizard in `assets/player/layers/` (body, robe, hat, hood, eyes and flame sheets, original pixel art written pixel by pixel with a script and recolored in the game), `assets/item/weapon-icons.png`, `assets/item/item-icons.png`, `assets/item/rarity-frames.png` and `assets/effects/effects.png`.
+Drawn for this project: `assets/item/weapon-icons.png`, `assets/item/item-icons.png`, `assets/item/rarity-frames.png` and `assets/effects/effects.png`.

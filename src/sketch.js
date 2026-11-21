@@ -9,13 +9,13 @@ let projectiles = [];
 let enemyProjectiles = [];
 let debugOverlay = false; // F3 toggles hitboxes and detection circles for enemies
 let nextSpawnIndex = 0;
+let customizeControls = []; // every picker, hex box and Start on the customization screen (#23)
+let customizeFields = {}; // part -> { picker, input }: the controls of one customization row
 let dungeon;
 let lootRun; // loot rng and counters for this run
 let room; // the room the player is in right now
 let roomGraphic; // the picture of that room
 let roomGraphics = new Map(); // room id -> picture, built the first time the room is entered
-let customizeButtons = []; // the < and > buttons for each part, and the Start button
-let customizeRow = 0; // highlighted row on the customization screen
 let inventoryDrag = null;
 let inventorySelection = null;
 let inventoryInfoLines = [];
@@ -23,6 +23,7 @@ let inventoryCursor = new InventoryCursor();
 let gameSettings; // loaded from localStorage in setup()
 let runStats = new RunStats();
 let titleMenu;
+let modelMenu;
 let classMenu;
 let pauseMenu;
 let settingsMenu;
@@ -152,29 +153,52 @@ function startRun() {
   pauseMenu.reset(); // a new run starts the pause menu on Resume again
 }
 
+// Picks a playermodel on the model screen and moves on to the class menu.
+function chooseModel(modelName) {
+  if (game.selectModel(modelName)) {
+    playSfx("menu");
+    classMenu.reopen();
+  }
+}
+
 // Picks a class on the menu and moves on to the customization screen.
 function chooseClass(mageClass) {
   if (game.selectClass(mageClass)) {
     playSfx("menu");
-    customizeRow = 0;
-    for (const button of customizeButtons) {
-      button.show();
+    syncCustomizeControls();
+    for (const control of customizeControls) {
+      control.show();
     }
   }
 }
 
-// Changes one part of the look on the customization screen.
-function changeAppearancePart(part, step) {
-  if (game.changeAppearance(part, step)) {
-    customizeRow = APPEARANCE_PARTS.indexOf(part);
+// Sets one part of the look on the customization screen to a hex color. Returns false (and
+// changes nothing) if the color is not valid.
+function changeLook(part, hex) {
+  return game.changeAppearance(part, hex);
+}
+
+// Makes the color pickers and hex boxes show the look the game is holding. Runs when the screen
+// opens, so it starts on the last run's look.
+function syncCustomizeControls() {
+  for (const part of APPEARANCE_PARTS) {
+    showLookInControls(part);
   }
+}
+
+// Puts one part's current color in its picker and hex box, and clears the "bad hex" outline.
+function showLookInControls(part) {
+  const fields = customizeFields[part];
+  fields.picker.elt.value = game.appearance[part];
+  fields.input.elt.value = game.appearance[part];
+  fields.input.elt.style.outline = "";
 }
 
 // Leaves the customization screen and starts the run.
 function finishCustomization() {
   if (game.finishCustomization()) {
-    for (const button of customizeButtons) {
-      button.hide();
+    for (const control of customizeControls) {
+      control.hide();
     }
     startRun();
   }
@@ -184,8 +208,11 @@ function finishCustomization() {
 function goToTitle() {
   activeDialogue.close();
   if (game.backToTitle()) {
-    for (const button of customizeButtons) {
-      button.hide();
+    for (const control of customizeControls) {
+      control.hide();
+    }
+    if (document.activeElement) {
+      document.activeElement.blur(); // a hex box must not keep the keyboard on the title screen
     }
     titleMenu.reopen();
   }
@@ -205,7 +232,7 @@ function openCredits() {
 
 function startCharacterSelect() {
   if (game.startCharacterSelect()) {
-    classMenu.reopen();
+    modelMenu.reopen();
   }
 }
 
@@ -255,6 +282,10 @@ function makeMenus() {
     { label: "Settings", action: openSettings },
     { label: "Credits", action: openCredits }
   ]);
+  modelMenu = new Menu(
+    PLAYER_MODEL_NAMES.map((name) => ({ label: name, action: () => chooseModel(name) })),
+    goToTitle
+  );
   classMenu = new Menu(
     MAGE_CLASSES.map((name) => ({ label: name, action: () => chooseClass(name) })),
     goToTitle
@@ -320,33 +351,60 @@ function closeSettings() {
   game.closeSettings();
 }
 
-function makeCustomizeButtons() {
+function makeCustomizeControls() {
+  const style = (control) => {
+    customizeControls.push(control);
+  };
   APPEARANCE_PARTS.forEach((part, i) => {
-    for (const step of [-1, 1]) {
-      const button = createButton(step < 0 ? "<" : ">");
-      button.size(CUSTOMIZE_ARROW_SIZE, CUSTOMIZE_ARROW_SIZE);
-      button.position(
-        CUSTOMIZE_ROWS_X + step * CUSTOMIZE_ARROW_OFFSET - CUSTOMIZE_ARROW_SIZE / 2,
-        customizeRowY(i) - CUSTOMIZE_ARROW_SIZE / 2
-      );
-      button.style("background-color", "rgb(90, 90, 110)");
-      button.style("color", "white");
-      button.style("font-size", "28px");
-      button.mousePressed(() => changeAppearancePart(part, step));
-      customizeButtons.push(button);
-    }
+    const picker = createColorPicker(DEFAULT_APPEARANCE[part]);
+    picker.size(CUSTOMIZE_PICKER_W, CUSTOMIZE_PICKER_H);
+    const pickerPosition = customizePickerPosition(i);
+    picker.position(pickerPosition.x, pickerPosition.y);
+
+    const input = createInput(DEFAULT_APPEARANCE[part]);
+    input.size(CUSTOMIZE_HEX_W, CUSTOMIZE_PICKER_H);
+    const hexPosition = customizeHexPosition(i);
+    input.position(hexPosition.x, hexPosition.y);
+    input.style("font-size", "24px");
+    input.style("font-family", "monospace");
+    input.style("box-sizing", "border-box");
+    input.attribute("maxlength", "7");
+    input.attribute("spellcheck", "false");
+    input.attribute("aria-label", part + " color hex code");
+
+    // The picker always gives a valid "#rrggbb".
+    picker.elt.addEventListener("input", () => {
+      if (changeLook(part, picker.elt.value)) {
+        showLookInControls(part);
+      }
+    });
+    // While typing, a valid hex code updates the look right away. An invalid one only gets a red
+    // outline, so a half-typed code never changes the character.
+    input.elt.addEventListener("input", () => {
+      const hex = normalizeHex(input.elt.value);
+      if (hex !== null && changeLook(part, hex)) {
+        picker.elt.value = hex;
+        input.elt.style.outline = "";
+      } else {
+        input.elt.style.outline = "3px solid rgb(220, 50, 50)";
+      }
+    });
+    // When the box loses focus (or Enter is pressed), tidy it up: "FC9" becomes "#ffcc99", and a
+    // code that never became valid goes back to the current color.
+    input.elt.addEventListener("change", () => showLookInControls(part));
+
+    customizeFields[part] = { picker, input };
+    style(picker);
+    style(input);
   });
-  const start = createButton("Start run");
-  start.size(CUSTOMIZE_START_W, CUSTOMIZE_START_H);
-  start.position(
-    CUSTOMIZE_ROWS_X - CUSTOMIZE_START_W / 2,
-    customizeRowY(APPEARANCE_PARTS.length) + 10
-  );
-  start.style("background-color", "rgb(60, 140, 80)");
-  start.style("color", "white");
-  start.style("font-size", "24px");
-  start.mousePressed(finishCustomization);
-  customizeButtons.push(start);
+  const startButton = createButton("Start");
+  startButton.size(220, 64);
+  startButton.position(CUSTOMIZE_ROWS_X - 110, customizeRowY(APPEARANCE_PARTS.length) + 10);
+  startButton.mousePressed(finishCustomization);
+  startButton.style("background-color", "rgb(90, 90, 110)");
+  startButton.style("color", "white");
+  startButton.style("font-size", "28px");
+  customizeControls.push(startButton);
 }
 
 async function setup() {
@@ -371,9 +429,9 @@ async function setup() {
   makeMenus();
   // The window losing focus pauses a run. p5 has no event for it, so use the DOM one.
   window.addEventListener("blur", pauseGame);
-  makeCustomizeButtons();
-  for (const button of customizeButtons) {
-    button.hide(); // the customization screen comes after the class menu
+  makeCustomizeControls();
+  for (const control of customizeControls) {
+    control.hide(); // the customization screen comes after the class menu
   }
   setupDone = true;
 }
@@ -470,8 +528,12 @@ function drawScreen() {
     drawCreditsScreen(creditsLines(), creditsScroll);
     return;
   }
+  if (game.isModelSelect()) {
+    drawModelMenu(modelMenu);
+    return;
+  }
   if (game.isMenu()) {
-    drawClassMenu(classMenu, game.selectedModel);
+    drawClassMenu(classMenu, game.selectedModel, game.appearance);
     return;
   }
   if (game.isPaused()) {
@@ -481,7 +543,7 @@ function drawScreen() {
     return;
   }
   if (game.isCustomizing()) {
-    drawCustomizeMenu(game, customizeRow);
+    drawCustomizeMenu(game);
     return;
   }
   if (game.isInventory()) {
@@ -838,6 +900,14 @@ function keyPressed() {
     if (keyCode === ESCAPE) {
       game.closeCredits();
     }
+    return; // leave every other key alone (Tab, F5, ...)
+  }
+  if (game.isModelSelect()) {
+    if (getModelForKey(key) !== null) {
+      chooseModel(getModelForKey(key));
+    } else {
+      handleMenuKey(modelMenu, keyCode, true);
+    }
     return false;
   }
   if (game.isMenu()) {
@@ -857,15 +927,17 @@ function keyPressed() {
       goToTitle();
       return false;
     }
-    const action = getCustomizeAction(key);
-    if (action && action.type === "row") {
-      customizeRow = nextCustomizeRow(customizeRow, action.step);
-    } else if (action && action.type === "option") {
-      changeAppearancePart(APPEARANCE_PARTS[customizeRow], action.step);
-    } else if (action && action.type === "done") {
-      finishCustomization();
+    if (isTypingInCustomizeField(document.activeElement)) {
+      if (keyCode === ENTER) {
+        document.activeElement.blur(); // finish typing; the next Enter starts the run
+      }
+      return; // typing in a hex box is not a game command
     }
-    return false; // keep the arrow keys from scrolling the page
+    if (getCustomizeAction(key) !== null) {
+      finishCustomization();
+      return false;
+    }
+    return; // leave every other key alone (Tab, F5, ...)
   }
   const action = actionForKey(keyCode);
   if ((game.isPlaying() || game.isInventory()) && action === "inventory") {

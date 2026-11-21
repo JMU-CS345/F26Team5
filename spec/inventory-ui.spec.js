@@ -2,6 +2,7 @@ describe("Inventory controls and context actions", () => {
   function playingGame() {
     const game = new Game();
     game.startCharacterSelect();
+    game.selectModel("Tall");
     game.selectClass("Fire");
     game.finishCustomization();
     return game;

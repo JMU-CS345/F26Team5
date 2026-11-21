@@ -4,6 +4,7 @@ describe("Game title, pause, settings and credits", function () {
   function playingGame() {
     const g = new Game();
     g.startCharacterSelect();
+    g.selectModel("Tall");
     g.selectClass("Fire");
     g.finishCustomization();
     return g;
@@ -18,11 +19,19 @@ describe("Game title, pause, settings and credits", function () {
     expect(game.isTitle()).toBe(true);
   });
 
-  it("goes from New Run to the class menu only from the title", function () {
+  it("goes from New Run to the model screen only from the title", function () {
     expect(game.startCharacterSelect()).toBe(true);
-    expect(game.isMenu()).toBe(true);
-    expect(game.selectedModel).toBe("Wizard");
+    expect(game.isModelSelect()).toBe(true);
     expect(game.startCharacterSelect()).toBe(false);
+  });
+
+  it("goes from the model screen to the class menu with the picked model", function () {
+    game.startCharacterSelect();
+    expect(game.selectModel("Wizard")).toBe(false);
+    expect(game.selectModel("Short")).toBe(true);
+    expect(game.isMenu()).toBe(true);
+    expect(game.selectedModel).toBe("Short");
+    expect(game.selectModel("Tall")).toBe(false);
   });
 
   it("cannot pick a class from the title", function () {
@@ -30,8 +39,11 @@ describe("Game title, pause, settings and credits", function () {
     expect(game.isTitle()).toBe(true);
   });
 
-  it("backs out of the class menu to the title and clears the model", function () {
+  it("backs out of the model screen and the class menu to the title and clears the model", function () {
     game.startCharacterSelect();
+    expect(game.backToTitle()).toBe(true);
+    game.startCharacterSelect();
+    game.selectModel("Tall");
     expect(game.backToTitle()).toBe(true);
     expect(game.isTitle()).toBe(true);
     expect(game.selectedModel).toBeNull();
@@ -88,7 +100,7 @@ describe("Game title, pause, settings and credits", function () {
     game.pause();
     expect(game.restartRun()).toBe(true);
     expect(game.isPlaying()).toBe(true);
-    expect(game.selectedModel).toBe("Wizard");
+    expect(game.selectedModel).toBe("Tall");
     expect(game.selectedClass).toBe("Fire");
     expect(game.restartRun()).toBe(false);
   });

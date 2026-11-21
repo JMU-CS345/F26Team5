@@ -1,13 +1,14 @@
 // Game state model. No p5 drawing calls, so Jasmine can test it without a canvas.
 // Tracks which screen the game is on, and the mage class and appearance the player picked.
-// There is one playermodel, the layered wizard.
+// The character creator is three steps: playermodel, class, look.
 
 const GAME_STATES = Object.freeze({
   TITLE: "title",
   SETTINGS: "settings", // opened from the title or the pause menu
   CREDITS: "credits",
-  MENU: "menu", // character select: pick a class
-  CUSTOMIZE: "customize", // pick the look (#23), after the class
+  MODEL: "model", // character creator, step 1: pick a playermodel
+  MENU: "menu", // character creator, step 2: pick a class
+  CUSTOMIZE: "customize", // character creator, step 3: pick the look (#23)
   PLAYING: "playing",
   INVENTORY: "inventory",
   PAUSED: "paused",
@@ -36,6 +37,10 @@ class Game {
 
   isCredits() {
     return this.state === GAME_STATES.CREDITS;
+  }
+
+  isModelSelect() {
+    return this.state === GAME_STATES.MODEL;
   }
 
   // The class menu.
@@ -70,13 +75,22 @@ class Game {
     return this.isPlaying() || this.isDead();
   }
 
-  // New Run on the title screen goes to the class menu. There is one playermodel for now, so
-  // the model is set here and kept in selectedModel for the player code.
+  // New Run on the title screen goes to the model screen.
   startCharacterSelect() {
     if (!this.isTitle()) {
       return false;
     }
-    this.selectedModel = PLAYER_MODEL_NAMES[0];
+    this.state = GAME_STATES.MODEL;
+    return true;
+  }
+
+  // Picks a playermodel and moves on to the class menu. Only works on the model screen, and
+  // only for a real model.
+  selectModel(modelName) {
+    if (!this.isModelSelect() || !PLAYER_MODEL_NAMES.includes(modelName)) {
+      return false;
+    }
+    this.selectedModel = modelName;
     this.state = GAME_STATES.MENU;
     return true;
   }
@@ -178,13 +192,13 @@ class Game {
     return true;
   }
 
-  // Moves one part of the look to the next (step 1) or previous (step -1) option.
-  // Only works on the customization screen.
-  changeAppearance(part, step) {
-    if (!this.isCustomizing() || !APPEARANCE_PARTS.includes(part)) {
+  // Sets one part of the look (body, eyes, shirt or pants) to a hex color like "#3c78e6".
+  // Only works on the customization screen, and only for a real part and a valid color.
+  changeAppearance(part, hex) {
+    if (!this.isCustomizing() || !APPEARANCE_PARTS.includes(part) || !isValidHex(hex)) {
       return false;
     }
-    this.appearance = cycleAppearance(this.appearance, part, step);
+    this.appearance = setAppearanceColor(this.appearance, part, hex);
     return true;
   }
 
@@ -209,7 +223,9 @@ class Game {
   // Leaving a run (death screen or Quit to Title) or backing out of character select.
   // Clears the picked model and class, but keeps the appearance.
   backToTitle() {
-    const allowed = this.isMenu() || this.isCustomizing() || this.isPaused() || this.isDead();
+    const allowed =
+      this.isModelSelect() || this.isMenu() || this.isCustomizing() ||
+      this.isPaused() || this.isDead();
     if (!allowed) {
       return false;
     }
