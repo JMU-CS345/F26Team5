@@ -27,8 +27,7 @@ class Chest {
     return Math.hypot(center.x - this.x, center.y - this.y) <= CHEST_REACH;
   }
 
-  // Opens the chest and returns its drops: [weapon drop, gold drop], or just gold when the
-  // room has no gear slot for it. A chest that is already
+  // Opens the chest and returns its drops: [weapon drop, gold drop]. A chest that is already
   // open gives nothing, so it can never be looted twice.
   open(lootRun, room) {
     if (this.opened) {

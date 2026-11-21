@@ -18,7 +18,7 @@ class Player {
     this.speed = this.stats.speed;
     this.maxHealth = this.stats.health;
     this.health = this.maxHealth;
-    this.inventory = new PlayerInventory(BAG_CAPACITY);
+    this.inventory = new PlayerInventory();
     this.deathFrames = 0; // frames spent dead
     this.fireCooldown = 0; // frames until the player can fire again
     this.iFrames = 0; // frames left of invulnerability after a hit

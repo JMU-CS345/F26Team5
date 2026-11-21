@@ -1,20 +1,22 @@
 // What enemies and cleared rooms drop. Model code: no p5 drawing calls.
 // Load after loot-run.js. An enemy type's lootTable (see enemy-types.js) names a row of
-// LOOT_TABLES. Enemies without a lootTable, the weak ones, drop nothing.
+// LOOT_TABLES. Only the boss has one.
 //
-// Enemies never drop gear by chance. Gear comes from the slots in loot-slots.js, so the tables
-// only hold gold and potions.
+// Normal enemies drop nothing. A cleared room drops one reward where the last enemy died
+// (rollClearReward), and a boss drops its gear where it dies.
 //
 // Row fields:
 //   goldChance    0 to 1, the chance of a gold drop
 //   gold          [min, max] gold in it
 //   potionChance  0 to 1, the chance of a health potion
-//   bossGear      true: the dead enemy also drops the boss slot's weapon (and the bonus piece)
+//   bossGear      true: the dead enemy also drops a rare or better weapon
 
 const LOOT_TABLES = Object.freeze({
-  elite: { goldChance: 0.5, gold: [4, 10], potionChance: 0.1, bossGear: false },
   boss: { goldChance: 1, gold: [30, 60], potionChance: 0.5, bossGear: true }
 });
+
+const CLEAR_GEAR_CHANCE = 0.25;
+const CLEAR_POTION_CHANCE = 0.45; // the rest of the rolls (30%) is a gold pile
 
 const DROP_SPACING = ITEM_DROP_SIZE * 1.5;
 
@@ -69,16 +71,39 @@ function rollEnemyDrops(enemy, lootRun, room) {
   return drops;
 }
 
-// The gear a combat room drops when it is cleared (empty if it has no slot): ItemDrops in the
-// middle of the room.
-function rollClearDrops(room, lootRun) {
-  const weapon = lootRun.rollClearGear(room);
-  if (weapon === null) {
-    return [];
+// The one drop a cleared combat room gives, centered on (x, y): 25% gear, 45% health potion,
+// 30% gold. Returns the ItemDrop, or null for a room that is not a combat room or was already
+// cleared.
+function rollClearReward(room, lootRun, x, y) {
+  if (room.role !== "normal" || lootRun.clearedRoomIds.has(room.id)) {
+    return null;
   }
-  return weaponDropRow(
-    [weapon],
-    room.x + room.width / 2 - ITEM_DROP_SIZE / 2,
-    room.y + room.height / 2 - ITEM_DROP_SIZE / 2
-  );
+  lootRun.clearedRoomIds.add(room.id);
+  const left = x - ITEM_DROP_SIZE / 2;
+  const top = y - ITEM_DROP_SIZE / 2;
+  const roll = lootRun.rng();
+  if (roll < CLEAR_GEAR_CHANCE) {
+    return new ItemDrop(left, top, lootRun.rollGear(room, "chest"));
+  }
+  if (roll < CLEAR_GEAR_CHANCE + CLEAR_POTION_CHANCE) {
+    return new ItemDrop(left, top, makePotion());
+  }
+  const gold = randInt(lootRun.rng, 10, 25) + lootRun.depthOf(room) * 5;
+  return new ItemDrop(left, top, new Gold(), gold);
+}
+
+// Where the clear reward lands: room.lastKillPos when the room tracks it, else the last kill
+// the caller saw, else the room's middle. A point outside the room (a stale kill) is ignored.
+function clearRewardPoint(room, lastKill) {
+  const middle = { x: room.x + room.width / 2, y: room.y + room.height / 2 };
+  const point = room.lastKillPos || lastKill;
+  if (!point) {
+    return middle;
+  }
+  const inside = point.x >= room.x && point.x <= room.x + room.width
+    && point.y >= room.y && point.y <= room.y + room.height;
+  if (!inside) {
+    return middle;
+  }
+  return point;
 }

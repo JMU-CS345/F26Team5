@@ -3,17 +3,17 @@
 const INVENTORY_PANEL = Object.freeze({ x: 140, y: 50, w: 1000, h: 620 });
 const INVENTORY_SLOT_SIZE = 76;
 const INVENTORY_SLOT_GAP = 16;
-const INVENTORY_BAG_SLOT_SIZE = 56; // bag slots are smaller so 6 columns fit
-const INVENTORY_BAG_SLOT_GAP = 8;
-const INVENTORY_BAG_COLUMNS = 6;
-const INVENTORY_BAG_ROWS = 4;
-const INVENTORY_DRAG_THRESHOLD = 5;
+const INVENTORY_BAG_CELL = 48; // one grid cell, items cover several
+const INVENTORY_BAG_COLUMNS = 10;
+const INVENTORY_BAG_ROWS = 6;
+const INVENTORY_BAG_X = 640;
+const INVENTORY_BAG_Y = 240;
 const INVENTORY_CONTEXT_WIDTH = 210;
 const INVENTORY_CONTEXT_ROW_HEIGHT = 34;
 const INVENTORY_HUD_BUTTON = Object.freeze({ x: 1040, y: 674, w: 220, h: 40 }); // below the panel
 const PLAYER_EQUIPMENT_LABELS = Object.freeze({
   melee: "Melee",
-  projectile: "Projectile",
+  projectile: "Magic",
   head: "Head",
   body: "Body",
   legs: "Legs"
@@ -26,44 +26,60 @@ function inventoryPointInRect(x, y, rectangle) {
     && y <= rectangle.y + rectangle.h;
 }
 
+// The paper doll: Head over Body over Legs, Melee on the left and Magic on the right.
+const INVENTORY_DOLL_SLOTS = Object.freeze({
+  head: { x: 330, y: 230 },
+  body: { x: 330, y: 330 },
+  legs: { x: 330, y: 430 },
+  melee: { x: 210, y: 330 },
+  projectile: { x: 450, y: 330 }
+});
+
+// The equipment boxes, and one cell for each spot of the bag grid (row by row). A cell holds
+// the item covering it; itemRect is the whole item's rectangle, cell is just this square.
 function inventoryUiLayout(inventory) {
-  const equipmentPositions = {
-    melee: { x: 210, y: 245 },
-    projectile: { x: 330, y: 245 },
-    head: { x: 210, y: 385 },
-    body: { x: 330, y: 385 },
-    legs: { x: 450, y: 385 }
-  };
   const equipmentSlots = Object.keys(PLAYER_EQUIPMENT_TYPES).map((equipmentName) => ({
     kind: "equipment",
     equipmentName,
     label: PLAYER_EQUIPMENT_LABELS[equipmentName],
     item: inventory.getEquipped(equipmentName),
     quantity: 1,
-    ...equipmentPositions[equipmentName],
+    ...INVENTORY_DOLL_SLOTS[equipmentName],
     w: INVENTORY_SLOT_SIZE,
     h: INVENTORY_SLOT_SIZE
   }));
 
-  const contents = inventory.contents();
   const bagSlots = [];
-  const bagX = 650;
-  const bagY = 245;
-  const slotStep = INVENTORY_BAG_SLOT_SIZE + INVENTORY_BAG_SLOT_GAP;
-  const slotCount = INVENTORY_BAG_COLUMNS * INVENTORY_BAG_ROWS;
-  for (let index = 0; index < slotCount; index++) {
-    const entry = contents[index] === undefined ? null : contents[index];
-    bagSlots.push({
+  const cell = INVENTORY_BAG_CELL;
+  for (let index = 0; index < INVENTORY_BAG_COLUMNS * INVENTORY_BAG_ROWS; index++) {
+    const col = index % INVENTORY_BAG_COLUMNS;
+    const row = Math.floor(index / INVENTORY_BAG_COLUMNS);
+    const entry = inventory.grid.itemAt(col, row);
+    const slot = {
       kind: "bag",
       index,
+      col,
+      row,
       entry,
-      item: entry === null ? null : entry.item,
-      quantity: entry === null ? 0 : entry.quantity,
-      x: bagX + (index % INVENTORY_BAG_COLUMNS) * slotStep,
-      y: bagY + Math.floor(index / INVENTORY_BAG_COLUMNS) * slotStep,
-      w: INVENTORY_BAG_SLOT_SIZE,
-      h: INVENTORY_BAG_SLOT_SIZE
-    });
+      item: null,
+      quantity: 0,
+      x: INVENTORY_BAG_X + col * cell,
+      y: INVENTORY_BAG_Y + row * cell,
+      w: cell,
+      h: cell
+    };
+    slot.itemRect = { x: slot.x, y: slot.y, w: cell, h: cell };
+    if (entry !== null) {
+      slot.item = entry.item;
+      slot.quantity = entry.quantity;
+      slot.itemRect = {
+        x: INVENTORY_BAG_X + entry.col * cell,
+        y: INVENTORY_BAG_Y + entry.row * cell,
+        w: entry.w * cell,
+        h: entry.h * cell
+      };
+    }
+    bagSlots.push(slot);
   }
   return { equipmentSlots, bagSlots };
 }
@@ -74,56 +90,6 @@ function inventorySlotAt(inventory, x, y) {
     .find((slot) => inventoryPointInRect(x, y, slot)) || null;
 }
 
-function beginInventoryDrag(inventory, x, y) {
-  const slot = inventorySlotAt(inventory, x, y);
-  if (slot === null || slot.item === null) {
-    return null;
-  }
-  return {
-    sourceKind: slot.kind,
-    equipmentName: slot.equipmentName || null,
-    item: slot.item,
-    quantity: slot.quantity || 1,
-    startX: x,
-    startY: y
-  };
-}
-
-function inventoryDragMoved(drag, x, y) {
-  if (drag === null) {
-    return false;
-  }
-  return Math.hypot(x - drag.startX, y - drag.startY) >= INVENTORY_DRAG_THRESHOLD;
-}
-
-function finishInventoryDrag(inventory, drag, x, y) {
-  if (drag === null) {
-    return false;
-  }
-  const target = inventorySlotAt(inventory, x, y);
-  if (target === null) {
-    return false;
-  }
-
-  if (drag.sourceKind === "bag" && target.kind === "equipment") {
-    const acceptedType = PLAYER_EQUIPMENT_TYPES[target.equipmentName];
-    if (!(drag.item instanceof acceptedType)) {
-      return false;
-    }
-    try {
-      inventory.equip(drag.item);
-      return true;
-    } catch (error) {
-      return false;
-    }
-  }
-
-  if (drag.sourceKind === "equipment" && target.kind === "bag") {
-    return inventory.unequip(drag.equipmentName) !== null;
-  }
-  return false;
-}
-
 function inventorySelectionAt(inventory, x, y) {
   return inventorySelectionFromSlot(inventorySlotAt(inventory, x, y));
 }
@@ -132,16 +98,17 @@ function inventorySelectionFromSlot(slot) {
   if (slot === null || slot.item === null) {
     return null;
   }
+  const rect = slot.itemRect || slot;
   return Object.freeze({
     sourceKind: slot.kind,
     index: slot.index,
     equipmentName: slot.equipmentName || null,
     item: slot.item,
     quantity: slot.quantity || 1,
-    x: slot.x,
-    y: slot.y,
-    w: slot.w,
-    h: slot.h
+    x: rect.x,
+    y: rect.y,
+    w: rect.w,
+    h: rect.h
   });
 }
 
@@ -330,21 +297,6 @@ function moveInventoryCursorForKey(cursor, code) {
   }
   cursor.move(step[0], step[1]);
   return true;
-}
-
-// Enter: equip, unequip or consume the item under the cursor. An item with nothing to do
-// shows its info instead. Returns { success, infoLines }.
-function useInventoryCursorItem(inventory, player, cursor) {
-  const selection = inventorySelectionFromSlot(inventoryCursorSlot(inventory, cursor));
-  const actions = inventoryContextActions(inventory, player, selection);
-  const usable = actions.find((action) => action.id !== "view" && action.enabled);
-  if (selection === null || actions.length === 0) {
-    return Object.freeze({ success: false, infoLines: Object.freeze([]) });
-  }
-  if (usable === undefined) {
-    return performInventoryContextAction(inventory, player, selection, "view");
-  }
-  return performInventoryContextAction(inventory, player, selection, usable.id);
 }
 
 // X: takes the item under the cursor out of the inventory and returns it as a drop at the
