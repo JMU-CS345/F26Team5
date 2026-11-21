@@ -164,7 +164,7 @@ function drawInventoryContextMenu(inventory, player, selection) {
 // The Diablo tooltip next to an item: rarity-coloured name, base, stats, affixes, sell value
 // and green or red compare lines against what is equipped.
 function drawItemTooltip(inventory, item, anchorX, anchorY) {
-  const lines = itemTooltipLines(item, inventory.getEquipped(equipmentNameForItem(item)));
+  const lines = itemTooltipLines(item, equippedForItem(inventory, item));
   const boxH = lines.length * TOOLTIP_LINE_HEIGHT + 16;
   const boxX = Math.max(0, Math.min(anchorX, width - TOOLTIP_WIDTH));
   const boxY = Math.max(0, Math.min(anchorY, height - boxH));

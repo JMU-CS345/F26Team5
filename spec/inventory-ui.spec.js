@@ -104,6 +104,16 @@ describe("Inventory controls and context actions", () => {
     expect(inventory.quantityOf(potion)).toBe(1);
   });
 
+  it("has nothing equipped to compare a potion or gold with, instead of throwing", () => {
+    const inventory = new PlayerInventory();
+    expect(equippedForItem(inventory, makePotion())).toBeNull();
+    expect(equippedForItem(inventory, new Gold())).toBeNull();
+    const hat = new Helmet({ id: "hat", name: "Hat" });
+    inventory.add(hat);
+    inventory.equip(hat);
+    expect(equippedForItem(inventory, new Helmet({ id: "h2", name: "Hat 2" }))).toBe(hat);
+  });
+
   it("does not duplicate or lose an item across context-menu swaps", () => {
     const inventory = new PlayerInventory(1);
     const player = { health: 5, maxHealth: 5 };

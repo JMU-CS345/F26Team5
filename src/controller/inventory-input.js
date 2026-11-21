@@ -136,6 +136,15 @@ function equipmentNameForItem(item) {
   return null;
 }
 
+// What the player wears in the slot this item would go in, or null (potions and gold have no slot).
+function equippedForItem(inventory, item) {
+  const name = equipmentNameForItem(item);
+  if (name === null) {
+    return null;
+  }
+  return inventory.getEquipped(name);
+}
+
 function inventoryContextActions(inventory, player, selection) {
   if (selection === null) {
     return Object.freeze([]);
