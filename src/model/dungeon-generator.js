@@ -100,7 +100,7 @@ class Dungeon {
 }
 
 // Options (all optional):
-//   roomCount    how many rooms, counting the start and boss rooms (default 10)
+//   roomCount    how many rooms, counting the start and boss rooms (default 6 to 8, from the seed)
 //   seed         whole number; the same seed always gives the same dungeon
 //   loopChance   0..1, chance that two doors that happen to meet get opened (default 0.5)
 //   branchiness  0..1, low = long winding path, high = bushy (default 0.5)
@@ -108,7 +108,7 @@ class Dungeon {
 //   templates    the room list to use (default ROOM_TEMPLATES)
 function generateDungeon(options = {}) {
   const {
-    roomCount = 10,
+    roomCount: askedCount,
     seed = Math.floor(Math.random() * 4294967296),
     loopChance = 0.5,
     branchiness = 0.5,
@@ -123,6 +123,7 @@ function generateDungeon(options = {}) {
   }
 
   const rng = createRng(seed);
+  const roomCount = askedCount === undefined ? 6 + Math.floor(rng() * 3) : askedCount; // 6 to 8
   const library = templates.map(parseRoomTemplate);
   const poolFor = (role) => {
     const pool = library.filter((t) => t.role === role);
