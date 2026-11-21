@@ -89,12 +89,12 @@ function drawEquipmentSlot(slot, selection, hasCursor) {
   }
 }
 
-// The wizard stands between the equipment boxes.
+// The wizard stands below the equipment boxes so no slot covers it.
 function drawPaperDoll(player) {
   const model = PLAYER_MODELS[player.modelName];
   drawPlayerSprite(
     player.modelName, player.appearance, 0, FACING_ROW.down,
-    300, 270, model.spriteW * 5, model.spriteH * 5, 70
+    330, 518, model.spriteW * 4, model.spriteH * 4, 255
   );
 }
 
