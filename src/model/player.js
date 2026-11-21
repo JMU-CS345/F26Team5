@@ -243,7 +243,9 @@ class Player {
         { range: stats.range, pierce: stats.pierce, onHit: stats.onHit, weapon: stats.weapon,
           owner: this }
       );
-      shot.target = this.aimTarget;
+      if (stats.projectileCount === 1) {
+        shot.target = this.aimTarget; // spread shots keep their spread
+      }
       shot.element = element;
       shot.classMatch = isClassMatch(element, this.mageClass);
       shots.push(shot);

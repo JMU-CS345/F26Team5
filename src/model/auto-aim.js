@@ -51,7 +51,11 @@ function meleeSwingDir(player, reach) {
 
 // Turns a shot toward its living target, at most SHOT_TURN_DEG per frame.
 function steerShot(shot) {
-  if (shot.target === null || shot.target.isDead()) {
+  if (shot.target === null || shot.target.isDead() || shot.vel.magSq() === 0) {
+    return;
+  }
+  // A piercing shot already past this target flies on instead of orbiting it.
+  if (shot.hitTargets.includes(shot.target)) {
     return;
   }
   const bounds = shot.getBounds();
