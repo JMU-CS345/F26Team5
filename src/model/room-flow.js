@@ -65,7 +65,22 @@ function softlockTargets(room) {
 }
 
 // Debug key (F3 then K): removes every enemy and wave. The normal clear check does the rest.
-function clearRoomDebug(room) {
+// Also drops every lock-on to the removed enemies, so nothing keeps homing on a ghost.
+function clearRoomDebug(room, player, shots) {
   room.enemies = [];
   room.pendingWave = [];
+  player.aimTarget = null;
+  for (const shot of shots) {
+    shot.target = null;
+  }
+}
+
+// Marks a finished room cleared. It counts toward the run only the first time and only when the
+// player emptied it, so a debug-spawned enemy cannot make one room count twice.
+function markRoomCleared(room, deadCount, runStats) {
+  const firstClear = room.state !== "cleared";
+  room.onClear();
+  if (firstClear && deadCount > 0) {
+    runStats.recordRoomCleared();
+  }
 }

@@ -80,25 +80,6 @@ function useExit(exit) {
   player.pos.set(spot.x - player.length / 2, spot.y - player.width / 2);
 }
 
-// TEMPORARY: a few random enemies on the floor, until room files (#13) place enemies.
-function fillRoomTemp(r) {
-  const names = ["Jelly", "Zombie", "Skeleton", "Bat", "Eyeball"];
-  const count = r.role === "boss" ? 5 : 2 + Math.floor(random(3));
-  for (let n = 0; n < count; n++) {
-    for (let tries = 0; tries < 50; tries++) {
-      const enemy = createEnemy(
-        random(names),
-        random(r.x + r.tileSize, r.x + r.width - 2 * r.tileSize),
-        random(r.y + r.tileSize, r.y + r.height - 2 * r.tileSize)
-      );
-      if (!r.collidesWithWall(enemy.getBounds())) {
-        r.enemies.push(enemy);
-        break;
-      }
-    }
-  }
-}
-
 // Makes a fresh player with the class picked on the menu.
 function startRun() {
   refreshBindings(); // the menus may have changed the controls setting
@@ -149,6 +130,7 @@ function startRun() {
   activeDialogue.close();
   room.cleared = false;
   room.bossDefeated = false;
+  lastKillCenter = null;
   runStats.reset();
   pauseMenu.reset(); // a new run starts the pause menu on Resume again
 }
@@ -663,11 +645,8 @@ function drawScreen() {
   gameFeel.update();
   drawRunScene(shake);
   if (!room.cleared && roomWaveDone(room)) {
-    room.onClear();
     // A room with no enemies at all is not counted, only one the player emptied.
-    if (deadThisFrame.length > 0) {
-      runStats.recordRoomCleared();
-    }
+    markRoomCleared(room, deadThisFrame.length, runStats);
     const spot = clearRewardPoint(room, lastKillCenter);
     const reward = rollClearReward(room, lootRun, spot.x, spot.y);
     if (reward !== null) {
@@ -998,7 +977,7 @@ function keyPressed() {
     }
     // K is also the Classic fire key, so this one skips the action check.
     if (debugOverlay && key.toLowerCase() === "k") {
-      clearRoomDebug(room);
+      clearRoomDebug(room, player, projectiles);
       return false;
     }
     if (debugOverlay && action === null && key.toLowerCase() === "b") {

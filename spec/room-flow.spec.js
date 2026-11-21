@@ -295,7 +295,7 @@ describe("room flow", function () {
     it("F3 then K clears the room and its doors open", function () {
       const room = makeRoom("normal");
       enter(room);
-      clearRoomDebug(room);
+      clearRoomDebug(room, new Player(100, 100, "Fire"), []);
       expect(roomWaveDone(room)).toBe(true);
       room.onClear();
       expect(doorTypes(room).every((t) => t === TILE.DOOR_OPEN)).toBe(true);
