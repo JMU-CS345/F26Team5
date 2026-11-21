@@ -13,9 +13,12 @@ class Projectile {
     this.pos = new p5.Vector(x - this.length / 2, y - this.width / 2);
     this.vel = dir.copy().setMag(speed);
     this.alive = true;
+    this.age = 0; // frames flown, for animated pictures
+    this.sprite = null; // optional { frameTime, frames } picture, set by whoever fires it
   }
   
   update(room) {
+    this.age++;
     this.pos.add(this.vel);
     if (room.collidesWithWall(this.getBounds())) {
       this.alive = false;

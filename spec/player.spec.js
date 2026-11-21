@@ -310,3 +310,84 @@ describe("Player health and death", function () {
     expect(fresh.showDeathScreen()).toBe(false);
   });
 });
+
+describe("Player falling into pits", function () {
+  let room;
+  let player;
+
+  beforeEach(function () {
+    room = new NormalRoom(0, 0, 160, 160);
+    room.setTile(4, 4, TILE.PIT); // pixels 64 to 79
+    player = new Player(64, 64); // standing right over it
+  });
+
+  it("falls and loses health when the middle of the player is over a pit", function () {
+    const before = player.health;
+    player.update(room);
+    expect(player.isFalling()).toBe(true);
+    expect(player.health).toBe(before - PIT_FALL_DAMAGE);
+  });
+
+  it("does not fall when only the edge of the player is over a pit", function () {
+    player.pos.set(50, 64); // the middle is on floor
+    player.update(room);
+    expect(player.isFalling()).toBe(false);
+  });
+
+  it("walks into a pit without being stopped, and falls", function () {
+    player.pos.set(40, 64);
+    for (let i = 0; i < 30 && !player.isFalling(); i++) {
+      player.move(new p5.Vector(1, 0), room);
+      player.update(room);
+    }
+    expect(player.isFalling()).toBe(true);
+  });
+
+  it("falls when a shove carries it over a pit", function () {
+    player.pos.set(50, 64);
+    player.takeDamage(1, new p5.Vector(1, 0));
+    for (let i = 0; i < 12; i++) {
+      player.update(room);
+    }
+    expect(player.isFalling()).toBe(true);
+  });
+
+  it("cannot walk or shoot while falling", function () {
+    player.update(room);
+    const x = player.pos.x;
+    player.move(new p5.Vector(1, 0), room);
+    expect(player.pos.x).toBe(x);
+    expect(player.fire(new p5.Vector(1, 0))).toBeNull();
+  });
+
+  it("cannot be hurt while falling", function () {
+    player.update(room);
+    const enemy = new Enemy(64, 64, "Jelly");
+    enemy.spawnTimer = 0;
+    enemy.wakeTimer = 0;
+    const health = player.health;
+    expect(enemy.damagePlayer(player)).toBe(false);
+    expect(player.health).toBe(health);
+  });
+
+  it("finishes falling after PLAYER_FALL_FRAMES and respawns where it is told", function () {
+    player.update(room);
+    expect(player.hasFinishedFalling()).toBe(false);
+    for (let i = 0; i < PLAYER_FALL_FRAMES; i++) {
+      player.update(room);
+    }
+    expect(player.hasFinishedFalling()).toBe(true);
+    const health = player.health;
+    player.respawnAt(100, 120);
+    expect(player.isFalling()).toBe(false);
+    expect(player.getCenter().x).toBe(100);
+    expect(player.getCenter().y).toBe(120);
+    expect(player.health).toBe(health); // the damage is not undone
+  });
+
+  it("dies if the fall takes the last of its health", function () {
+    player.health = PIT_FALL_DAMAGE;
+    player.update(room);
+    expect(player.isDead()).toBe(true);
+  });
+});

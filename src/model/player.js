@@ -7,6 +7,8 @@ const DEATH_FRAMES = 48; // death animation length (0.8 s at 60 fps)
 const PLAYER_KNOCKBACK_SPEED = 3.5; // pixels per frame at the start of a shove
 const PLAYER_KNOCKBACK_FRAMES = 8; // the player cannot steer for this long after a hit
 const PLAYER_KNOCKBACK_DECAY = 0.8; // the shove keeps this much of its speed each frame
+const PLAYER_FALL_FRAMES = 40; // how long the fall into a pit lasts before the respawn
+const PIT_FALL_DAMAGE = 1; // health lost by falling into a pit
 
 class Player {
   // mageClass is "Fire", "Ice" or "Mind". It picks the starting stats (see player-stats.js).
@@ -28,6 +30,7 @@ class Player {
     this.vel = new p5.Vector(0, 0); // pixels moved by the last walk step, for enemies that lead shots
     this.knockback = new p5.Vector(0, 0); // pixels per frame, shrinks as the shove fades
     this.knockbackTimer = 0; // frames of shove left
+    this.fallFrames = 0; // frames spent falling into a pit, 0 when not falling
 
     // Animation state. The view reads these to pick a sprite frame.
     this.facing = "down"; // "down", "up", "left" or "right"
@@ -51,7 +54,7 @@ class Player {
 
   fire(dir) {
     this.holding = !this.isDead() && dir.magSq() > 0;
-    if (this.isDead() || this.fireCooldown > 0 || dir.magSq() === 0) {
+    if (this.isDead() || this.isFalling() || this.fireCooldown > 0 || dir.magSq() === 0) {
       return null; // can't shoot yet, so don't turn either
     }
     this.faceToward(dir);
@@ -87,6 +90,35 @@ class Player {
     return this.knockbackTimer > 0;
   }
 
+  isFalling() {
+    return this.fallFrames > 0;
+  }
+
+  // Starts falling into a pit. It costs health. While falling the player cannot steer, shoot or be
+  // hit. When it is over, hasFinishedFalling() is true and the game calls respawnAt.
+  startFall() {
+    if (this.isDead() || this.isFalling()) {
+      return;
+    }
+    this.takeDamage(PIT_FALL_DAMAGE);
+    this.fallFrames = 1;
+    this.knockbackTimer = 0;
+    this.vel.set(0, 0);
+    this.walkFrames = 0;
+  }
+
+  hasFinishedFalling() {
+    return this.fallFrames >= PLAYER_FALL_FRAMES;
+  }
+
+  // Puts the player's center at (x, y) and ends the fall.
+  respawnAt(x, y) {
+    this.pos.set(x - this.length / 2, y - this.width / 2);
+    this.fallFrames = 0;
+    this.knockbackTimer = 0;
+    this.vel.set(0, 0);
+  }
+
   // Call once per frame. Counts the death animation and the fire cooldown, and slides the
   // player along a shove. Pass the room so the shove stops at walls.
   update(room) {
@@ -97,12 +129,23 @@ class Player {
     if (this.fireCooldown > 0) {
       this.fireCooldown--;
     }
+    if (this.isFalling()) {
+      this.fallFrames = Math.min(this.fallFrames + 1, PLAYER_FALL_FRAMES);
+      this.knockbackTimer = 0;
+    }
     if (this.knockbackTimer > 0) {
       if (room) {
         moveWithCollision(this, this.knockback.x, this.knockback.y, room);
       }
       this.knockback.mult(PLAYER_KNOCKBACK_DECAY);
       this.knockbackTimer--;
+    }
+    // Whoever ends up with their middle over a pit falls in, however they got there.
+    if (room && typeof room.isPitAt === "function" && !this.isDead() && !this.isFalling()) {
+      const center = this.getCenter();
+      if (room.isPitAt(center.x, center.y)) {
+        this.startFall();
+      }
     }
   }
 
@@ -113,7 +156,7 @@ class Player {
 
   move(dir, room) {
     this.vel.set(0, 0);
-    if (this.isDead() || this.isKnockedBack() || dir.magSq() === 0) {
+    if (this.isDead() || this.isFalling() || this.isKnockedBack() || dir.magSq() === 0) {
       this.walkFrames = 0; // a shove takes the steering away until it fades
       return;
     }

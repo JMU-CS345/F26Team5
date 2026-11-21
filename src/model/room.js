@@ -18,6 +18,7 @@ class Room {
     this.items = [];
     this.exits = [];
     this.cleared = false;
+    this.tileVersion = 0; // goes up whenever a tile changes, so the view knows to redraw the room
 
     // Filled in by the dungeon generator.
     this.id = null;
@@ -52,9 +53,28 @@ class Room {
     }
   }
 
-  // marks the room as cleared
+  // marks the room as cleared and opens the doors
   onClear() {
     this.cleared = true;
+    this.openDoors();
+  }
+
+  // Shuts every door that leads somewhere. A closed door is solid, so nothing gets through it.
+  closeDoors() {
+    this.setDoorTiles(TILE.DOOR_CLOSED);
+  }
+
+  // Opens every door that leads somewhere.
+  openDoors() {
+    this.setDoorTiles(TILE.DOOR_OPEN);
+  }
+
+  setDoorTiles(type) {
+    for (const exit of this.exits) {
+      for (const { col, row } of exit.tiles) {
+        this.setTile(col, row, type);
+      }
+    }
   }
 
   // The tile type at a grid position. Outside the room counts as wall.
@@ -70,7 +90,10 @@ class Room {
     if (row < 0 || col < 0 || row >= this.tileGrid.length || col >= this.tileGrid[0].length) {
       return false;
     }
-    this.tileGrid[row][col] = type;
+    if (this.tileGrid[row][col] !== type) {
+      this.tileGrid[row][col] = type;
+      this.tileVersion++;
+    }
     return true;
   }
 
@@ -103,16 +126,46 @@ class Room {
     return true;
   }
 
-  // True when the pixel is on a solid tile (wall, pit, closed door, interior wall).
+  // True when the pixel is on a solid tile (wall, closed door, interior wall). Pits are not solid.
   isWallAt(px, py) {
     return TILE_PROPERTIES[this.tileAtPixel(px, py)].solid;
   }
 
+  // True when the pixel is over a pit.
+  isPitAt(px, py) {
+    return this.tileAtPixel(px, py) === TILE.PIT;
+  }
+
+  // The pit tiles a box covers, as "col,row" strings. Empty when it covers none.
+  pitTilesUnder(b) {
+    const ts = this.tileSize;
+    const firstCol = Math.floor((b.x - this.x) / ts);
+    const lastCol = Math.floor((b.x + b.w - 1 - this.x) / ts);
+    const firstRow = Math.floor((b.y - this.y) / ts);
+    const lastRow = Math.floor((b.y + b.h - 1 - this.y) / ts);
+    const found = [];
+    for (let r = firstRow; r <= lastRow; r++) {
+      for (let c = firstCol; c <= lastCol; c++) {
+        if (this.getTile(c, r) === TILE.PIT) {
+          found.push(c + "," + r);
+        }
+      }
+    }
+    return found;
+  }
+
+  // True when any part of the box is over a pit.
+  overlapsPit(b) {
+    return this.pitTilesUnder(b).length > 0;
+  }
+
   // True when a thing fw by fh tiles big can stand with its top-left tile at (col, row).
+  // Nothing can stand on a wall or over a pit.
   canStandAt(col, row, fw = 1, fh = 1) {
     for (let r = row; r < row + fh; r++) {
       for (let c = col; c < col + fw; c++) {
-        if (TILE_PROPERTIES[this.getTile(c, r)].solid) {
+        const properties = TILE_PROPERTIES[this.getTile(c, r)];
+        if (properties.solid || properties.hazard) {
           return false;
         }
       }

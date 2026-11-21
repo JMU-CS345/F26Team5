@@ -11,13 +11,15 @@ const TILE = Object.freeze({
   INTERIOR_WALL: 5
 });
 
-// solid: blocks walking. Pits are solid for now; this changes when jumping exists.
+// solid: blocks walking, shots and sight.
+// hazard: a pit. Walkers that end up over it fall in, but shots and sight pass over it, and
+// enemies keep out of it on their own. Only a shove (or a flier) takes anything over one.
 // partOfWall: counts as part of the outer wall when working out edges and corners.
 // To add a tile type, add it to TILE and give it an entry here.
 const TILE_PROPERTIES = Object.freeze({
   [TILE.FLOOR]: { solid: false, partOfWall: false },
   [TILE.WALL]: { solid: true, partOfWall: true },
-  [TILE.PIT]: { solid: true, partOfWall: false },
+  [TILE.PIT]: { solid: false, partOfWall: false, hazard: true },
   [TILE.DOOR_CLOSED]: { solid: true, partOfWall: true },
   [TILE.DOOR_OPEN]: { solid: false, partOfWall: true },
   [TILE.INTERIOR_WALL]: { solid: true, partOfWall: false }

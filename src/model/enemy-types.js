@@ -8,9 +8,14 @@
 //   maxHealth      health when spawned
 //   detectionRange pixels. It only acts when the player is this close.
 //   contactDamage  damage when it touches the player
-//   move           a key of ENEMY_MOVES (enemy-behaviors.js). Hopping moves go straight at the
-//                  player through anything. The others follow the tiles around walls. Every enemy
-//                  needs a clear line of sight to shoot or to use sightSpeed.
+//   move           a key of ENEMY_MOVES (enemy-behaviors.js). Hopping and bouncing moves go
+//                  straight at the player through anything. The others follow the tiles around
+//                  walls. Every other enemy needs a clear line of sight to shoot or to use
+//                  sightSpeed.
+//   noKnockback    optional, true for an enemy that is never shoved by a hit or by contact
+//   flies          optional, true for an enemy that crosses pits and never falls into one.
+//                  Other enemies keep out of pits, and die if a shove carries them over one
+//                  (bosses are too big to fall).
 //   vision         optional. "line" means it only sees the player along the row or column of
 //                  tiles it faces, up to detectionRange away. It faces the way it walks, and
 //                  runs to the spot where it last saw the player. Left out, it senses a circle.
@@ -18,11 +23,22 @@
 //                  least speed, which is then the speed of hunting the last known spot.
 //   attack         null, or { kind, cooldown, damage, ... }. kind is a key of ENEMY_ATTACKS.
 //                  shoot also needs speed and color, and may have count and spread (degrees),
-//                  windup (frames of shaking before the shot, aim locked at the start) and
-//                  lead (0 to 1, how far ahead of a walking player to aim).
-//                  melee needs reach, windup and recover (frames) and no speed or color.
+//                  windup (frames of shaking before the shot, aim locked at the start),
+//                  lead (0 to 1, how far ahead of a walking player to aim), aimSteps (the aim
+//                  snaps to this many evenly spaced directions, 8 for the four cardinals and
+//                  four diagonals) and stare (frames the player must stay in sight before the
+//                  enemy shoots; losing sight starts the count again).
+//                  A shoot attack may add projectile: { frameTime, frames: [{ sheet, x, y, w, h }] },
+//                  an animated picture for its shots. Without it a shot is a colored square.
+//                  The frames must use a sheet that the type's sprite also uses, so it is loaded.
+//                  projectile may also add rotate: true. Then frames face down and are turned
+//                  to the direction of flight, and diagonalFrames (also facing down and to the
+//                  left) are used for shots that fly diagonally.
+//                  melee needs reach (pixels from the enemy's center), windup and recover
+//                  (frames) and no speed or color.
 //                  cooldown is the least time between the starts of two shots or swings.
-//                  Both kinds need a clear line of sight to the player.
+//                  Both kinds need a clear line of sight to the player, except for a bouncing
+//                  enemy, which ignores walls.
 //   boss           true shows a health bar at the top of the screen
 //   phases         optional list like [{ below: 0.5, speed: 1.6, move: "chase", attack: {...} }].
 //                  While health / maxHealth is below `below`, the phase's speed, move and
@@ -35,7 +51,12 @@
 //                  pixels per art pixel, default hitbox length / 16) and
 //                  states: { windup: [frames], attack: [frames] } used while in that state.
 //                  directions: { down, up, left, right } each { hop: [frames], attack: [frames] }
-//                  picks art by which side the player is on (no flipping).
+//                  picks art by which side the player is on (no flipping). hop plays in the
+//                  "hop" and "bounce" states, and hop[0] is shown while resting.
+//                  walk: { down, up, left, right } each { still, cycle }, for enemies that walk
+//                  like the player does. still is the standing frame. While enemy.walkFrames is
+//                  above 0, cycle plays, one frame per frameTime. Facing is the side the
+//                  player is on, and the art is never flipped.
 //                  aimFrames: a ring of frames chosen by the angle to the player.
 //                  A frame's ay is the art y that sits at the hitbox bottom (default h).
 //   color          [r, g, b] square drawn when there is no sprite
@@ -43,6 +64,7 @@
 //   keepRange      only for move "keepDistance"
 //   hopRest, hopFrames, hopSpeed  only for moves "hop" and "hopSwing": frames resting,
 //                  frames dashing, and pixels per frame while dashing
+//   bounce         the move "bounce" needs a melee attack and a speed above 0. It never rests.
 
 const ENEMY_SPRITE_SIZE = 16; // every sprite cell is 16x16 pixels in its sheet
 
@@ -52,6 +74,27 @@ const CREATURE_SHEET = "assets/enemy/tiny-creatures.png";
 // A frame of the Tiny Creatures sheet by tile number, 10 tiles per row counting from 0.
 function creatureFrame(tile) {
   return { sheet: CREATURE_SHEET, x: (tile % 10) * 16, y: Math.floor(tile / 10) * 16 };
+}
+
+// Skeleton art, 16x16 cells: rows are walking down, up, right and left (2 or 3 frames each).
+// The 8x8 shot frames sit at the bottom, from y = 64.
+const SKELETON_SHEET = "assets/enemy/Skulleton.png";
+
+function skeletonFrame(col, row) {
+  return { sheet: SKELETON_SHEET, x: col * 16, y: row * 16 };
+}
+
+// One Skeleton direction, laid out like the player's walk: column 0 is standing, and the cycle
+// goes step, standing, step, standing.
+function skeletonWalk(row, cycleColumns) {
+  return { still: skeletonFrame(0, row), cycle: cycleColumns.map((col) => skeletonFrame(col, row)) };
+}
+
+const BAT_SHEET = "assets/enemy/Bat.png";
+
+// The two flying frames of the Bat, side by side in 16x16 cells.
+function batFrame(index) {
+  return { sheet: BAT_SHEET, x: index * 16, y: 16 };
 }
 
 const BOUNCER_SHEET = "assets/enemy/Bouncer.png";
@@ -118,10 +161,26 @@ const ENEMY_TYPES = Object.freeze({
     move: "keepDistance",
     keepRange: 110,
     attack: { kind: "shoot", cooldown: 110, damage: 1, speed: 2.5, windup: 18, lead: 0.5,
-      color: [235, 235, 220] },
+      color: [235, 235, 220],
+      projectile: {
+        frameTime: 8,
+        frames: [
+          { sheet: SKELETON_SHEET, x: 0, y: 64, w: 8, h: 8 },
+          { sheet: SKELETON_SHEET, x: 8, y: 64, w: 8, h: 8 }
+        ]
+      } },
     boss: false,
     color: [235, 235, 220],
-    sprite: { frameTime: 20, frames: [creatureFrame(1)] }
+    sprite: {
+      frameTime: 10,
+      frames: [skeletonFrame(0, 0)],
+      walk: {
+        down: skeletonWalk(0, [1, 0, 2, 0]),
+        up: skeletonWalk(1, [1, 0, 2, 0]),
+        right: skeletonWalk(2, [1, 0]),
+        left: skeletonWalk(3, [1, 0])
+      }
+    }
   },
   Bat: {
     length: 16,
@@ -131,10 +190,11 @@ const ENEMY_TYPES = Object.freeze({
     detectionRange: 220,
     contactDamage: 1,
     move: "erratic",
+    flies: true,
     attack: null,
     boss: false,
     color: [140, 90, 60],
-    sprite: { frameTime: 8, frames: [creatureFrame(132), creatureFrame(138)] }
+    sprite: { frameTime: 8, frames: [batFrame(0), batFrame(1)] }
   },
   Eyeball: {
     length: 16,
@@ -159,34 +219,35 @@ const ENEMY_TYPES = Object.freeze({
     sprite: { frameTime: 20, frames: [creatureFrame(5)] }
   },
   Bouncer: {
-    length: 16,
-    width: 16,
-    speed: 0, // it only moves in its dashes
+    length: 32,
+    width: 32,
+    speed: 1.1, // it bounces after the player the whole time, along one axis at a time
     maxHealth: 5,
     detectionRange: 220,
     contactDamage: 1,
-    move: "hopSwing",
-    hopRest: 50,
-    hopFrames: 14,
-    hopSpeed: 2,
-    attack: { kind: "melee", cooldown: 60, damage: 1, reach: 26, windup: 20, recover: 24 },
+    move: "bounce",
+    noKnockback: true,
+    attack: { kind: "melee", cooldown: 34, damage: 1, reach: 34, windup: 8, recover: 12 },
     boss: false,
     color: [90, 90, 200],
-    // Four directions, each with 2 hop frames and a sword frame, drawn at half size. Hop cells
-    // are 32x32 with the feet on the bottom row. A frame's ax and ay are the art pixel that
-    // sits at the bottom center of the hitbox.
+    // Four directions, each with 2 hop frames and a sword frame, drawn at full size. Hop cells
+    // are 32x32 with the feet on the bottom row. The sword frames are bigger, with the blade
+    // reaching out the way he faces. A frame's ax and ay are the art pixel that sits at the
+    // bottom center of the hitbox.
     sprite: {
-      frameTime: 6,
-      scale: 0.5,
+      frameTime: 8,
+      scale: 1,
       frames: bouncerHops(0),
       directions: {
         down: {
           hop: bouncerHops(0),
-          attack: [{ sheet: BOUNCER_SHEET, x: 0, y: 130, w: 32, h: 47, ax: 17, ay: 28 }]
+          attack: [{ sheet: BOUNCER_SHEET, x: 0, y: 130, w: 32, h: 46, ax: 17, ay: 28 }]
         },
         up: {
           hop: bouncerHops(32),
-          attack: [{ sheet: BOUNCER_SHEET, x: 0, y: 177, w: 32, h: 45, ax: 17 }]
+          // On the sheet the two swords meet tip to tip at rows 175 and 176: the forwards sword
+          // hangs down from his hand, and the backwards sword points up from his hilt.
+          attack: [{ sheet: BOUNCER_SHEET, x: 0, y: 176, w: 32, h: 48, ax: 17 }]
         },
         right: {
           hop: bouncerHops(64),
@@ -202,13 +263,28 @@ const ENEMY_TYPES = Object.freeze({
   SparkBark: {
     length: 16,
     width: 16,
-    speed: 0.5,
+    speed: 0,
     maxHealth: 4,
     detectionRange: 240,
     contactDamage: 1,
-    move: "chase",
-    attack: { kind: "shoot", cooldown: 100, damage: 1, speed: 2.2, count: 3, spread: 25,
-      windup: 14, lead: 0.5, color: [120, 220, 90] },
+    move: "none", // a turret
+    // Once the player has stayed in sight for `stare` frames it fires one spark along the
+    // nearest of the eight directions to the player.
+    attack: { kind: "shoot", cooldown: 30, damage: 1, speed: 2.2, windup: 14, aimSteps: 8, stare: 90,
+      color: [120, 220, 90],
+      projectile: {
+        frameTime: 6,
+        rotate: true,
+        // Facing down, then facing down and to the left. Both are 16x16 cells.
+        frames: [
+          { sheet: SPARK_BARK_SHEET, x: 0, y: 64, w: 16, h: 16 },
+          { sheet: SPARK_BARK_SHEET, x: 16, y: 64, w: 16, h: 16 }
+        ],
+        diagonalFrames: [
+          { sheet: SPARK_BARK_SHEET, x: 32, y: 64, w: 16, h: 16 },
+          { sheet: SPARK_BARK_SHEET, x: 48, y: 64, w: 16, h: 16 }
+        ]
+      } },
     boss: false,
     color: [120, 220, 90],
     // The Tracking Player row: 8 frames, each 16 wide and 32 tall, standing on the hitbox.
@@ -286,6 +362,9 @@ function allSpriteFrames(sprite) {
   for (const dirName of Object.keys(sprite.directions || {})) {
     list = list.concat(sprite.directions[dirName].hop, sprite.directions[dirName].attack);
   }
+  for (const dirName of Object.keys(sprite.walk || {})) {
+    list = list.concat(sprite.walk[dirName].still, sprite.walk[dirName].cycle);
+  }
   return list.concat(sprite.aimFrames || []);
 }
 
@@ -295,10 +374,17 @@ function enemySpriteFrame(enemy, sprite, tick) {
     return sprite.aimFrames[aimFrameIndex(enemy.facingAngle, sprite.aimFrames.length)];
   }
   let frames = sprite.frames;
+  if (sprite.walk) {
+    const set = sprite.walk[enemy.facingDir];
+    if (enemy.walkFrames === 0) {
+      return set.still;
+    }
+    return set.cycle[Math.floor(enemy.walkFrames / sprite.frameTime) % set.cycle.length];
+  }
   if (sprite.directions) {
     const set = sprite.directions[enemy.facingDir];
     frames = [set.hop[0]]; // still while resting, winding up or recovering
-    if (enemy.state === "hop") {
+    if (enemy.state === "hop" || enemy.state === "bounce") {
       frames = set.hop;
     } else if (enemy.state === "attack") {
       frames = set.attack;
@@ -344,6 +430,12 @@ function checkEnemyAttack(attackTable, bad) {
     }
     if (attack.lead !== undefined && !(isNumberAtLeast(attack.lead, 0) && attack.lead <= 1)) {
       bad("attack.lead must be between 0 and 1");
+    }
+    if (attack.aimSteps !== undefined && !(Number.isInteger(attack.aimSteps) && attack.aimSteps >= 2)) {
+      bad("attack.aimSteps must be a whole number of at least 2");
+    }
+    if (attack.stare !== undefined && !isNumberAtLeast(attack.stare, 1)) {
+      bad("attack.stare must be a number of at least 1");
     }
   }
   if (attack.kind !== "melee" && !isColor(attack.color)) {
@@ -451,6 +543,14 @@ function validateEnemyTypes(types = ENEMY_TYPES) {
     }
     if (type.move === "hopSwing" && !(type.attack && type.attack.kind === "melee")) {
       bad("hopSwing needs a melee attack");
+    }
+    if (type.move === "bounce") {
+      if (!(type.attack && type.attack.kind === "melee")) {
+        bad("bounce needs a melee attack");
+      }
+      if (!isNumberAtLeast(type.speed, 0.01)) {
+        bad("bounce needs speed above 0");
+      }
     }
     if (type.attack !== null) {
       checkEnemyAttack(type.attack, bad);

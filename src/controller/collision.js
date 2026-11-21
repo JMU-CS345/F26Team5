@@ -5,7 +5,7 @@ function rectsOverlap(a, b) {
 
 // Applies an enemy projectile to the player. Returns true on a hit.
 function projectileHitsPlayer(projectile, player) {
-  if (player.isDead() || !projectile.alive) {
+  if (player.isDead() || player.isFalling() || !projectile.alive) {
     return false;
   }
   if (!rectsOverlap(projectile.getBounds(), player.getBounds())) {

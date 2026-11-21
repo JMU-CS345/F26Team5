@@ -347,3 +347,66 @@ describe("Zombie line vision", function () {
     expect(zombie.alertTimer).toBe(0);
   });
 });
+
+describe("Enemies and pits", function () {
+  let room;
+  let player;
+
+  const makeEnemy = (typeName, x, y) => {
+    const enemy = new Enemy(x, y, typeName);
+    enemy.spawnTimer = 0;
+    enemy.wakeTimer = 0;
+    return enemy;
+  };
+
+  beforeEach(function () {
+    room = new NormalRoom(0, 0, 640, 400);
+    room.setTile(10, 5, TILE.PIT); // pixels x 160 to 175, y 80 to 95
+    player = new Player(500, 300);
+  });
+
+  it("keeps a walking enemy out of a pit", function () {
+    const enemy = makeEnemy("Jelly", 140, 80);
+    for (let i = 0; i < 20; i++) {
+      moveWithCollision(enemy, 2, 0, room);
+      expect(room.overlapsPit(enemy.getBounds())).toBe(false);
+    }
+    expect(enemy.pos.x).toBeGreaterThan(130);
+  });
+
+  it("lets a flier cross a pit", function () {
+    const bat = makeEnemy("Bat", 140, 80);
+    for (let i = 0; i < 30; i++) {
+      moveWithCollision(bat, 2, 0, room);
+    }
+    expect(bat.pos.x).toBe(200);
+  });
+
+  it("kills an enemy that a shove carries over a pit", function () {
+    const enemy = makeEnemy("Jelly", 150, 80); // middle at x 158, two pixels short of the pit
+    enemy.applyKnockback(new p5.Vector(1, 0));
+    for (let i = 0; i < 10 && !enemy.isDead(); i++) {
+      enemy.update(player, room);
+    }
+    expect(enemy.isDead()).toBe(true);
+    expect(enemy.fell).toBe(true);
+  });
+
+  it("does not kill an enemy that is only shoved toward a pit", function () {
+    const enemy = makeEnemy("Jelly", 100, 80);
+    enemy.applyKnockback(new p5.Vector(1, 0));
+    for (let i = 0; i < 10; i++) {
+      enemy.update(player, room);
+    }
+    expect(enemy.isDead()).toBe(false);
+  });
+
+  it("does not drop a flier or a boss into a pit", function () {
+    const bat = makeEnemy("Bat", 160, 80);
+    const demon = makeEnemy("Demon", 152, 72); // 32 wide, its middle is over the pit
+    bat.update(player, room);
+    demon.update(player, room);
+    expect(bat.isDead()).toBe(false);
+    expect(demon.isDead()).toBe(false);
+  });
+});

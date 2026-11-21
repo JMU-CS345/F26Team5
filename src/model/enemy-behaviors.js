@@ -6,7 +6,7 @@
 // it is in detection range, and a wall just stops the hop. Add a hopping move's name here.
 // Every other move walks whole tiles around walls. Walkers notice the player anywhere in
 // detection range, but shooting and sight speed need a clear line of sight.
-const ENEMY_DIRECT_MOVES = Object.freeze(["hop", "hopSwing"]);
+const ENEMY_DIRECT_MOVES = Object.freeze(["hop", "hopSwing", "bounce"]);
 
 // A move runs once per frame while the enemy is alive and not frozen by a hit.
 const ENEMY_MOVES = Object.freeze({
@@ -80,6 +80,30 @@ const ENEMY_MOVES = Object.freeze({
     hopStep(enemy, player, room, "hop");
   },
 
+  // Bounces after the player the whole time, in the four cardinal directions only, and swings
+  // the moment the player is in front of it (inside the swing box, attack.reach from its
+  // center). It never rests, and like the hoppers it ignores walls and sight.
+  bounce: function (enemy, player, room) {
+    const attack = enemy.getAttack();
+    if (enemy.state === "windup" && enemy.stateTimer === 0) {
+      enemy.setState("attack", ENEMY_SWING_FRAMES); // meleeHit can hurt during this state
+      enemy.swingHit = false;
+    } else if (enemy.state === "attack" && enemy.stateTimer === 0) {
+      enemy.setState("recover", attack.recover);
+    } else if (enemy.state === "recover" && enemy.stateTimer === 0) {
+      enemy.setState("idle", 0);
+    }
+    if (enemy.state === "windup" || enemy.state === "attack" || enemy.state === "recover") {
+      return; // it stands still for the swing
+    }
+    if (enemy.attackTimer === 0 && rectsOverlap(enemy.getSwingBox(attack.reach), player.getBounds())) {
+      enemy.setState("windup", attack.windup);
+      enemy.attackTimer = attack.cooldown;
+      return;
+    }
+    bounceStep(enemy, player, room);
+  },
+
   // Hops like hop, but swings when the player is within attack.reach at the end of a rest.
   // attack.cooldown is the least time between the starts of two swings.
   hopSwing: function (enemy, player, room) {
@@ -107,6 +131,78 @@ const ENEMY_MOVES = Object.freeze({
     }
   }
 });
+
+const ENEMY_BOUNCE_SLACK = 12; // pixels the other axis must be ahead before a bouncer switches to it
+const ENEMY_SIDESTEP_FRAMES = 40; // how long a bouncer keeps edging around something that blocked it
+
+// Moves a bouncer one step along (stepX, stepY) and makes it face that way. False if it is blocked.
+function bounceMove(enemy, stepX, stepY, room) {
+  const x = enemy.pos.x;
+  const y = enemy.pos.y;
+  const speed = enemy.getSpeed();
+  moveWithCollision(enemy, stepX * speed, stepY * speed, room);
+  if (enemy.pos.x === x && enemy.pos.y === y) {
+    return false;
+  }
+  enemy.faceDirection(stepX, stepY); // look where it is bouncing
+  return true;
+}
+
+// One step of a bouncer toward its target: along one axis, switching axis only when the other
+// is clearly further, so it does not zigzag. When something blocks the way it edges around it
+// (toward the player's side, or a remembered side if they are straight behind it) for a while.
+function bounceStep(enemy, player, room) {
+  const target = enemy.getTarget(player, room);
+  if (!target) {
+    enemy.setState("idle", 0);
+    enemy.bounceAxis = null;
+    return;
+  }
+  enemy.setState("bounce", 0); // the sprite bounces while it is in this state
+  const center = enemy.getCenter();
+  const dx = target.x - center.x;
+  const dy = target.y - center.y;
+  const speed = enemy.getSpeed();
+  if (Math.abs(dx) < speed && Math.abs(dy) < speed) {
+    return; // on top of the target
+  }
+  if (enemy.sidestepFrames > 0) {
+    enemy.sidestepFrames--;
+    if (bounceMove(enemy, enemy.sidestepX, enemy.sidestepY, room)) {
+      return;
+    }
+    enemy.sidestepFrames = 0;
+    enemy.sidestepSide = -enemy.sidestepSide; // blocked that way too, so try the other way next
+  }
+  let horizontal = enemy.bounceAxis === "x";
+  if (
+    enemy.bounceAxis === null ||
+    (horizontal && Math.abs(dy) > Math.abs(dx) + ENEMY_BOUNCE_SLACK) ||
+    (!horizontal && Math.abs(dx) > Math.abs(dy) + ENEMY_BOUNCE_SLACK)
+  ) {
+    horizontal = Math.abs(dx) >= Math.abs(dy);
+  }
+  if (horizontal && Math.abs(dx) < speed) {
+    horizontal = false; // lined up on this axis, so close in along the other
+  } else if (!horizontal && Math.abs(dy) < speed) {
+    horizontal = true;
+  }
+  enemy.bounceAxis = horizontal ? "x" : "y";
+  const sx = Math.sign(dx);
+  const sy = Math.sign(dy);
+  if (bounceMove(enemy, horizontal ? sx : 0, horizontal ? 0 : sy, room)) {
+    return;
+  }
+  const sideX = horizontal ? 0 : sx || enemy.sidestepSide;
+  const sideY = horizontal ? sy || enemy.sidestepSide : 0;
+  if (bounceMove(enemy, sideX, sideY, room)) {
+    enemy.sidestepX = sideX;
+    enemy.sidestepY = sideY;
+    enemy.sidestepFrames = ENEMY_SIDESTEP_FRAMES;
+  } else {
+    enemy.sidestepSide = -enemy.sidestepSide;
+  }
+}
 
 // One frame of the hop cycle. dashState is the state name used while dashing.
 function hopStep(enemy, player, room, dashState) {
@@ -171,7 +267,14 @@ function shootAim(enemy, player, attack) {
     const flight = Math.min(point.dist(center) / attack.speed, ENEMY_MAX_LEAD_FRAMES);
     point.add(player.vel.copy().mult(flight * attack.lead));
   }
-  return point.sub(center);
+  const aim = point.sub(center);
+  if (attack.aimSteps && aim.magSq() > 0) {
+    // Snap to the nearest of aimSteps evenly spaced directions (8 gives the cardinals and diagonals).
+    const step = (2 * Math.PI) / attack.aimSteps;
+    const angle = Math.round(Math.atan2(aim.y, aim.x) / step) * step;
+    return new p5.Vector(Math.cos(angle), Math.sin(angle)).mult(aim.mag());
+  }
+  return aim;
 }
 
 // Builds the projectiles for one volley along aim.
@@ -185,6 +288,9 @@ function fireShots(enemy, aim, attack) {
     dir.rotate((i - (count - 1) / 2) * step);
     const shot = new Projectile(center.x, center.y, dir, attack.damage, attack.speed);
     shot.color = attack.color.slice(); // a copy, so the table is never shared
+    if (attack.projectile) {
+      shot.sprite = attack.projectile; // read only, shared. The view animates it from shot.age.
+    }
     shots.push(shot);
   }
   return shots;
@@ -210,7 +316,14 @@ const ENEMY_ATTACKS = Object.freeze({
       enemy.setState("idle", 0);
       return locked && locked.magSq() > 0 ? fireShots(enemy, locked, attack) : [];
     }
-    if (enemy.attackTimer > 0 || !enemy.canSee(player, room)) {
+    const sees = enemy.canSee(player, room);
+    if (attack.stare) {
+      enemy.stareTimer = sees ? enemy.stareTimer + 1 : 0; // staring starts over when sight is lost
+    }
+    if (enemy.attackTimer > 0 || !sees) {
+      return [];
+    }
+    if (attack.stare && enemy.stareTimer < attack.stare) {
       return [];
     }
     const aim = shootAim(enemy, player, attack);
@@ -218,6 +331,7 @@ const ENEMY_ATTACKS = Object.freeze({
       return []; // no direction to aim, and a zero vector would give NaN
     }
     enemy.attackTimer = attack.cooldown;
+    enemy.stareTimer = 0;
     if (attack.windup > 0) {
       enemy.aimDir = aim;
       enemy.setState("windup", attack.windup);

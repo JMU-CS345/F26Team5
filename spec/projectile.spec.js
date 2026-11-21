@@ -103,3 +103,20 @@ describe("Projectile speed", function () {
     expect(p.vel.mag()).toBeCloseTo(PROJECTILE_SPEED, 5);
   });
 });
+
+describe("Projectile and pits", function () {
+  it("flies over a pit instead of disappearing, and still stops at a wall", function () {
+    const room = new NormalRoom(0, 0, 160, 160);
+    room.setTile(5, 5, TILE.PIT); // pixels 80 to 95
+    const p = new Projectile(40, 88, new p5.Vector(1, 0));
+    let crossed = false;
+    for (let i = 0; i < 200 && p.alive; i++) {
+      p.update(room);
+      if (p.alive && p.pos.x > 100) {
+        crossed = true; // past the pit and still flying
+      }
+    }
+    expect(crossed).toBe(true);
+    expect(p.alive).toBe(false); // the wall at the far side of the room
+  });
+});

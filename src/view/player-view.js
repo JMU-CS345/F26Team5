@@ -58,11 +58,14 @@ function getPlayerFrame(player) {
 }
 
 function drawPlayer(player) {
-  // Alive: t is 0, so full size and fully opaque. Dying: fade out and shrink.
-  const t = player.deathFrames / DEATH_FRAMES;
-  if (t >= 1) {
+  // Alive: t is 0, so full size and fully opaque. Dying: fade out and shrink. Falling into a
+  // pit: shrink only, then the respawn brings the player back at full size.
+  const deathT = player.deathFrames / DEATH_FRAMES;
+  if (deathT >= 1) {
     return;
   }
+  const fallT = player.isFalling() ? Math.min(player.fallFrames / PLAYER_FALL_FRAMES, 1) : 0;
+  const t = Math.max(deathT, fallT);
   const model = PLAYER_MODELS[player.modelName];
   const sw = model.spriteW;
   const sh = model.spriteH;
@@ -76,7 +79,7 @@ function drawPlayer(player) {
   const top = player.pos.y - (sh - player.width) + (sh - h) / 2;
 
   drawPlayerSprite(player.modelName, player.appearance, f.col, f.row, left, top, w, h,
-    lerp(255, 0, t));
+    lerp(255, 0, deathT));
 }
 
 function drawHealthBar(player) {

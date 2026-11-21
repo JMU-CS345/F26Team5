@@ -15,8 +15,8 @@ let customizeControls = []; // every color picker, hex box and Start, on the cus
 let customizeFields = {}; // part -> { picker, input }: the controls of one customization row
 let dungeon;
 let room; // the room the player is in right now
-let roomGraphic; // the picture of that room
-let roomGraphics = new Map(); // room id -> picture, built the first time the room is entered
+let entrySpot = { x: 0, y: 0 }; // where the player stands after coming through the door, or starting. A fall into a pit respawns here
+let roomGraphics = new Map(); // room id -> { graphic, version }, the room's picture and the room.tileVersion it shows
 let restartShown = false;
 let modelButtons = [];
 let inventoryDrag = null;
@@ -37,18 +37,24 @@ let pageScale = 1; // set by fitToWindow(), also used to line up the page backgr
 let pageLeft = 0;
 let pageTop = 0;
 
-// Makes the picture of a room the first time it is needed, and reuses it after that.
+// Makes the picture of a room the first time it is needed and reuses it after that. If a tile
+// has changed since (a door opened or closed), the picture is made again.
 function getRoomGraphic(r) {
-  if (!roomGraphics.has(r.id)) {
-    roomGraphics.set(r.id, buildRoomGraphic(r));
+  const cached = roomGraphics.get(r.id);
+  if (cached && cached.version === r.tileVersion) {
+    return cached.graphic;
   }
-  return roomGraphics.get(r.id);
+  if (cached) {
+    cached.graphic.remove();
+  }
+  const graphic = buildRoomGraphic(r);
+  roomGraphics.set(r.id, { graphic, version: r.tileVersion });
+  return graphic;
 }
 
 // Moves the game into a room. Shots in flight don't follow the player through a door.
 function enterRoom(r) {
   room = r;
-  roomGraphic = getRoomGraphic(r);
   projectiles = [];
   enemyProjectiles = [];
   room.onEnter();
@@ -60,6 +66,7 @@ function useExit(exit) {
   const next = dungeon.rooms[exit.toId];
   const spot = dungeon.entryPoint(room, exit);
   enterRoom(next);
+  entrySpot = spot;
   player.pos.set(spot.x - player.length / 2, spot.y - player.width / 2);
 }
 
@@ -74,7 +81,7 @@ function fillRoomTemp(r) {
         random(r.x + r.tileSize, r.x + r.width - 2 * r.tileSize),
         random(r.y + r.tileSize, r.y + r.height - 2 * r.tileSize)
       );
-      if (!r.collidesWithWall(enemy.getBounds())) {
+      if (!r.collidesWithWall(enemy.getBounds()) && !r.overlapsPit(enemy.getBounds())) {
         r.enemies.push(enemy);
         break;
       }
@@ -84,8 +91,8 @@ function fillRoomTemp(r) {
 
 // Makes a fresh player with the class picked on the menu.
 function startRun() {
-  for (const g of roomGraphics.values()) {
-    g.remove(); // free the old dungeon's pictures
+  for (const cached of roomGraphics.values()) {
+    cached.graphic.remove(); // free the old dungeon's pictures
   }
   roomGraphics.clear();
   dungeon = generateDungeon({
@@ -103,6 +110,7 @@ function startRun() {
     game.selectedModel,
     game.appearance
   );
+  entrySpot = { x: spawn.x, y: spawn.y };
   // Placeholder pickups until room data supplies item placement.
   room.items = [
     new ItemDrop(spawn.x - 48, spawn.y - 48, new ProjectileWeapon({
@@ -377,7 +385,7 @@ function draw() {
   }
   if (game.isInventory()) {
     const pointer = canvasPointer();
-    drawRoom(room, roomGraphic);
+    drawRoom(room, getRoomGraphic(room));
     drawRunScene();
     drawInventoryMenu(
       player.inventory,
@@ -401,7 +409,7 @@ function draw() {
       useExit(exit);
     }
   }
-  drawRoom(room, roomGraphic);
+  drawRoom(room, getRoomGraphic(room));
 
   const heldInputBlocked = resumeInputBlocked && isGameplayInputHeld(keyIsDown);
   if (resumeInputBlocked && !heldInputBlocked) {
@@ -440,6 +448,9 @@ function draw() {
     }
   }
   player.update(room);
+  if (player.hasFinishedFalling() && !player.isDead()) {
+    player.respawnAt(entrySpot.x, entrySpot.y); // back at the door they came in through
+  }
 
   for (const p of projectiles) {
     p.update(room);
@@ -555,7 +566,7 @@ function spawnNextEnemy() {
       true
     );
     const far = p5.Vector.dist(enemy.getCenter(), player.getCenter()) > 150;
-    if (far && !room.collidesWithWall(enemy.getBounds())) {
+    if (far && !room.collidesWithWall(enemy.getBounds()) && !room.overlapsPit(enemy.getBounds())) {
       room.enemies.push(enemy);
       room.cleared = false;
       return;
