@@ -39,7 +39,7 @@ describe("Game title, pause, settings and credits", function () {
     expect(game.isTitle()).toBe(true);
   });
 
-  it("backs out of the model screen and the class menu to the title and clears the model", function () {
+  it("backs out of the model screen and class menu to the title and clears the model", function () {
     game.startCharacterSelect();
     expect(game.backToTitle()).toBe(true);
     game.startCharacterSelect();

@@ -55,8 +55,11 @@ function drawMinimap(dungeon, currentRoom) {
       noStroke();
       continue;
     }
-    if (state.look === "current") fill(PALETTE.white);
-    else fill(PALETTE.stoneLight);
+    if (state.look === "current") {
+      fill(PALETTE.white);
+    } else {
+      fill(PALETTE.stoneLight);
+    }
     rect(x, y, w, h);
 
     // A gold mark on every open door of a room the player has seen.

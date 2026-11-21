@@ -6,7 +6,12 @@ describe("settings", function () {
     }
     return {
       data: data,
-      getItem: (key) => (key in data ? data[key] : null),
+      getItem: (key) => {
+        if (key in data) {
+          return data[key];
+        }
+        return null;
+      },
       setItem: (key, value) => { data[key] = value; }
     };
   }

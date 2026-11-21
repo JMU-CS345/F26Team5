@@ -33,7 +33,10 @@ function wrapPixelText(str, maxWidth, size) {
   const lines = [];
   let line = "";
   for (const word of String(str).split(" ")) {
-    const joined = line === "" ? word : line + " " + word;
+    let joined = word;
+    if (line !== "") {
+      joined = line + " " + word;
+    }
     if (joined.length <= perLine || line === "") {
       line = joined;
     } else {

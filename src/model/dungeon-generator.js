@@ -123,7 +123,10 @@ function generateDungeon(options = {}) {
   }
 
   const rng = createRng(seed);
-  const roomCount = askedCount === undefined ? 6 + Math.floor(rng() * 3) : askedCount; // 6 to 8
+  let roomCount = askedCount;
+  if (roomCount === undefined) {
+    roomCount = 6 + Math.floor(rng() * 3); // 6 to 8
+  }
   const library = templates.map(parseRoomTemplate);
   const poolFor = (role) => {
     const pool = library.filter((t) => t.role === role);

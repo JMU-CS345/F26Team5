@@ -42,7 +42,7 @@ describe("chest", function () {
       expect(room.chests[0].opened).toBe(false);
     });
 
-    it("is not used by combat room templates, a cleared room drops its reward instead", function () {
+    it("is not used by combat room templates, a clear drops a reward instead", function () {
       const withChests = ROOM_TEMPLATES.filter((t) => t.role === "normal"
         && t.rows.some((r) => r.includes("C")));
       expect(withChests).toEqual([]);
