@@ -288,7 +288,21 @@ class PlayerInventory extends Inventory {
   // stay put. Returns false (and changes nothing) if the repack would lose an item.
   sortBag() {
     const before = this.grid.clone();
-    const entries = this.grid.entries();
+    const entries = [];
+    for (const entry of this.grid.entries()) {
+      let quantity = entry.quantity;
+      // Partial stacks of one item top each other up before repacking.
+      const open = entries.find((e) => e.item.stackable && e.item.isStackCompatible(entry.item)
+        && e.quantity < e.item.maxStackSize);
+      if (open !== undefined) {
+        const moved = Math.min(quantity, open.item.maxStackSize - open.quantity);
+        open.quantity += moved;
+        quantity -= moved;
+      }
+      if (quantity > 0) {
+        entries.push({ item: entry.item, quantity: quantity, w: entry.w, h: entry.h });
+      }
+    }
     entries.sort((a, b) => {
       const byRank = bagSortRank(b.item) - bagSortRank(a.item);
       if (byRank !== 0) {
