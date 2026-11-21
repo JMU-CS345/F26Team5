@@ -12,6 +12,15 @@ function armorSlotName(armor) {
   return "Legs";
 }
 
+// Where the tooltip box starts: right of the item, or left of it when the right side would run
+// off the screen (so the box never covers the item it describes).
+function tooltipBoxX(rightX, leftX, boxWidth, screenWidth) {
+  if (rightX + boxWidth <= screenWidth) {
+    return rightX;
+  }
+  return Math.max(0, leftX - boxWidth);
+}
+
 function tooltipLine(text, color = "white") {
   return { text: text, color: color };
 }

@@ -71,6 +71,12 @@ describe("item tooltip lines", function () {
     expect(texts).toContain("Locked");
   });
 
+  it("puts the tooltip left of the item when the right side would leave the screen", function () {
+    expect(tooltipBoxX(300, 240, 230, 1280)).toBe(300);
+    expect(tooltipBoxX(1128, 1064, 230, 1280)).toBe(834);
+    expect(tooltipBoxX(100, 20, 230, 200)).toBe(0);
+  });
+
   it("handles a plain item with no description", function () {
     const texts = textsOf(itemTooltipLines(new Item({ id: "g", name: "Gem", value: 4 })));
     expect(texts).toEqual(["Gem", "Sell value: 4 gold"]);
