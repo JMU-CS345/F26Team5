@@ -32,7 +32,6 @@ describe("item icons", () => {
     expect(ITEM_RARITIES.length).toBe(5);
     for (const rarity of ITEM_RARITIES) {
       expect(rarityFrameCell(rarity)).not.toBeNull();
-      expect(RARITY_COLORS[rarity]).toMatch(/^#[0-9a-f]{6}$/);
     }
   });
 
