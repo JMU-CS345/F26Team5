@@ -13,19 +13,15 @@ describe("InventoryCursor", function () {
   it("moves through the bag grid and stops at the edges", function () {
     cursor.move(1, 0);
     cursor.move(0, 1);
-    expect(cursor.index).toBe(7);
-    cursor.move(1, 0);
-    cursor.move(1, 0);
-    cursor.move(1, 0);
-    cursor.move(1, 0);
-    cursor.move(1, 0);
-    expect(cursor.index).toBe(11); // stops at the last column
-    cursor.move(0, 1);
-    cursor.move(0, 1);
-    cursor.move(0, 1);
-    expect(cursor.index).toBe(23);
-    cursor.move(0, 1);
-    expect(cursor.index).toBe(23);
+    expect(cursor.index).toBe(11);
+    for (let i = 0; i < 12; i++) {
+      cursor.move(1, 0);
+    }
+    expect(cursor.index).toBe(19); // stops at the last of the 10 columns
+    for (let i = 0; i < 6; i++) {
+      cursor.move(0, 1);
+    }
+    expect(cursor.index).toBe(59); // and at the last of the 6 rows
   });
 
   it("does not move above the top row", function () {
@@ -72,7 +68,7 @@ describe("InventoryCursor", function () {
   it("maps arrow keys and WASD to moves", function () {
     expect(moveInventoryCursorForKey(cursor, 39)).toBe(true);
     expect(moveInventoryCursorForKey(cursor, 83)).toBe(true);
-    expect(cursor.index).toBe(7);
+    expect(cursor.index).toBe(11);
     expect(moveInventoryCursorForKey(cursor, 65)).toBe(true);
     expect(moveInventoryCursorForKey(cursor, 38)).toBe(true);
     expect(cursor.index).toBe(0);
@@ -89,47 +85,6 @@ describe("keyboard inventory actions", function () {
     player = new Player(50, 50, "Fire", "Tall");
     inventory = player.inventory;
     cursor = new InventoryCursor();
-  });
-
-  it("equips a weapon with Enter", function () {
-    const wand = new ProjectileWeapon({ id: "wand", name: "Wand", damage: 3 });
-    inventory.add(wand);
-    const result = useInventoryCursorItem(inventory, player, cursor);
-    expect(result.success).toBe(true);
-    expect(inventory.getEquipped("projectile")).toBe(wand);
-  });
-
-  it("unequips an equipped item with Enter", function () {
-    const robe = new ChestArmor({ id: "robe", name: "Robe", defense: 1 });
-    inventory.add(robe);
-    inventory.equip(robe);
-    cursor.section = "equipment";
-    cursor.index = 3;
-    expect(useInventoryCursorItem(inventory, player, cursor).success).toBe(true);
-    expect(inventory.getEquipped("body")).toBeNull();
-    expect(inventory.quantityOf(robe)).toBe(1);
-  });
-
-  it("uses a potion with Enter when hurt", function () {
-    const potion = new Consumable({ id: "potion", name: "Potion", healthRestore: 2 });
-    inventory.add(potion);
-    player.health = 1;
-    const result = useInventoryCursorItem(inventory, player, cursor);
-    expect(result.success).toBe(true);
-    expect(player.health).toBe(3);
-    expect(inventory.quantityOf(potion)).toBe(0);
-  });
-
-  it("shows item info with Enter when there is nothing to use it for", function () {
-    inventory.add(new Item({ id: "gem", name: "Gem", value: 4 }));
-    const result = useInventoryCursorItem(inventory, player, cursor);
-    expect(result.infoLines).toContain("Gem");
-  });
-
-  it("does nothing with Enter on an empty slot", function () {
-    const result = useInventoryCursorItem(inventory, player, cursor);
-    expect(result.success).toBe(false);
-    expect(result.infoLines.length).toBe(0);
   });
 
   it("drops the item under the cursor with X", function () {

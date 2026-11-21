@@ -101,7 +101,7 @@ describe("pickupItemDrops", function () {
       52,
       new Consumable({ id: "potion", name: "Potion" })
     );
-    player.inventory = new PlayerInventory(0);
+    player.inventory = new PlayerInventory({ columns: 0, rows: 0 });
     room.items = [drop];
 
     expect(pickupItemDrops(player, room)).toEqual([]);

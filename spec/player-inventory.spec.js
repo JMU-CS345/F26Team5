@@ -29,7 +29,7 @@ describe("PlayerInventory", () => {
     inventory.add(new Gold(), 10);
 
     expect(inventory.goldQuantity).toBe(10);
-    expect(inventory.slots[0].inspect().item instanceof Consumable).toBe(true);
+    expect(inventory.contents()[0].item instanceof Consumable).toBe(true);
   });
 
   it("equips each supported item into its specialized slot", () => {
@@ -103,7 +103,7 @@ describe("PlayerInventory", () => {
   });
 
   it("keeps an equipped item in place when the bag cannot accept it", () => {
-    const inventory = new PlayerInventory(1);
+    const inventory = new PlayerInventory({ columns: 1, rows: 3 });
     const sword = makeEquipment().melee;
     inventory.add(sword);
     inventory.equip(sword);

@@ -29,31 +29,30 @@ describe("Inventory controls and context actions", () => {
     expect(goldHudText(inventory)).toBe("Gold: 7");
   });
 
-  it("preserves drag-and-drop equipping for typed slots", () => {
-    const inventory = new PlayerInventory(2);
+  it("equips a held item by clicking the matching equipment slot", () => {
+    const inventory = new PlayerInventory();
     const sword = new MeleeWeapon({ id: "sword", name: "Sword" });
     inventory.add(sword);
     const layout = inventoryUiLayout(inventory);
-    const bag = layout.bagSlots[0];
     const melee = layout.equipmentSlots.find((slot) => slot.equipmentName === "melee");
-    const drag = beginInventoryDrag(inventory, bag.x + 2, bag.y + 2);
+    let held = activateInventorySlot(inventory, null, layout.bagSlots[0]);
+    expect(held.item).toBe(sword);
 
-    expect(finishInventoryDrag(inventory, drag, melee.x + 2, melee.y + 2)).toBe(true);
+    held = activateInventorySlot(inventory, held, melee);
+    expect(held).toBeNull();
     expect(inventory.getEquipped("melee")).toBe(sword);
     expect(inventory.quantityOf(sword)).toBe(0);
   });
 
-  it("rejects dragging an item into an incompatible equipment slot", () => {
-    const inventory = new PlayerInventory(2);
+  it("rejects a held item on an incompatible equipment slot", () => {
+    const inventory = new PlayerInventory();
     const sword = new MeleeWeapon({ id: "sword", name: "Sword" });
     inventory.add(sword);
     const layout = inventoryUiLayout(inventory);
-    const bag = layout.bagSlots[0];
     const head = layout.equipmentSlots.find((slot) => slot.equipmentName === "head");
-    const drag = beginInventoryDrag(inventory, bag.x + 2, bag.y + 2);
+    const held = activateInventorySlot(inventory, null, layout.bagSlots[0]);
 
-    expect(finishInventoryDrag(inventory, drag, head.x + 2, head.y + 2)).toBe(false);
-    expect(inventory.quantityOf(sword)).toBe(1);
+    expect(activateInventorySlot(inventory, held, head)).toBe(held);
     expect(inventory.getEquipped("head")).toBeNull();
   });
 

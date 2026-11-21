@@ -38,18 +38,17 @@ describe("bag", function () {
   }
 
   describe("capacity", function () {
-    it("holds 24 items, laid out 6 by 4", function () {
+    it("is a grid of 60 cells, 10 by 6", function () {
       const player = newPlayer();
-      expect(BAG_CAPACITY).toBe(24);
-      expect(player.inventory.capacity).toBe(24);
-      expect(INVENTORY_BAG_COLUMNS).toBe(6);
-      expect(INVENTORY_BAG_ROWS).toBe(4);
-      expect(inventoryUiLayout(player.inventory).bagSlots.length).toBe(24);
+      expect(player.inventory.capacity).toBe(60);
+      expect(INVENTORY_BAG_COLUMNS).toBe(10);
+      expect(INVENTORY_BAG_ROWS).toBe(6);
+      expect(inventoryUiLayout(player.inventory).bagSlots.length).toBe(60);
     });
 
-    it("refuses a 25th item but still takes gold", function () {
+    it("refuses a 21st sword but still takes gold", function () {
       const player = newPlayer();
-      fillBag(player, 24);
+      fillBag(player, 20); // a sword is 1 by 3, so the grid holds 20
       expect(player.inventory.canAdd(sword("Extra"))).toBe(false);
       expect(() => player.inventory.add(sword("Extra"))).toThrow();
       expect(player.inventory.canAdd(new Gold(), 10)).toBe(true);
@@ -90,18 +89,18 @@ describe("bag", function () {
       const old = sword("Old");
       player.inventory.add(old);
       player.inventory.equip(old);
-      fillBag(player, 24);
+      fillBag(player, 20);
       expect(player.inventory.canAdd(drop.item)).toBe(false);
       expect(useWeaponDrop(player, room, drop)).toBe("swapped");
       expect(player.inventory.getEquipped("melee")).toBe(drop.item);
       expect(room.items.length).toBe(1);
       expect(room.items[0].item).toBe(old);
-      expect(player.inventory.size).toBe(24);
+      expect(player.inventory.size).toBe(20);
     });
 
     it("leaving the weapon changes nothing", function () {
-      fillBag(player, 24);
-      expect(player.inventory.size).toBe(24);
+      fillBag(player, 20);
+      expect(player.inventory.size).toBe(20);
       expect(room.items).toEqual([drop]);
       expect(pickupItemDrops(player, room)).toEqual([]);
       expect(room.items).toEqual([drop]);
@@ -161,7 +160,9 @@ describe("bag", function () {
         player.inventory.add(item);
       }
       player.inventory.sortBag();
-      const order = player.inventory.contents().map((e) => e.item);
+      const order = player.inventory.grid.entries()
+        .sort((a, b) => a.col - b.col || a.row - b.row)
+        .map((e) => e.item);
       expect(order).toEqual([epic, rare, common, robe, potion]);
       expect(player.inventory.contents()[0].slotIndex).toBe(0);
     });
@@ -236,12 +237,14 @@ describe("bag", function () {
       player.inventory.add(b);
       let selection = moveBagSelection(player.inventory, null, 1, 0);
       expect(selection.item).toBe(a);
-      selection = moveBagSelection(player.inventory, selection, 1, 0);
-      expect(selection.item).toBe(b);
-      selection = moveBagSelection(player.inventory, selection, 1, 0);
+      selection = moveBagSelection(player.inventory, selection, 0, 1); // a covers 3 cells
       expect(selection.item).toBe(b);
       selection = moveBagSelection(player.inventory, selection, 0, 1);
       expect(selection.item).toBe(b);
+      selection = moveBagSelection(player.inventory, selection, 0, -1);
+      expect(selection.item).toBe(a);
+      selection = moveBagSelection(player.inventory, selection, 1, 0);
+      expect(selection.item).toBe(a);
     });
 
     it("returns null for an empty bag", function () {

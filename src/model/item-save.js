@@ -152,3 +152,40 @@ function deserializeItems(list) {
   }
   return list.map(deserializeItem).filter((item) => item !== null);
 }
+
+// The bag as a list of saved items, each with its column, row and stack size.
+function serializeBag(inventory) {
+  const saved = [];
+  for (const entry of inventory.grid.entries()) {
+    const data = serializeItem(entry.item);
+    if (data !== null) {
+      saved.push({ ...data, col: entry.col, row: entry.row, quantity: entry.quantity });
+    }
+  }
+  return saved;
+}
+
+// Puts saved items back in the bag. An item goes where it was saved. One with no position (an
+// old save), or a spot that is taken or out of range, is autoplaced. Returns how many items
+// were left out because the bag had no room.
+function loadBag(inventory, list) {
+  let lost = 0;
+  if (!Array.isArray(list)) {
+    return lost;
+  }
+  for (const data of list) {
+    const item = deserializeItem(data);
+    if (item === null) {
+      continue;
+    }
+    let quantity = 1;
+    if (Number.isInteger(data.quantity) && data.quantity > 0) {
+      quantity = Math.min(data.quantity, item.maxStackSize);
+    }
+    if (!inventory.grid.place(item, data.col, data.row, quantity)
+        && inventory.grid.autoPlace(item, quantity) === null) {
+      lost++;
+    }
+  }
+  return lost;
+}

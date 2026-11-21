@@ -28,7 +28,7 @@
 //                  While health / maxHealth is below `below`, the phase's speed, move and
 //                  attack replace the base ones. Every key except below is optional. List
 //                  them from the highest below to the lowest. The lowest matching one wins.
-//   lootTable      optional name of a loot pool: "elite" or "boss" (see LOOT_TABLES in
+//   lootTable      optional name of a loot pool: only "boss" (see LOOT_TABLES in
 //                  loot-drops.js). Leave it out and the enemy drops nothing.
 //   sprite         { frameTime, frames: [{ sheet, x, y }] } in 16x16 cells, or null.
 //                  A frame may add w and h (pixels, default 16) and ax (the art x that sits
@@ -105,7 +105,6 @@ const ENEMY_TYPES = Object.freeze({
     sightSpeed: 1.2,
     vision: "line",
     attack: null,
-    lootTable: "elite",
     boss: false,
     color: [90, 140, 90],
     sprite: { frameTime: 20, frames: [creatureFrame(0), creatureFrame(99)] }
@@ -172,7 +171,6 @@ const ENEMY_TYPES = Object.freeze({
     hopFrames: 14,
     hopSpeed: 2,
     attack: { kind: "melee", cooldown: 60, damage: 1, reach: 26, windup: 20, recover: 24 },
-    lootTable: "elite",
     boss: false,
     color: [90, 90, 200],
     // Four directions, each with 2 hop frames and a sword frame, drawn at half size. Hop cells
@@ -212,7 +210,6 @@ const ENEMY_TYPES = Object.freeze({
     move: "chase",
     attack: { kind: "shoot", cooldown: 100, damage: 1, speed: 2.2, count: 3, spread: 25,
       windup: 14, lead: 0.5, color: [120, 220, 90] },
-    lootTable: "elite",
     boss: false,
     color: [120, 220, 90],
     // The Tracking Player row: 8 frames, each 16 wide and 32 tall, standing on the hitbox.

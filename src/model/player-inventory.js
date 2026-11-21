@@ -8,9 +8,6 @@ const PLAYER_EQUIPMENT_TYPES = Object.freeze({
   legs: LegArmor
 });
 
-// The player's bag holds 24 items (6 columns by 4 rows). Equipped gear and gold are separate.
-const BAG_CAPACITY = 24;
-
 // Sort key for the bag: weapons by rarity (best first), then armor, then everything else.
 function bagSortRank(item) {
   if (item instanceof Weapon) {
@@ -22,17 +19,21 @@ function bagSortRank(item) {
   return 0;
 }
 
+// The bag is a BagGrid (see bag-grid.js). Equipped gear and gold are kept apart from it.
 class PlayerInventory extends Inventory {
-  constructor(capacityOrOptions = {}) {
-    super(capacityOrOptions);
-    if (this.acceptedType !== Item) {
-      throw new TypeError("a player bag must accept all Item types");
-    }
+  constructor(options = {}) {
+    super({ capacity: 0 });
+    this.grid = new BagGrid(options.columns, options.rows);
+    this.capacity = this.grid.columns * this.grid.rows; // cells, shown as used/total
     this._equipmentSlots = {};
     for (const [name, acceptedType] of Object.entries(PLAYER_EQUIPMENT_TYPES)) {
       this._equipmentSlots[name] = new InventorySlot(acceptedType);
     }
     this._goldSlot = new InventorySlot(Gold, { hidden: true });
+  }
+
+  get size() {
+    return this.grid.entries().length;
   }
 
   get gold() {
@@ -52,9 +53,17 @@ class PlayerInventory extends Inventory {
   }
 
   contents(options = {}) {
-    const bagContents = super.contents(options);
+    const columns = this.grid.columns;
+    const bagContents = this.grid.entries().map((e) => Object.freeze({
+      slotIndex: e.row * columns + e.col,
+      item: e.item,
+      quantity: e.quantity,
+      hidden: false,
+      col: e.col,
+      row: e.row
+    }));
     if (options.includeHidden !== true || this._goldSlot.empty) {
-      return bagContents;
+      return Object.freeze(bagContents);
     }
     return Object.freeze([...bagContents, Object.freeze({
       slotIndex: "gold",
@@ -64,56 +73,131 @@ class PlayerInventory extends Inventory {
     })]);
   }
 
-  findAvailableSpace(item) {
-    if (item instanceof Gold) {
-      return this._goldSlot.empty
-        ? Infinity
-        : this._goldSlot._stack.spaceRemaining;
-    }
-    return super.findAvailableSpace(item);
-  }
-
-  canAdd(itemOrStack, quantity) {
-    const item = itemOrStack instanceof ItemStack ? itemOrStack.item : itemOrStack;
-    if (item instanceof Gold) {
-      try {
-        const normalized = this._normalizeItemAndQuantity(itemOrStack, quantity);
-        return normalized.item instanceof Gold;
-      } catch (error) {
-        return false;
+  // Adds to a grid (the real one or a trial copy): tops up stacks, then autoPlaces the rest.
+  // False when it does not all fit.
+  _addTo(grid, item, quantity) {
+    let remaining = quantity;
+    for (const entry of grid.entries()) {
+      if (item.stackable && entry.item.isStackCompatible(item)) {
+        const amount = Math.min(remaining, entry.item.maxStackSize - entry.quantity);
+        entry.quantity += amount;
+        remaining -= amount;
       }
     }
-    return super.canAdd(itemOrStack, quantity);
-  }
-
-  add(itemOrStack, quantity) {
-    const normalized = this._normalizeItemAndQuantity(itemOrStack, quantity);
-    if (!(normalized.item instanceof Gold)) {
-      return super.add(normalized.item, normalized.quantity);
+    while (remaining > 0) {
+      const amount = Math.min(remaining, item.maxStackSize);
+      if (grid.autoPlace(item, amount) === null) {
+        return false;
+      }
+      remaining -= amount;
     }
-    const stack = new ItemStack(normalized.item, normalized.quantity);
-    this._goldSlot.insert(stack);
     return true;
   }
 
+  findAvailableSpace(item) {
+    if (item instanceof Gold) {
+      if (this._goldSlot.empty) {
+        return Infinity;
+      }
+      return this._goldSlot._stack.spaceRemaining;
+    }
+    if (!(item instanceof Item)) {
+      throw new TypeError("item must be an Item");
+    }
+    if (!item.stackable && this.grid.entryOf(item) !== null) {
+      return 0;
+    }
+    const trial = this.grid.clone();
+    let space = 0;
+    while (space < this.capacity * item.maxStackSize && this._addTo(trial, item, 1)) {
+      space++;
+    }
+    return space;
+  }
+
+  canAdd(itemOrStack, quantity) {
+    let normalized;
+    try {
+      normalized = this._normalizeItemAndQuantity(itemOrStack, quantity);
+    } catch (error) {
+      return false;
+    }
+    const item = normalized.item;
+    if (item instanceof Gold) {
+      return true;
+    }
+    if (!item.stackable && this.grid.entryOf(item) !== null) {
+      return false;
+    }
+    return this._addTo(this.grid.clone(), item, normalized.quantity);
+  }
+
+  // Autoplaces the item. Throws when nothing fits: check canAdd first.
+  add(itemOrStack, quantity) {
+    const normalized = this._normalizeItemAndQuantity(itemOrStack, quantity);
+    if (normalized.item instanceof Gold) {
+      this._goldSlot.insert(new ItemStack(normalized.item, normalized.quantity));
+      return true;
+    }
+    if (!this.canAdd(normalized.item, normalized.quantity)) {
+      throw new RangeError("the inventory does not have enough space");
+    }
+    return this._addTo(this.grid, normalized.item, normalized.quantity);
+  }
+
   quantityOf(itemOrId) {
+    const bagTotal = this.grid.entries().reduce((total, e) => {
+      if (this._matches(e.item, itemOrId)) {
+        return total + e.quantity;
+      }
+      return total;
+    }, 0);
     const goldMatches = !this._goldSlot.empty
       && this._matches(this._goldSlot._stack.item, itemOrId);
-    return super.quantityOf(itemOrId)
-      + (goldMatches ? this._goldSlot._stack.quantity : 0);
+    if (goldMatches) {
+      return bagTotal + this._goldSlot._stack.quantity;
+    }
+    return bagTotal;
   }
 
   remove(itemOrId, quantity = 1) {
     const goldMatches = !this._goldSlot.empty
       && this._matches(this._goldSlot._stack.item, itemOrId);
-    if (!goldMatches) {
-      return super.remove(itemOrId, quantity);
-    }
     requirePositiveQuantity(quantity);
-    if (quantity > this._goldSlot._stack.quantity) {
+    if (goldMatches) {
+      if (quantity > this._goldSlot._stack.quantity) {
+        throw new RangeError("the inventory does not contain enough matching items");
+      }
+      return this._goldSlot.remove(quantity);
+    }
+    if (this.quantityOf(itemOrId) < quantity) {
       throw new RangeError("the inventory does not contain enough matching items");
     }
-    return this._goldSlot.remove(quantity);
+    let remaining = quantity;
+    let removedItem = null;
+    for (const entry of this.grid.entries()) {
+      if (remaining === 0) {
+        break;
+      }
+      if (!this._matches(entry.item, itemOrId)) {
+        continue;
+      }
+      const amount = Math.min(remaining, entry.quantity);
+      removedItem = entry.item;
+      entry.quantity -= amount;
+      remaining -= amount;
+      if (entry.quantity === 0) {
+        this.grid.removeEntry(entry); // frees its cells
+      }
+    }
+    if (quantity <= removedItem.maxStackSize) {
+      return new ItemStack(removedItem, quantity);
+    }
+    const stacks = [];
+    for (let left = quantity; left > 0; left -= removedItem.maxStackSize) {
+      stacks.push(new ItemStack(removedItem, Math.min(left, removedItem.maxStackSize)));
+    }
+    return Object.freeze(stacks);
   }
 
   findByType(itemType) {
@@ -151,14 +235,14 @@ class PlayerInventory extends Inventory {
     return null;
   }
 
+  // Moves a bag item to its equipment slot. The item it replaces takes the vacated cells,
+  // or the first free spot. Throws (and changes nothing) when it has nowhere to go.
   equip(itemOrId) {
-    const matchingSlot = this._slots.find((slot) => (
-      !slot.empty && this._matches(slot._stack.item, itemOrId)
-    ));
-    if (matchingSlot === undefined) {
+    const entry = this.grid.entries().find((e) => this._matches(e.item, itemOrId));
+    if (entry === undefined) {
       throw new RangeError("the item is not in the player bag");
     }
-    const item = matchingSlot._stack.item;
+    const item = entry.item;
     const equipmentName = this._equipmentNameFor(item);
     if (equipmentName === null) {
       throw new TypeError("that item cannot be equipped");
@@ -166,11 +250,15 @@ class PlayerInventory extends Inventory {
 
     const state = this._captureState();
     try {
-      super.remove(item, 1);
+      this.grid.remove(item);
       const equipmentSlot = this._equipmentSlots[equipmentName];
       if (!equipmentSlot.empty) {
-        const previous = equipmentSlot.remove();
-        super.add(previous);
+        const previous = equipmentSlot.remove().item;
+        const placed = this.grid.place(previous, entry.col, entry.row)
+          || this.grid.autoPlace(previous) !== null;
+        if (!placed) {
+          throw new RangeError("the inventory does not have enough space");
+        }
       }
       equipmentSlot.insert(new ItemStack(item));
       return item;
@@ -196,24 +284,30 @@ class PlayerInventory extends Inventory {
     return previous;
   }
 
-  // Reorders the bag: best rarity first, then by name. Equipment and gold stay put.
+  // Repacks the bag: best rarity first, then bigger items, then by name. Equipment and gold
+  // stay put. Returns false (and changes nothing) if the repack would lose an item.
   sortBag() {
-    const entries = this.contents().map((e) => ({ item: e.item, quantity: e.quantity }));
+    const before = this.grid.clone();
+    const entries = this.grid.entries();
     entries.sort((a, b) => {
       const byRank = bagSortRank(b.item) - bagSortRank(a.item);
       if (byRank !== 0) {
         return byRank;
       }
+      const byArea = b.w * b.h - a.w * a.h;
+      if (byArea !== 0) {
+        return byArea;
+      }
       return a.item.name.localeCompare(b.item.name);
     });
-    for (const slot of this._slots) {
-      if (!slot.empty) {
-        slot.remove();
+    this.grid.clear();
+    for (const entry of entries) {
+      if (this.grid.autoPlace(entry.item, entry.quantity) === null) {
+        this.grid = before;
+        return false;
       }
     }
-    for (const entry of entries) {
-      super.add(entry.item, entry.quantity);
-    }
+    return true;
   }
 
   unequip(equipmentName) {
@@ -225,19 +319,12 @@ class PlayerInventory extends Inventory {
       return null;
     }
     const item = slot._stack.item;
-    if (!super.canAdd(item)) {
+    if (!this.canAdd(item)) {
       return null;
     }
-
-    const state = this._captureState();
-    try {
-      slot.remove();
-      super.add(item);
-      return item;
-    } catch (error) {
-      this._restoreState(state);
-      return null;
-    }
+    slot.remove();
+    this.add(item);
+    return item;
   }
 
   getEquipped(equipmentName) {
@@ -248,14 +335,13 @@ class PlayerInventory extends Inventory {
     return slot.empty ? null : slot._stack.item;
   }
 
+  // Uses one item from the bag on the target. Its stack shrinks, and the cell frees at zero.
   consume(itemOrId, target) {
-    const matchingSlot = this._slots.find((slot) => (
-      !slot.empty && this._matches(slot._stack.item, itemOrId)
-    ));
-    if (matchingSlot === undefined || !(matchingSlot._stack.item instanceof Consumable)) {
+    const entry = this.grid.entries().find((e) => this._matches(e.item, itemOrId));
+    if (entry === undefined || !(entry.item instanceof Consumable)) {
       return false;
     }
-    const item = matchingSlot._stack.item;
+    const item = entry.item;
     if (!item.canUse(target)) {
       return false;
     }
@@ -263,7 +349,7 @@ class PlayerInventory extends Inventory {
     const state = this._captureState();
     const previousHealth = target.health;
     try {
-      super.remove(item, 1);
+      this.remove(item, 1);
       if (!item.applyTo(target)) {
         throw new Error("the consumable effect could not be applied");
       }
@@ -276,22 +362,28 @@ class PlayerInventory extends Inventory {
   }
 
   transferTo(destination, itemOrId, quantity = 1) {
-    const goldMatches = !this._goldSlot.empty
-      && this._matches(this._goldSlot._stack.item, itemOrId);
-    if (!goldMatches) {
-      return super.transferTo(destination, itemOrId, quantity);
-    }
     if (!(destination instanceof Inventory)) {
       throw new TypeError("destination must be an Inventory");
     }
     requirePositiveQuantity(quantity);
-    if (this.gold < quantity || !destination.canAdd(this._goldSlot._stack.item, quantity)) {
+    const goldMatches = !this._goldSlot.empty
+      && this._matches(this._goldSlot._stack.item, itemOrId);
+    let item = null;
+    if (goldMatches) {
+      item = this._goldSlot._stack.item;
+    } else {
+      const found = this.grid.entries().find((e) => this._matches(e.item, itemOrId));
+      if (found !== undefined) {
+        item = found.item;
+      }
+    }
+    if (item === null || this.quantityOf(itemOrId) < quantity
+        || !destination.canAdd(item, quantity)) {
       return false;
     }
 
     const sourceState = this._captureState();
     const destinationState = destination._captureState();
-    const item = this._goldSlot._stack.item;
     try {
       this.remove(itemOrId, quantity);
       destination.add(item, quantity);
@@ -305,6 +397,7 @@ class PlayerInventory extends Inventory {
 
   _captureState() {
     const state = super._captureState();
+    state.grid = this.grid.clone();
     state.equipmentSlots = {};
     for (const [name, slot] of Object.entries(this._equipmentSlots)) {
       state.equipmentSlots[name] = slot.clone();
@@ -315,6 +408,9 @@ class PlayerInventory extends Inventory {
 
   _restoreState(state) {
     super._restoreState(state);
+    if (state.grid !== undefined) {
+      this.grid = state.grid.clone();
+    }
     if (state.equipmentSlots !== undefined) {
       this._equipmentSlots = {};
       for (const [name, slot] of Object.entries(state.equipmentSlots)) {

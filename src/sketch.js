@@ -16,7 +16,8 @@ let lootRun; // loot rng and counters for this run
 let room; // the room the player is in right now
 let roomGraphic; // the picture of that room
 let roomGraphics = new Map(); // room id -> picture, built the first time the room is entered
-let inventoryDrag = null;
+let inventoryHeld = null; // the item in the hand while the inventory is open
+let lastKillCenter = null; // where the last enemy died, for the clear reward
 let inventorySelection = null;
 let inventoryInfoLines = [];
 let inventoryCursor = new InventoryCursor();
@@ -113,7 +114,6 @@ function startRun() {
   });
   console.log("Dungeon seed:", dungeon.seed); // pass this as seed to replay a dungeon
   lootRun = new LootRun(dungeon.seed + 1, doorDistances(dungeon.rooms, 0));
-  lootRun.assign(dungeon);
   enterRoom(dungeon.start);
   playMusic();
   const spawn = room.getPlayerSpawn(); // the @ in the start room's drawing
@@ -141,7 +141,7 @@ function startRun() {
   projectiles = [];
   enemyProjectiles = [];
   clearDyingEnemies();
-  inventoryDrag = null;
+  inventoryHeld = null;
   inventorySelection = null;
   inventoryInfoLines = [];
   inventoryCursor = new InventoryCursor();
@@ -552,7 +552,7 @@ function drawScreen() {
     drawInventoryMenu(
       player.inventory,
       player,
-      inventoryDrag,
+      inventoryHeld,
       inventorySelection,
       inventoryInfoLines,
       pointer.x,
@@ -664,7 +664,11 @@ function drawScreen() {
     if (deadThisFrame.length > 0) {
       runStats.recordRoomCleared();
     }
-    room.items.push(...rollClearDrops(room, lootRun));
+    const spot = clearRewardPoint(room, lastKillCenter);
+    const reward = rollClearReward(room, lootRun, spot.x, spot.y);
+    if (reward !== null) {
+      room.items.push(reward);
+    }
   }
   if (playerJustDied(game, player)) {
     activeDialogue.close();
@@ -755,8 +759,23 @@ function drawRunScene(shake = { x: 0, y: 0 }) {
   drawDialogueBox(activeDialogue, ROOM_X, 0, ROOM_WIDTH, CANVAS_HEIGHT);
 }
 
+// Whatever is in the hand goes back in the bag, or onto the floor when the bag is full.
+function putHeldItemAway() {
+  const leftover = releaseHeld(player.inventory, inventoryHeld);
+  inventoryHeld = null;
+  if (leftover === null) {
+    return;
+  }
+  const center = player.getCenter();
+  const drop = new ItemDrop(
+    center.x - ITEM_DROP_SIZE / 2, center.y - ITEM_DROP_SIZE / 2, leftover.item, leftover.quantity
+  );
+  drop.justDropped = true;
+  room.items.push(drop);
+}
+
 function clearInventoryUiState() {
-  inventoryDrag = null;
+  putHeldItemAway();
   inventorySelection = null;
   inventoryInfoLines = [];
 }
@@ -778,6 +797,7 @@ function handleDeadEnemies(dead) {
   for (const enemy of dead) {
     startEnemyDeath(enemy);
     runStats.recordKill();
+    lastKillCenter = enemy.getCenter();
     room.items.push(...rollEnemyDrops(enemy, lootRun, room));
   }
   if (dead.length > 0) {
@@ -839,7 +859,8 @@ function toggleTopRightNpc() {
   }
 }
 
-// Keys inside the inventory: arrows move the cursor, Enter equips, R sorts, L locks, X drops.
+// Keys inside the inventory: arrows move the cursor, Enter picks up, places or equips, R sorts,
+// L locks, Q drinks a potion, X drops.
 function handleInventoryKey() {
   if (keyCode === ESCAPE) {
     toggleInventoryMenu();
@@ -854,9 +875,13 @@ function handleInventoryKey() {
     inventoryCursorSlot(player.inventory, inventoryCursor)
   );
   if (keyCode === ENTER) {
-    const result = useInventoryCursorItem(player.inventory, player, inventoryCursor);
+    inventoryHeld = activateInventorySlot(
+      player.inventory, inventoryHeld, inventoryCursorSlot(player.inventory, inventoryCursor)
+    );
     inventorySelection = null;
-    inventoryInfoLines = result.infoLines;
+    inventoryInfoLines = [];
+  } else if (key.toLowerCase() === "q") {
+    drinkBagPotion(player);
   } else if (key.toLowerCase() === "r") {
     player.inventory.sortBag();
     inventorySelection = null;
@@ -965,6 +990,10 @@ function keyPressed() {
       spawnNextEnemy();
       return false;
     }
+    if (key.toLowerCase() === "q") {
+      drinkBagPotion(player);
+      return false;
+    }
     if (action === "interact") {
       if (activeDialogue.isActive()) {
         activeDialogue.advance();
@@ -1032,37 +1061,19 @@ function mousePressed() {
     if (result.success && contextAction.id !== "view") {
       inventorySelection = null;
     }
-    inventoryDrag = null;
     return false;
   }
 
-  if (inventorySelectionAt(player.inventory, pointer.x, pointer.y) === null) {
-    inventorySelection = null;
-    inventoryInfoLines = [];
+  // Right click selects an item for its menu. Left click picks up, places or equips.
+  const slot = inventorySlotAt(player.inventory, pointer.x, pointer.y);
+  inventoryInfoLines = [];
+  if (mouseButton === RIGHT) {
+    inventorySelection = inventorySelectionFromSlot(slot);
+    return false;
   }
-  inventoryDrag = beginInventoryDrag(player.inventory, pointer.x, pointer.y);
-  return false;
-}
-
-function mouseReleased() {
-  if (!game.isInventory() || inventoryDrag === null) {
-    inventoryDrag = null;
-    return;
-  }
-  const pointer = canvasPointer();
-  if (inventoryDragMoved(inventoryDrag, pointer.x, pointer.y)) {
-    finishInventoryDrag(player.inventory, inventoryDrag, pointer.x, pointer.y);
-    inventorySelection = null;
-    inventoryInfoLines = [];
-  } else {
-    inventorySelection = inventorySelectionAt(
-      player.inventory,
-      inventoryDrag.startX,
-      inventoryDrag.startY
-    );
-    syncInventoryCursorToSelection(inventoryCursor, player.inventory, inventorySelection);
-    inventoryInfoLines = [];
-  }
-  inventoryDrag = null;
+  inventorySelection = null;
+  inventoryHeld = activateInventorySlot(player.inventory, inventoryHeld, slot);
+  const clicked = inventorySelectionFromSlot(slot);
+  syncInventoryCursorToSelection(inventoryCursor, player.inventory, clicked);
   return false;
 }
