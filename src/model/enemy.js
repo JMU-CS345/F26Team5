@@ -9,7 +9,7 @@ const ENEMY_ALERT_FRAMES = 90; // how long an enemy keeps hunting the last place
 const ENEMY_SEPARATION_FRACTION = 0.8; // enemies push apart when closer than this share of their size
 const ENEMY_SEPARATION_SPEED = 0.6; // most pixels per frame an enemy gives way to a neighbor
 const ENEMY_REPLAN_FRAMES = 20; // how often a walking enemy rebuilds its tile route
-const ENEMY_WAKE_FRAMES = 60; // after the player walks in, enemies hold still and harmless this long
+const ENEMY_WAKE_FRAMES = 45; // after the player walks in, enemies hold still and harmless this long
 const ENEMY_LINE_ALERT_FRAMES = 360; // a line-of-sight hunter keeps running to the spot this long
 
 class Enemy {
@@ -27,6 +27,9 @@ class Enemy {
     this.speed = type.speed;
     this.maxHealth = type.maxHealth;
     this.health = type.maxHealth;
+    this.tier = 1; // dungeon number, setTier scales health and attack speed from it
+    this.cooldownScale = 1; // attack cooldowns are multiplied by this
+    this.summonDue = null; // { type, count } a new phase asks the room to add, see spawnPhaseAdds
     this.detectionRange = type.detectionRange;
     this.contactDamage = type.contactDamage;
     // Starts at zero so the enemy can damage the player on its first contact.
@@ -78,6 +81,26 @@ class Enemy {
     return this.health <= 0;
   }
 
+  // Scales a fresh enemy to a dungeon number (1 to 3). Call it right after createEnemy.
+  setTier(tier) {
+    const scale = enemyTierScale(tier);
+    this.tier = Math.min(Math.max(Math.floor(tier), 1), 3);
+    this.maxHealth = Math.round(this.type.maxHealth * scale.health);
+    if (this.type.tierHealth) {
+      this.maxHealth = this.type.tierHealth[this.tier - 1];
+    }
+    this.health = this.maxHealth;
+    this.cooldownScale = scale.cooldown;
+    if (this.type.attack) {
+      this.attackTimer = this.cooldownOf(this.type.attack);
+    }
+  }
+
+  // The attack's cooldown in frames for this enemy's tier.
+  cooldownOf(attack) {
+    return Math.max(1, Math.round(attack.cooldown * this.cooldownScale));
+  }
+
   // The active phase of the type, or null. The smallest matching below wins.
   getPhase() {
     const phases = this.type.phases;
@@ -87,7 +110,8 @@ class Enemy {
     const fraction = this.health / this.maxHealth;
     let active = null;
     for (const phase of phases) {
-      if (fraction < phase.below && (!active || phase.below < active.below)) {
+      const reached = (phase.minTier || 1) <= this.tier;
+      if (reached && fraction < phase.below && (!active || phase.below < active.below)) {
         active = phase;
       }
     }
@@ -175,10 +199,14 @@ class Enemy {
     this.health = Math.max(0, this.health - amount);
     if (this.getPhase() !== phaseBefore) {
       this.phaseFlashTimer = ENEMY_PHASE_FLASH_FRAMES;
+      const phase = this.getPhase();
+      if (phase && phase.summon) {
+        this.summonDue = { type: phase.summon.type, count: phase.summon.count };
+      }
       const attack = this.getAttack();
       if (attack) {
         // A faster attack should start soon, but a phase change never delays a shot.
-        this.attackTimer = Math.min(this.attackTimer, attack.cooldown);
+        this.attackTimer = Math.min(this.attackTimer, this.cooldownOf(attack));
       }
     }
   }
@@ -221,7 +249,7 @@ class Enemy {
       } else {
         this.setState("idle", 0);
         if (attack) {
-          this.attackTimer = Math.max(this.attackTimer, Math.ceil(attack.cooldown / 2));
+          this.attackTimer = Math.max(this.attackTimer, Math.ceil(this.cooldownOf(attack) / 2));
         }
       }
       this.aimDir = null;

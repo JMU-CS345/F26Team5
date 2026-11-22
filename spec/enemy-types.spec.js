@@ -11,23 +11,20 @@ describe("Enemy type table", function () {
 
   it("keeps Jelly, Zombie and Demon inside the ranges the issues ask for", function () {
     const jelly = ENEMY_TYPES.Jelly;
-    expect(jelly.maxHealth).toBeGreaterThanOrEqual(3);
-    expect(jelly.maxHealth).toBeLessThanOrEqual(5);
+    expect(jelly.maxHealth).toBe(17);
     expect(jelly.speed).toBeGreaterThanOrEqual(0.5);
     expect(jelly.speed).toBeLessThanOrEqual(1);
     expect(jelly.contactDamage).toBe(1);
 
     const zombie = ENEMY_TYPES.Zombie;
-    expect(zombie.maxHealth).toBeGreaterThanOrEqual(5);
-    expect(zombie.maxHealth).toBeLessThanOrEqual(8);
+    expect(zombie.maxHealth).toBe(30);
     expect(zombie.speed).toBeGreaterThanOrEqual(0.5);
     expect(zombie.speed).toBeLessThanOrEqual(1);
     expect(zombie.contactDamage).toBeGreaterThanOrEqual(1);
     expect(zombie.contactDamage).toBeLessThanOrEqual(2);
 
     const demon = ENEMY_TYPES.Demon;
-    expect(demon.maxHealth).toBeGreaterThanOrEqual(30);
-    expect(demon.maxHealth).toBeLessThanOrEqual(50);
+    expect(demon.maxHealth).toBe(250);
     expect(demon.speed).toBe(1);
     expect(demon.contactDamage).toBeGreaterThanOrEqual(2);
     expect(demon.contactDamage).toBeLessThanOrEqual(3);
@@ -164,6 +161,6 @@ describe("createEnemy", function () {
     const b = createEnemy("Jelly", 50, 50);
     a.takeDamage(1);
     expect(b.health).toBe(b.maxHealth);
-    expect(ENEMY_TYPES.Jelly.maxHealth).toBe(3);
+    expect(ENEMY_TYPES.Jelly.maxHealth).toBe(17);
   });
 });

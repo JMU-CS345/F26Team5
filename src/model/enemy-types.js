@@ -44,6 +44,9 @@
 //                  While health / maxHealth is below `below`, the phase's speed, move and
 //                  attack replace the base ones. Every key except below is optional. List
 //                  them from the highest below to the lowest. The lowest matching one wins.
+//                  A phase may add minTier (1 to 3, it only exists in that dungeon or later) and
+//                  summon: { type, count }, enemies that appear once when the phase starts.
+//   tierHealth     optional [dungeon 1, 2, 3] health, used instead of maxHealth times the scale
 //   lootTable      optional name of a loot pool: only "boss" (see LOOT_TABLES in
 //                  loot-drops.js). Leave it out and the enemy drops nothing.
 //   sprite         { frameTime, frames: [{ sheet, x, y }] } in 16x16 cells, or null.
@@ -118,7 +121,7 @@ const ENEMY_TYPES = Object.freeze({
     length: 16,
     width: 16,
     speed: 1,
-    maxHealth: 3,
+    maxHealth: 17,
     detectionRange: 200,
     contactDamage: 1,
     move: "hop",
@@ -140,7 +143,7 @@ const ENEMY_TYPES = Object.freeze({
     length: 16,
     width: 16,
     speed: 0.75,
-    maxHealth: 6,
+    maxHealth: 30,
     detectionRange: 160,
     contactDamage: 1,
     move: "wanderChase",
@@ -156,12 +159,12 @@ const ENEMY_TYPES = Object.freeze({
     length: 16,
     width: 16,
     speed: 0.6,
-    maxHealth: 3,
+    maxHealth: 18,
     detectionRange: 260,
     contactDamage: 1,
     move: "keepDistance",
     keepRange: 110,
-    attack: { kind: "shoot", cooldown: 110, damage: 1, speed: 2.5, windup: 18, lead: 0.5,
+    attack: { kind: "shoot", cooldown: 130, damage: 1, speed: 2.5, windup: 18, lead: 0.5,
       color: [235, 235, 220],
       projectile: {
         frameTime: 8,
@@ -187,7 +190,7 @@ const ENEMY_TYPES = Object.freeze({
     length: 16,
     width: 16,
     speed: 1.4,
-    maxHealth: 2,
+    maxHealth: 11,
     detectionRange: 220,
     contactDamage: 1,
     move: "erratic",
@@ -201,13 +204,13 @@ const ENEMY_TYPES = Object.freeze({
     length: 16,
     width: 16,
     speed: 0,
-    maxHealth: 4,
+    maxHealth: 24,
     detectionRange: 280,
     contactDamage: 1,
     move: "none",
     attack: {
       kind: "shoot",
-      cooldown: 120,
+      cooldown: 150,
       damage: 1,
       speed: 2,
       count: 3,
@@ -223,12 +226,12 @@ const ENEMY_TYPES = Object.freeze({
     length: 32,
     width: 32,
     speed: 1.1, // it bounces after the player the whole time, along one axis at a time
-    maxHealth: 5,
+    maxHealth: 32,
     detectionRange: 220,
     contactDamage: 1,
     move: "bounce",
     noKnockback: true,
-    attack: { kind: "melee", cooldown: 34, damage: 1, reach: 34, windup: 8, recover: 12 },
+    attack: { kind: "melee", cooldown: 60, damage: 1, reach: 34, windup: 8, recover: 12 },
     boss: false,
     color: [90, 90, 200],
     // Four directions, each with 2 hop frames and a sword frame, drawn at full size. Hop cells
@@ -265,7 +268,7 @@ const ENEMY_TYPES = Object.freeze({
     length: 16,
     width: 16,
     speed: 0,
-    maxHealth: 4,
+    maxHealth: 24,
     detectionRange: 240,
     contactDamage: 1,
     move: "none", // a turret
@@ -301,7 +304,8 @@ const ENEMY_TYPES = Object.freeze({
     length: 32,
     width: 32,
     speed: 1,
-    maxHealth: 40,
+    maxHealth: 250, // tier 1, tierHealth has the other dungeons
+    tierHealth: [250, 365, 520],
     detectionRange: 400,
     contactDamage: 2,
     move: "chase",
@@ -322,6 +326,24 @@ const ENEMY_TYPES = Object.freeze({
           lead: 0.5,
           color: [255, 120, 60]
         }
+      },
+      // Only in dungeon 3: a faster volley and two Bats join the fight.
+      {
+        below: 0.25,
+        minTier: 3,
+        speed: 1.6,
+        summon: { type: "Bat", count: 2 },
+        attack: {
+          kind: "shoot",
+          cooldown: 40,
+          damage: 1,
+          speed: 3.5,
+          count: 3,
+          spread: 20,
+          windup: 10,
+          lead: 0.5,
+          color: [255, 120, 60]
+        }
       }
     ],
     lootTable: "boss",
@@ -332,6 +354,18 @@ const ENEMY_TYPES = Object.freeze({
 });
 
 const ENEMY_TYPE_NAMES = Object.freeze(Object.keys(ENEMY_TYPES));
+
+// Health and attack cooldown multipliers by dungeon number (1 to 3). A boss uses its own
+// tierHealth list instead of the health multiplier.
+const ENEMY_TIER_SCALE = Object.freeze([
+  Object.freeze({ health: 1, cooldown: 1 }),
+  Object.freeze({ health: 1.5, cooldown: 0.9 }),
+  Object.freeze({ health: 2.1, cooldown: 0.8 })
+]);
+
+function enemyTierScale(tier) {
+  return ENEMY_TIER_SCALE[Math.min(Math.max(Math.floor(tier), 1), 3) - 1];
+}
 
 // Makes an enemy of the named type. Throws on an unknown name so a typo is loud.
 // Pass spawnIn as true in the game so the enemy is harmless for a moment while it appears.
@@ -473,6 +507,15 @@ function checkEnemyPhases(phases, bad) {
     if (phase.attack !== undefined && phase.attack !== null) {
       checkEnemyAttack(phase.attack, phaseBad);
     }
+    if (phase.minTier !== undefined && ![1, 2, 3].includes(phase.minTier)) {
+      phaseBad("minTier must be 1, 2 or 3");
+    }
+    if (phase.summon !== undefined) {
+      const summon = phase.summon || {};
+      if (!Object.keys(ENEMY_TYPES).includes(summon.type) || !isNumberAtLeast(summon.count, 1)) {
+        phaseBad("summon needs a type of ENEMY_TYPES and a count of at least 1");
+      }
+    }
   }
 }
 
@@ -516,6 +559,11 @@ function validateEnemyTypes(types = ENEMY_TYPES) {
       if (!isNumberAtLeast(type[key], 0)) {
         bad(key + " must be a number of at least 0");
       }
+    }
+    if (type.tierHealth !== undefined
+        && !(Array.isArray(type.tierHealth) && type.tierHealth.length === 3
+          && type.tierHealth.every((h) => isNumberAtLeast(h, 1)))) {
+      bad("tierHealth must be three numbers of at least 1");
     }
     if (typeof type.boss !== "boolean") {
       bad("boss must be true or false");
