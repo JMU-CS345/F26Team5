@@ -198,7 +198,8 @@ describe("generateDungeon", () => {
     it("puts a room straight across the door, with its own door lined up", () => {
       const start = makeTemplate("s", "start", ["E4"]);
       const boss = makeTemplate("b", "boss", ["W6"]);
-      const d = generateDungeon({ seed: 1, roomCount: 2, sizeClasses: [], templates: [start, boss, spare] });
+      const templates = [start, boss, spare];
+      const d = generateDungeon({ seed: 1, roomCount: 2, sizeClasses: [], templates });
       expect(d.rooms[1].worldCol).toBe(12); // right against the start room's east wall
       expect(d.rooms[1].worldRow).toBe(4 - 6); // its door (row 6) is level with the start's (row 4)
     });
@@ -211,7 +212,9 @@ describe("generateDungeon", () => {
       const boss = makeTemplate("b", "boss", ["W4"]);
       let doubled = 0;
       for (let seed = 1; seed <= 30; seed++) {
-        const d = generateDungeon({ seed, roomCount: 3, loopChance: 1, sizeClasses: [], templates: [start, mid, boss] });
+        const d = generateDungeon({
+          seed, roomCount: 3, loopChance: 1, sizeClasses: [], templates: [start, mid, boss]
+        });
         if (d.start.exits.length === 2) {
           doubled++;
           expect(d.start.exits.map((e) => e.toId)).toEqual([1, 1]);
@@ -226,7 +229,9 @@ describe("generateDungeon", () => {
       const mid = makeTemplate("m", "normal", ["W2", "W7", "E4"]);
       const boss = makeTemplate("b", "boss", ["W4"]);
       for (let seed = 1; seed <= 30; seed++) {
-        const d = generateDungeon({ seed, roomCount: 3, loopChance: 0, sizeClasses: [], templates: [start, mid, boss] });
+        const d = generateDungeon({
+          seed, roomCount: 3, loopChance: 0, sizeClasses: [], templates: [start, mid, boss]
+        });
         expect(d.start.exits.length).toBe(1);
       }
     });
@@ -238,7 +243,8 @@ describe("generateDungeon", () => {
       const a = makeTemplate("a", "normal", ["W1"], 12, 10);
       const b = makeTemplate("b", "boss", ["W1"], 12, 10);
       for (let seed = 1; seed <= 20; seed++) {
-        const d = generateDungeon({ seed, roomCount: 3, sizeClasses: [], templates: [start, a, b] });
+        const templates = [start, a, b];
+        const d = generateDungeon({ seed, roomCount: 3, sizeClasses: [], templates });
         expect(d.start.exits.map((e) => e.side)).toEqual(["E", "E"]);
         expect(new Set(d.start.exits.map((e) => e.toId)).size).toBe(2);
         expect(Math.abs(d.rooms[1].worldRow - d.rooms[2].worldRow)).toBeGreaterThanOrEqual(10);
@@ -248,7 +254,9 @@ describe("generateDungeon", () => {
     it("throws a helpful error when the rooms cannot be fitted together", () => {
       const start = makeTemplate("s", "start", ["N4"]);
       const dead = makeTemplate("d", "normal", ["N4"]);
-      expect(() => generateDungeon({ roomCount: 5, sizeClasses: [], templates: [start, dead] })).toThrowError(/Could not fit/);
+      const templates = [start, dead];
+      const make = () => generateDungeon({ roomCount: 5, sizeClasses: [], templates });
+      expect(make).toThrowError(/Could not fit/);
     });
   });
 });

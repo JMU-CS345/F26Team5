@@ -171,6 +171,14 @@ function pickRecipe(size, tier, rng) {
   return weightedPick(entries, rng).recipe;
 }
 
+// How many of one type a wave may hold.
+function typeCap(typeName) {
+  if (typeName === "Bouncer") {
+    return MAX_BOUNCERS_PER_WAVE;
+  }
+  return MAX_OF_ONE_TYPE;
+}
+
 // The enemy type names of one wave: each role slot of the recipe gets a type.
 function pickWaveTypes(r, tier, rng) {
   const types = [];
@@ -178,10 +186,11 @@ function pickWaveTypes(r, tier, rng) {
     for (let i = 0; i < r.counts[role]; i++) {
       const open = ROLE_TYPES[role].filter((entry) => {
         const used = types.filter((t) => t === entry.type).length;
-        const cap = entry.type === "Bouncer" ? MAX_BOUNCERS_PER_WAVE : MAX_OF_ONE_TYPE;
-        return used < cap;
+        return used < typeCap(entry.type);
       });
-      const entries = open.map((entry) => ({ weight: entry.weights[tierIndex(tier)], type: entry.type }));
+      const entries = open.map((entry) => {
+        return { weight: entry.weights[tierIndex(tier)], type: entry.type };
+      });
       types.push(weightedPick(entries, rng).type);
     }
   }
@@ -251,11 +260,18 @@ function doorDistance(layout, spot) {
   return best;
 }
 
+// How many tiles around its own tile an enemy needs: a 32 pixel enemy needs the 3x3 tiles.
+function footprintReach(typeName) {
+  if (ENEMY_TYPES[typeName].length > TILE_SIZE) {
+    return 1;
+  }
+  return 0;
+}
+
 // True when an enemy of this type fits on the tile without touching a wall, a pit or a tile
-// another enemy of the wave already took. A 32 pixel enemy needs the 3x3 tiles around it.
+// another enemy of the wave already took.
 function spotFits(layout, typeName, spot, taken) {
-  const big = ENEMY_TYPES[typeName].length > TILE_SIZE;
-  const span = big ? 1 : 0;
+  const span = footprintReach(typeName);
   for (let row = spot.row - span; row <= spot.row + span; row++) {
     for (let col = spot.col - span; col <= spot.col + span; col++) {
       const inside = row >= 0 && col >= 0 && row < layout.rows && col < layout.cols;
@@ -268,7 +284,7 @@ function spotFits(layout, typeName, spot, taken) {
 }
 
 function takeSpot(layout, typeName, spot, taken) {
-  const span = ENEMY_TYPES[typeName].length > TILE_SIZE ? 1 : 0;
+  const span = footprintReach(typeName);
   for (let row = spot.row - span; row <= spot.row + span; row++) {
     for (let col = spot.col - span; col <= spot.col + span; col++) {
       taken.add(row * layout.cols + col);
@@ -279,7 +295,10 @@ function takeSpot(layout, typeName, spot, taken) {
 // Where one enemy stands: a drawn spot of its kind first, then any open floor tile 5 or more
 // tiles from every door, then the open tile farthest from the doors. Returns null if nothing fits.
 function findSpot(layout, typeName, rng, taken) {
-  const drawn = RANGED_ROLES.includes(ENEMY_ROLES[typeName]) ? layout.ranged : layout.melee;
+  let drawn = layout.melee;
+  if (RANGED_ROLES.includes(ENEMY_ROLES[typeName])) {
+    drawn = layout.ranged;
+  }
   const fits = (spot) => spotFits(layout, typeName, spot, taken);
   const fromDrawn = shuffle(drawn, rng).filter(fits);
   if (fromDrawn.length > 0) {

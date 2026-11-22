@@ -22,7 +22,7 @@ const ENEMY_CHARS = Object.freeze({
   D: "Demon"
 });
 const MELEE_SPOT_CHAR = "m"; // floor where a melee enemy (chaser or swarm) may start
-const RANGED_SPOT_CHAR = "r"; // floor where a ranged enemy or turret may start, behind cover or far away
+const RANGED_SPOT_CHAR = "r"; // floor where a ranged enemy or turret may start
 const DOOR_CHAR = "+";
 const CHEST_CHAR = "C"; // a treasure chest standing on floor
 const PLAYER_START_CHAR = "@";
@@ -209,7 +209,8 @@ function validateRoomTemplates(templates = ROOM_TEMPLATES, sizeClasses = ROOM_SI
       return;
     }
     if (cols < 8 || rows < 8 || cols > ROOM_VIEW_COLS || rows > ROOM_VIEW_ROWS) {
-      bad("size " + cols + "x" + rows + " must be 8 to " + ROOM_VIEW_COLS + " wide and 8 to " + ROOM_VIEW_ROWS + " tall");
+      bad("size " + cols + "x" + rows + " must be 8 to " + ROOM_VIEW_COLS
+        + " wide and 8 to " + ROOM_VIEW_ROWS + " tall");
       return;
     }
     const sizeLabels = sizeClasses.map((s) => s.name + " " + s.cols + "x" + s.rows);
@@ -350,6 +351,7 @@ class TemplateRoom extends Room {
   constructor(x, y, template, options = {}) {
     super(x, y, template.cols * TILE_SIZE, template.rows * TILE_SIZE);
     this.template = template;
+    this.role = template.role;
     this.tier = options.tier || 1;
     this.encounterSeed = options.seed || 0;
     this.doors = template.doors;

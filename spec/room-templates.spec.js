@@ -24,7 +24,8 @@ describe("ROOM_TEMPLATES (the pre-made rooms)", function () {
 
   describe("size classes", function () {
     const normals = ROOM_TEMPLATES.filter((t) => t.role === "normal");
-    const byClass = (name) => normals.filter((t) => roomSizeName(t.rows[0].length, t.rows.length) === name);
+    const sizeOf = (t) => roomSizeName(t.rows[0].length, t.rows.length);
+    const byClass = (name) => normals.filter((t) => sizeOf(t) === name);
 
     it("puts every normal and treasure room in one of the three sizes", function () {
       for (const t of ROOM_TEMPLATES) {
@@ -35,7 +36,8 @@ describe("ROOM_TEMPLATES (the pre-made rooms)", function () {
     });
 
     it("has the three sizes at 22x13, 28x17 and 36x21", function () {
-      expect(ROOM_SIZE_CLASSES.map((s) => s.cols + "x" + s.rows)).toEqual(["22x13", "28x17", "36x21"]);
+      const sizes = ROOM_SIZE_CLASSES.map((s) => s.cols + "x" + s.rows);
+      expect(sizes).toEqual(["22x13", "28x17", "36x21"]);
     });
 
     it("has at least 6 different layouts in each size", function () {
@@ -44,7 +46,7 @@ describe("ROOM_TEMPLATES (the pre-made rooms)", function () {
       }
     });
 
-    it("fits every room, start and boss rooms too, in the 40x22 tiles the camera shows", function () {
+    it("fits every room, start and boss too, in the 40x22 tiles the camera shows", function () {
       const viewCols = 1280 / WORLD_ZOOM / TILE_SIZE; // the game screen is 1280x720
       const viewRows = Math.floor(720 / WORLD_ZOOM / TILE_SIZE);
       for (const t of ROOM_TEMPLATES) {
@@ -53,7 +55,7 @@ describe("ROOM_TEMPLATES (the pre-made rooms)", function () {
       }
     });
 
-    it("draws at least 4 melee spots and 3 ranged spots in every normal room, none by a door", function () {
+    it("draws 4 melee and 3 ranged spots in every normal room, none by a door", function () {
       for (const t of normals) {
         const parsed = parseRoomTemplate(t);
         expect(parsed.spots.melee.length).withContext(t.name).toBeGreaterThanOrEqual(4);
@@ -65,13 +67,14 @@ describe("ROOM_TEMPLATES (the pre-made rooms)", function () {
       }
     });
 
-    it("keeps spots in large rooms from under the heads-up display in the top corners", function () {
+    it("keeps large room spots out from under the HUD in the top corners", function () {
       for (const t of byClass("large")) {
         const parsed = parseRoomTemplate(t);
         for (const spot of parsed.spots.melee.concat(parsed.spots.ranged)) {
           const underLeft = spot.col <= 8 && spot.row <= 2; // hearts and class name
           const underRight = spot.col >= 31 && spot.row <= 4; // minimap
-          expect(underLeft || underRight).withContext(t.name + " " + spot.col + "," + spot.row).toBe(false);
+          const where = t.name + " " + spot.col + "," + spot.row;
+          expect(underLeft || underRight).withContext(where).toBe(false);
         }
       }
     });
@@ -85,7 +88,8 @@ describe("ROOM_TEMPLATES (the pre-made rooms)", function () {
     it("keeps start rooms free of enemies", function () {
       for (const t of ROOM_TEMPLATES.filter((r) => r.role === "start")) {
         const parsed = parseRoomTemplate(t);
-        expect(parsed.spawns.length + parsed.spots.melee.length + parsed.spots.ranged.length).toBe(0);
+        const count = parsed.spawns.length + parsed.spots.melee.length + parsed.spots.ranged.length;
+        expect(count).toBe(0);
       }
     });
 
@@ -97,7 +101,8 @@ describe("ROOM_TEMPLATES (the pre-made rooms)", function () {
         expect(parsed.cols + "x" + parsed.rows).toBe("22x13");
         expect(parsed.doors.length).toBe(1);
         expect(parsed.chests.length).toBe(1);
-        expect(parsed.spawns.length + parsed.spots.melee.length + parsed.spots.ranged.length).toBe(0);
+        const count = parsed.spawns.length + parsed.spots.melee.length + parsed.spots.ranged.length;
+        expect(count).toBe(0);
       }
       const sides = vaults.map((t) => parseRoomTemplate(t).doors[0].side).sort();
       expect(sides).toEqual(["E", "N", "S", "W"]);
@@ -199,11 +204,12 @@ describe("validateRoomTemplates size classes", function () {
   it("accepts m and r as floor and keeps them off the door tiles", function () {
     const rows = rowsOf(22, 13);
     rows[3] = rows[3].slice(0, 6) + "m" + rows[3].slice(7, 9) + "r" + rows[3].slice(10);
-    expect(validateRoomTemplates(withNormal([{ name: "spots", role: "normal", rows }]))).toEqual([]);
+    const spots = { name: "spots", role: "normal", rows };
+    expect(validateRoomTemplates(withNormal([spots]))).toEqual([]);
     const blocked = rowsOf(22, 13);
     blocked[1] = blocked[1].slice(0, 4) + "m" + blocked[1].slice(5);
-    expect(validateRoomTemplates(withNormal([{ name: "blocked", role: "normal", rows: blocked }])).length)
-      .toBe(1);
+    const bad = { name: "blocked", role: "normal", rows: blocked };
+    expect(validateRoomTemplates(withNormal([bad])).length).toBe(1);
   });
 });
 

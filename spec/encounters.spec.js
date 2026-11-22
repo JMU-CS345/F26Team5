@@ -149,7 +149,7 @@ describe("encounters", function () {
 
   describe("every normal room over 200 seeds and 3 tiers", function () {
     for (const template of NORMALS) {
-      it(template.name + " follows the wave rules and puts every enemy on reachable floor", function () {
+      it(template.name + " obeys the wave rules, enemies on reachable floor", function () {
         const parsed = parseRoomTemplate(template);
         const reachable = reachableFromDoors(parsed);
         const sizeName = roomSizeName(parsed.cols, parsed.rows);
@@ -168,7 +168,8 @@ describe("encounters", function () {
             const tiles = new Set();
             for (const spawn of wave) {
               const key = spawn.row * parsed.cols + spawn.col;
-              expect(reachable.has(key)).withContext(spawn.type + " " + spawn.col + "," + spawn.row).toBe(true);
+              const where = spawn.type + " " + spawn.col + "," + spawn.row;
+              expect(reachable.has(key)).withContext(where).toBe(true);
               expect(parsed.grid[spawn.row][spawn.col]).toBe(TILE.FLOOR);
               expect(tiles.has(key)).toBe(false);
               tiles.add(key);
@@ -177,7 +178,7 @@ describe("encounters", function () {
         }
       });
 
-      it(template.name + " keeps shooters on r spots and the rest on m spots while spots last", function () {
+      it(template.name + " puts shooters on r spots and the rest on m spots", function () {
         const parsed = parseRoomTemplate(template);
         const isSpot = (list, s) => list.some((p) => p.col === s.col && p.row === s.row);
         for (const seed of SEEDS.slice(0, 40)) {
@@ -238,7 +239,8 @@ describe("encounters", function () {
     it("keeps letters drawn in a room that also has spots in its first wave", function () {
       const rows = open.rows.slice();
       rows[10] = rows[10].slice(0, 5) + "Z" + rows[10].slice(6);
-      const room = new TemplateRoom(0, 0, parseRoomTemplate({ ...open, name: "x", rows }), { seed: 2 });
+      const drawn = parseRoomTemplate({ ...open, name: "x", rows });
+      const room = new TemplateRoom(0, 0, drawn, { seed: 2 });
       expect(room.planWaves()[0].some((s) => s.col === 5 && s.row === 10 && s.type === "Zombie"))
         .toBe(true);
     });
@@ -250,7 +252,8 @@ describe("encounters", function () {
       layout.ranged = [];
       const spawns = placeWave(["Zombie", "Zombie", "Skeleton", "Eyeball"], layout, createRng(1));
       expect(spawns.length).toBe(4);
-      const strays = spawns.filter((s) => !(s.col === layout.melee[0].col && s.row === layout.melee[0].row));
+      const spot = layout.melee[0];
+      const strays = spawns.filter((s) => !(s.col === spot.col && s.row === spot.row));
       for (const s of strays) {
         expect(doorDistance(layout, s)).toBeGreaterThanOrEqual(SPAWN_DOOR_DISTANCE);
       }

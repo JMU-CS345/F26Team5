@@ -38,8 +38,8 @@ describe("dungeon size and reachability", function () {
     const vault = d.rooms.find((r) => r.role === "treasure");
     vault.onEnter();
     enterRoomFlow(d, vault);
-    expect(vault.exits.flatMap((x) => x.tiles).every((t) => vault.getTile(t.col, t.row) === TILE.DOOR_OPEN))
-      .toBe(true);
+    const doorTiles = vault.exits.flatMap((x) => x.tiles);
+    expect(doorTiles.every((t) => vault.getTile(t.col, t.row) === TILE.DOOR_OPEN)).toBe(true);
   });
 
   it("fits every room inside the 40x22 tiles the camera shows", function () {
