@@ -17,6 +17,8 @@ const ENEMY_CHARS = Object.freeze({
   S: "Skeleton",
   B: "Bat",
   E: "Eyeball",
+  K: "Bouncer",
+  T: "SparkBark",
   D: "Demon"
 });
 const DOOR_CHAR = "+";
@@ -245,6 +247,25 @@ function validateRoomTemplates(templates = ROOM_TEMPLATES) {
       }
     }
 
+    // A # inside the room is wall sticking out of the outer wall. Its art has sloped corners,
+    // so it must be at least 2 tiles thick: floor on both sides of one tile cannot be drawn.
+    const isFloorSide = (r, c) => t.rows[r][c] !== "#" && t.rows[r][c] !== DOOR_CHAR;
+    let thinWall = null;
+    for (let r = 1; r < rows - 1 && !thinWall; r++) {
+      for (let c = 1; c < cols - 1; c++) {
+        if (t.rows[r][c] !== "#") continue;
+        const acrossRow = isFloorSide(r, c - 1) && isFloorSide(r, c + 1);
+        const acrossColumn = isFloorSide(r - 1, c) && isFloorSide(r + 1, c);
+        if (acrossRow || acrossColumn) {
+          thinWall = { c, r };
+          break;
+        }
+      }
+    }
+    if (thinWall) {
+      bad("the # at column " + thinWall.c + ", row " + thinWall.r + " is a wall only 1 tile thick; walls inside the room must be at least 2 tiles thick (use x for a 1 tile obstacle)");
+    }
+
     // Every walkable tile must be reachable from every other one.
     let total = 0;
     let first = null;
@@ -361,6 +382,7 @@ class TemplateRoom extends Room {
     };
   }
 
+  // Spawns the enemies the first time. The room flow seals the doors when combat starts.
   onEnter() {
     this.spawnEnemies();
     for (const enemy of this.enemies) {

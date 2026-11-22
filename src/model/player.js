@@ -3,6 +3,8 @@
 const PLAYER_LENGTH = 16;
 const PLAYER_WIDTH = 16;
 const FIRE_COOLDOWN = RANGED_DEFAULTS.fireRate; // default shots are slower than melee
+const PLAYER_FALL_FRAMES = 40; // how long the fall into a pit lasts before the respawn
+const PIT_FALL_DAMAGE = 1; // health lost by falling into a pit
 
 class Player {
   // mageClass is "Fire", "Ice" or "Mind". It picks the starting stats (see player-stats.js).
@@ -55,6 +57,7 @@ class Player {
     this.room = null; // the room of the latest update, for weapon hooks that look for enemies
     this.hookCounts = {}; // hits and shots made per weapon, for "every 3rd shot" hooks
     this.effectQueue = []; // weapon hook effects waiting for their delay: { frames, effect }
+    this.fallFrames = 0; // frames spent falling into a pit, 0 when not falling
 
     // Animation state. The view reads these to pick a sprite frame.
     this.facing = "down"; // "down", "up", "left" or "right"
@@ -218,7 +221,7 @@ class Player {
   // an array, empty when nothing was fired.
   fireAll(dir) {
     this.holding = !this.isDead() && dir.magSq() > 0;
-    if (this.isDead() || this.fireCooldown > 0 || dir.magSq() === 0) {
+    if (this.isDead() || this.isFalling() || this.fireCooldown > 0 || dir.magSq() === 0) {
       return []; // can't shoot yet, so don't turn either
     }
     const stats = getRangedStats(this.inventory.getEquipped("projectile"));
@@ -467,6 +470,38 @@ class Player {
     return true;
   }
 
+  isFalling() {
+    return this.fallFrames > 0;
+  }
+
+  // Starts falling into a pit. It costs health. While falling the player cannot steer, shoot or be
+  // hit. When it is over, hasFinishedFalling() is true and the game calls respawnAt.
+  startFall() {
+    if (this.isDead() || this.isFalling()) {
+      return;
+    }
+    this.health = Math.max(0, this.health - PIT_FALL_DAMAGE); // a fall ignores armor and i-frames
+    playCombatSfx("hurt");
+    this.dashFrames = 0;
+    this.attack = null;
+    this.fallFrames = 1;
+    this.knockbackTimer = 0;
+    this.vel.set(0, 0);
+    this.walkFrames = 0;
+  }
+
+  hasFinishedFalling() {
+    return this.fallFrames >= PLAYER_FALL_FRAMES;
+  }
+
+  // Puts the player's center at (x, y) and ends the fall.
+  respawnAt(x, y) {
+    this.pos.set(x - this.length / 2, y - this.width / 2);
+    this.fallFrames = 0;
+    this.knockbackTimer = 0;
+    this.vel.set(0, 0);
+  }
+
   // Call once per frame. Counts the timers down. Pass the room so a shove can move us and
   // swings can find enemies. input.meleeHeld is true while the melee key is down.
   update(room, input = {}) {
@@ -475,7 +510,7 @@ class Player {
     if (this.isDead()) {
       this.deathFrames = Math.min(this.deathFrames + 1, DEATH_FRAMES);
       this.attack = null;
-    } else {
+    } else if (!this.isFalling()) {
       this.updateDash(room, input.move || new p5.Vector(0, 0));
       this.updateMelee(room, input.meleeHeld === true);
     }
@@ -490,12 +525,23 @@ class Player {
     }
     this.dodgeSlow = Math.max(0, this.dodgeSlow - 1);
     this.dodgeFlash = Math.max(0, this.dodgeFlash - 1);
+    if (this.isFalling()) {
+      this.fallFrames = Math.min(this.fallFrames + 1, PLAYER_FALL_FRAMES);
+      this.knockbackTimer = 0;
+    }
     if (this.knockbackTimer > 0) {
       if (room) {
         moveWithCollision(this, this.knockback.x, this.knockback.y, room);
       }
       this.knockback.mult(PLAYER_KNOCKBACK_DECAY);
       this.knockbackTimer--;
+    }
+    // Whoever ends up with their middle over a pit falls in, however they got there.
+    if (room && typeof room.isPitAt === "function" && !this.isDead() && !this.isFalling()) {
+      const center = this.getCenter();
+      if (room.isPitAt(center.x, center.y)) {
+        this.startFall();
+      }
     }
   }
 
@@ -508,7 +554,7 @@ class Player {
   // held direction, so starting and stopping take a few frames.
   move(dir, room, lockFacing = false) {
     this.vel.set(0, 0);
-    if (this.isDead() || this.knockbackTimer > 0 || this.isDashing()) {
+    if (this.isDead() || this.isFalling() || this.knockbackTimer > 0 || this.isDashing()) {
       this.velocity.set(0, 0);
       this.walkFrames = 0;
       return;

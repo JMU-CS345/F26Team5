@@ -14,8 +14,8 @@ let customizeFields = {}; // part -> { picker, input }: the controls of one cust
 let dungeon;
 let lootRun; // loot rng and counters for this run
 let room; // the room the player is in right now
-let roomGraphic; // the picture of that room
-let roomGraphics = new Map(); // room id -> picture, built the first time the room is entered
+let entrySpot = { x: 0, y: 0 }; // where the player enters a room, a pit fall respawns here
+let roomGraphics = new Map(); // room id -> { graphic, version }, the picture and tileVersion it shows
 let inventoryHeld = null; // the item in the hand while the inventory is open
 let lastKillCenter = null; // where the last enemy died, for the clear reward
 let inventorySelection = null;
@@ -52,18 +52,24 @@ let pageScale = 1; // set by fitToWindow(), also used to line up the page backgr
 let pageLeft = 0;
 let pageTop = 0;
 
-// Makes the picture of a room the first time it is needed, and reuses it after that.
+// Makes the picture of a room the first time it is needed and reuses it after that. If a tile
+// has changed since (a door opened or closed), the picture is made again.
 function getRoomGraphic(r) {
-  if (!roomGraphics.has(r.id)) {
-    roomGraphics.set(r.id, buildRoomGraphic(r));
+  const cached = roomGraphics.get(r.id);
+  if (cached && cached.version === r.tileVersion) {
+    return cached.graphic;
   }
-  return roomGraphics.get(r.id);
+  if (cached) {
+    cached.graphic.remove();
+  }
+  const graphic = buildRoomGraphic(r);
+  roomGraphics.set(r.id, { graphic, version: r.tileVersion });
+  return graphic;
 }
 
 // Moves the game into a room. Shots in flight don't follow the player through a door.
 function enterRoom(r) {
   room = r;
-  roomGraphic = getRoomGraphic(r);
   projectiles = [];
   enemyProjectiles = [];
   clearDyingEnemies(); // death fades from the old room shouldn't show up in the new one
@@ -77,6 +83,7 @@ function useExit(exit) {
   const next = dungeon.rooms[exit.toId];
   const spot = dungeon.entryPoint(room, exit);
   enterRoom(next);
+  entrySpot = spot;
   player.pos.set(spot.x - player.length / 2, spot.y - player.width / 2);
 }
 
@@ -85,8 +92,8 @@ function startRun() {
   refreshBindings(); // the menus may have changed the controls setting
   gameFeel.refreshSettings();
   gameFeel.reset();
-  for (const g of roomGraphics.values()) {
-    g.remove(); // free the old dungeon's pictures
+  for (const cached of roomGraphics.values()) {
+    cached.graphic.remove(); // free the old dungeon's pictures
   }
   roomGraphics.clear();
   dungeon = generateDungeon({
@@ -106,6 +113,7 @@ function startRun() {
     game.appearance
   );
   giveLoadout(player, lootRun.rng);
+  entrySpot = { x: spawn.x, y: spawn.y };
   // Placeholder pickups until room data supplies item placement.
   room.items = [
     new ItemDrop(spawn.x + 48, spawn.y - 48, new ChestArmor({
@@ -610,6 +618,9 @@ function drawScreen() {
       projectiles.push(shot);
     }
   }
+  if (player.hasFinishedFalling() && !player.isDead()) {
+    player.respawnAt(entrySpot.x, entrySpot.y); // back at the door they came in through
+  }
   for (const hit of player.lastHits) {
     gameFeel.onHit(hit, "melee");
   }
@@ -692,7 +703,7 @@ function drawRunScene(shake = { x: 0, y: 0 }) {
   translate(shake.x, shake.y); // a hit shakes the world, the HUD stays put
   scale(WORLD_ZOOM);
   translate(-worldCamera.x, -worldCamera.y);
-  drawRoom(room, roomGraphic);
+  drawRoom(room, getRoomGraphic(room));
   drawRoomFlow(room, player);
   for (const chest of room.chests) {
     drawChest(chest);
@@ -817,7 +828,7 @@ function spawnNextEnemy() {
       true
     );
     const far = p5.Vector.dist(enemy.getCenter(), player.getCenter()) > 150;
-    if (far && !room.collidesWithWall(enemy.getBounds())) {
+    if (far && !room.collidesWithWall(enemy.getBounds()) && !room.overlapsPit(enemy.getBounds())) {
       room.enemies.push(enemy);
       room.cleared = false;
       return;

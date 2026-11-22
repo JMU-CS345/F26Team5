@@ -39,15 +39,17 @@ function makePotion() {
   });
 }
 
-// Moves a drop onto the nearest floor so it never sits in a wall. Falls back to (homeX, homeY),
-// the death point, when no floor is within 3 tiles. A room without tiles leaves it alone.
+// Moves a drop onto the nearest floor so it never sits in a wall or over a pit. Falls back to
+// (homeX, homeY), the death point, when no floor is within 3 tiles. A room without tiles is
+// left alone.
 function settleDrop(drop, room, homeX, homeY) {
   if (typeof room.collidesWithWall !== "function") {
     return;
   }
   const size = drop.size;
-  if (!room.collidesWithWall({ x: drop.x, y: drop.y, w: size, h: size })) {
-    return;
+  const box = { x: drop.x, y: drop.y, w: size, h: size };
+  if (!room.collidesWithWall(box) && !room.overlapsPit(box)) {
+    return; // clear of walls and pits
   }
   const ts = room.tileSize;
   const col = Math.floor((drop.x + size / 2 - room.x) / ts);

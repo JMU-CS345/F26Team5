@@ -34,7 +34,7 @@ function drawEnemySprite(enemy, sprite, alpha = 255) {
     translate(sin(frameCount * 2) * 1.5, 0); // a small shake telegraphs the swing
   }
   // Plain sprites face right and flip. Art that picks its own direction must not flip.
-  if (enemy.facingLeft && !sprite.directions && !sprite.aimFrames) {
+  if (enemy.facingLeft && !sprite.directions && !sprite.aimFrames && !sprite.walk) {
     scale(-1, 1);
   }
   if (enemy.state === "windup") {
@@ -156,7 +156,34 @@ function drawEnemy(enemy) {
   drawEnemyBody(enemy);
 }
 
+// An animated shot. With sprite.rotate the art faces down (or down and to the left for the
+// diagonal frames) and is turned to the way the shot is flying, around the center of the hitbox.
+function drawShotSprite(p) {
+  const sprite = p.sprite;
+  let frames = sprite.frames;
+  let turn = 0;
+  if (sprite.rotate) {
+    const eighths = Math.round(Math.atan2(p.vel.y, p.vel.x) / (Math.PI / 4));
+    const diagonal = Math.abs(eighths) % 2 === 1;
+    frames = diagonal ? sprite.diagonalFrames : sprite.frames;
+    turn = eighths * (Math.PI / 4) - (diagonal ? (3 * Math.PI) / 4 : Math.PI / 2);
+  }
+  const frame = frames[Math.floor(p.age / sprite.frameTime) % frames.length];
+  const w = frame.w || ENEMY_SPRITE_SIZE;
+  const h = frame.h || ENEMY_SPRITE_SIZE;
+  push();
+  translate(p.pos.x + p.length / 2, p.pos.y + p.width / 2);
+  rotate(turn);
+  noTint();
+  image(enemySheets[frame.sheet], -w / 2, -h / 2, w, h, frame.x, frame.y, w, h);
+  pop();
+}
+
 function drawEnemyProjectile(p) {
+  if (p.sprite) {
+    drawShotSprite(p);
+    return;
+  }
   const c = p.color;
   noStroke();
   fill(c[0], c[1], c[2]);
@@ -177,7 +204,7 @@ function drawDyingEnemies(advance = true) {
     const enemy = ghost.enemy;
     const center = enemy.getCenter();
     const alpha = map(ghost.age, 0, ENEMY_DEATH_FRAMES, 255, 0);
-    const size = map(ghost.age, 0, ENEMY_DEATH_FRAMES, 1, 0.3);
+    const size = map(ghost.age, 0, ENEMY_DEATH_FRAMES, 1, enemy.fell ? 0 : 0.3); // a fall shrinks to nothing
     push();
     translate(center.x, center.y);
     scale(size);

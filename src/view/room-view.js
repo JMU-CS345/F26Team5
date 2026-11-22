@@ -5,6 +5,8 @@ async function loadTileImages() {
   for (const key of Object.keys(TILE_IMAGE_FILES)) {
     tileImages[key] = await loadImageFile(TILE_IMAGE_FILES[key]);
   }
+  tileImages.pit = await loadImageFile("assets/tiles/dungeon/DungeonPit.png"); // has lip variants
+  tileImages.door = await loadImageFile("assets/tiles/dungeon/DungeonDoor.png");
 }
 
 // Where each wall variant is on stone-walls.png, as [column, row] in 16x16 tiles.
@@ -29,6 +31,12 @@ const WALL_SPRITES = {
   "open-se": [5, 1]
 };
 
+// Placeholder colors for door tiles that do not lead anywhere, so have no door art.
+const TILE_COLORS = {
+  [TILE.DOOR_CLOSED]: [150, 100, 50],
+  [TILE.DOOR_OPEN]: [90, 60, 30]
+};
+
 function drawTile(g, room, col, row) {
   const ts = room.tileSize;
   const dx = col * ts;
@@ -44,8 +52,20 @@ function drawTile(g, room, col, row) {
       const [sc, sr] = WALL_SPRITES[variant];
       g.image(tileImages.walls, dx, dy, ts, ts, sc * ts, sr * ts, ts, ts);
     }
+  } else if (type === TILE.PIT) {
+    g.image(tileImages.pit, dx, dy, ts, ts, getPitVariant(room, col, row) * ts, 0, ts, ts);
   } else {
-    g.image(tileImages[key], dx, dy);
+    if (type === TILE.DOOR_OPEN || type === TILE.DOOR_CLOSED) {
+      const door = getDoorSprite(room, col, row);
+      if (door) {
+        g.image(tileImages.door, dx, dy, ts, ts, door.col * ts, door.row * ts, ts, ts);
+      } else {
+        g.fill(...TILE_COLORS[type]);
+        g.rect(dx, dy, ts, ts);
+      }
+    } else {
+      g.image(tileImages[key], dx, dy);
+    }
   }
 }
 

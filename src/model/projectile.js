@@ -28,10 +28,13 @@ class Projectile {
     this.target = null; // enemy the shot homes on while it lives
     this.traveled = 0; // pixels flown so far
     this.hitTargets = []; // so a piercing shot hurts each target once
+    this.age = 0; // frames flown, for animated pictures
+    this.sprite = null; // optional { frameTime, frames } picture, set by whoever fires it
   }
 
   update(room) {
     steerShot(this);
+    this.age++;
     this.pos.add(this.vel);
     this.traveled += this.vel.mag();
     if (this.traveled >= this.range || room.collidesWithWall(this.getBounds())) {

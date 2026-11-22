@@ -49,6 +49,14 @@ class Enemy {
     this.graceTimer = 0; // harmless while above zero, set when the player enters the room
     this.spawnTimer = 0; // createEnemy can raise this so the enemy fades in harmless
     this.wakeTimer = 0; // frames left of holding still after the player entered the room
+    this.walkFrames = 0; // frames spent walking, like the player's, 0 when standing still
+    this.fell = false; // true if it died by falling into a pit
+    this.bounceAxis = null; // "x" or "y", the axis a bouncer is closing in along
+    this.sidestepFrames = 0; // frames a bouncer keeps edging around something that blocked it
+    this.sidestepX = 0;
+    this.sidestepY = 0;
+    this.sidestepSide = 1; // 1 or -1, which way it goes when the player is straight behind the block
+    this.stareTimer = 0; // frames the player has stayed in sight, for shooters with attack.stare
     this.facingLeft = false;
     this.facingDir = "down"; // "down", "up", "left" or "right", the side the player is on
     this.facingAngle = Math.PI / 2; // radians toward the player, 0 is right and y grows down
@@ -192,7 +200,7 @@ class Enemy {
 
   // Shoves the enemy along dir (any length). Bosses are heavy and move half as far.
   applyKnockback(dir, speed = ENEMY_KNOCKBACK_SPEED) {
-    if (!dir || dir.magSq() === 0) {
+    if (!dir || dir.magSq() === 0 || this.type.noKnockback) {
       return;
     }
     let shove = speed;
@@ -230,6 +238,9 @@ class Enemy {
     this.swingHit = false;
     this.aimDir = null;
     this.route = null;
+    this.bounceAxis = null;
+    this.sidestepFrames = 0;
+    this.stareTimer = 0;
   }
 
   // True for hoppers, which go straight at the player and ignore walls and sight.
@@ -377,10 +388,12 @@ class Enemy {
     this.graceTimer = Math.max(0, this.graceTimer - 1);
     if (this.isSpawning()) {
       this.spawnTimer--;
+      this.walkFrames = 0;
       return;
     }
     if (this.isWaking()) {
       this.wakeTimer--;
+      this.walkFrames = 0;
       return;
     }
     this.damageCooldown = Math.max(0, this.damageCooldown - 1);
@@ -396,6 +409,7 @@ class Enemy {
       this.resetMoveState(); // a phase swapped the move, so the old state means nothing now
     }
     this.lastMoveName = moveName;
+    const before = this.pos.copy();
     const aware = this.senseTarget(player, room);
     if (aware && this.state !== "attack" && !this.usesLineVision()) {
       this.faceToward(player); // the facing is locked while a swing is out
@@ -410,6 +424,31 @@ class Enemy {
       this.separate(room);
     }
     this.freezeTimer = Math.max(0, this.freezeTimer - 1); // counted after the move
+    if (this.pos.dist(before) > 0.01) {
+      this.walkFrames++;
+    } else {
+      this.walkFrames = 0;
+    }
+    // A shove can carry it over a pit. Fliers and bosses stay up.
+    if (!this.type.flies && !this.type.boss && room && typeof room.isPitAt === "function") {
+      const center = this.getCenter();
+      if (room.isPitAt(center.x, center.y)) {
+        this.fall();
+      }
+    }
+  }
+
+  // True while the enemy keeps out of pits. A flier crosses them, and a shoved enemy goes wherever
+  // the shove takes it. moveWithCollision reads this.
+  get avoidsPits() {
+    return !this.type.flies && this.knockbackTimer <= 0;
+  }
+
+  // Drops into a pit and dies there. The room treats it like any other kill.
+  fall() {
+    this.health = 0;
+    this.fell = true;
+    this.knockbackTimer = 0;
   }
 
   // Gives way to overlapping neighbors so a group does not collapse into one blob.
@@ -566,7 +605,8 @@ class Enemy {
   meleeHit(player) {
     const attack = this.getAttack();
     if (
-      this.isDead() || this.isHarmless() || isStunned(this) || !attack || attack.kind !== "melee"
+      this.isDead() || this.isHarmless() || player.isFalling() || isStunned(this) || !attack
+      || attack.kind !== "melee"
     ) {
       return false;
     }
@@ -606,7 +646,7 @@ class Enemy {
   }
 
   damagePlayer(player) {
-    if (this.isDead() || this.isHarmless() || this.damageCooldown > 0) {
+    if (this.isDead() || this.isHarmless() || player.isFalling() || this.damageCooldown > 0) {
       return false;
     }
     if (!this.isTouching(player)) {

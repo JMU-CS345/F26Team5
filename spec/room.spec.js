@@ -232,6 +232,14 @@ describe("Room tile editing and exits", () => {
     expect(room.getTile(3, 4)).toBe(TILE.PIT);
   });
 
+  it("counts tile changes in tileVersion, so the view knows to redraw", () => {
+    expect(room.tileVersion).toBe(0);
+    room.setTile(3, 4, TILE.PIT);
+    expect(room.tileVersion).toBe(1);
+    room.setTile(3, 4, TILE.PIT); // the same tile again changes nothing
+    expect(room.tileVersion).toBe(1);
+  });
+
   it("ignores setTile outside the room", () => {
     expect(room.setTile(-1, 0, TILE.PIT)).toBe(false);
     expect(room.setTile(0, 10, TILE.PIT)).toBe(false);

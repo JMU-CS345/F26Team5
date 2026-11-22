@@ -2,14 +2,7 @@
 // Call inside the zoomed world, after drawRoom. Never changes the model.
 
 function drawRoomFlow(room, player) {
-  const ts = room.tileSize;
-  for (const exit of room.exits) {
-    for (const tile of exit.tiles) {
-      if (room.getTile(tile.col, tile.row) === TILE.DOOR_CLOSED) {
-        image(tileImages.doorClosed, room.x + tile.col * ts, room.y + tile.row * ts);
-      }
-    }
-  }
+  const ts = room.tileSize; // closed doors are tiles now, so the room picture already shows them
 
   if (waveMarkerShows(room)) {
     const size = map(room.waveTimer, WAVE_GAP_FRAMES - WAVE_MARKER_FRAMES, WAVE_GAP_FRAMES, 6, 18);

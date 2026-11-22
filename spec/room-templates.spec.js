@@ -274,3 +274,107 @@ describe("parseRoomTemplate and TemplateRoom", function () {
     expect(parsed.grid[0][4]).toBe(TILE.WALL);
   });
 });
+
+describe("TemplateRoom doors close while enemies are alive", function () {
+  const makeRoom = (enemyChar) => {
+    const parsed = parseRoomTemplate({
+      name: "doors",
+      role: "normal",
+      rows: [
+        "####++####",
+        "#........#",
+        "#...%....#".replace("%", enemyChar),
+        "#........#",
+        "####++####"
+      ]
+    });
+    const room = new TemplateRoom(0, 0, parsed);
+    room.openDoor(parsed.doors[0], 1, 0);
+    room.openDoor(parsed.doors[1], 2, 0);
+    return room;
+  };
+
+  it("shuts the doors when the player walks into a room with enemies", function () {
+    const room = makeRoom("J");
+    expect(room.getTile(4, 0)).toBe(TILE.DOOR_OPEN);
+    room.onEnter();
+    enterRoomFlow({}, room); // the room flow seals the doors, not onEnter
+    for (const [col, row] of [[4, 0], [5, 0], [4, 4], [5, 4]]) {
+      expect(room.getTile(col, row)).toBe(TILE.DOOR_CLOSED);
+    }
+    expect(room.isWallAt(4 * 16 + 2, 2)).toBe(true);
+  });
+
+  it("opens the doors again when the room is cleared", function () {
+    const room = makeRoom("J");
+    room.onEnter();
+    room.onClear();
+    expect(room.cleared).toBe(true);
+    expect(room.getTile(4, 0)).toBe(TILE.DOOR_OPEN);
+    expect(room.getTile(5, 4)).toBe(TILE.DOOR_OPEN);
+  });
+
+  it("keeps the doors open in a room with no enemies", function () {
+    const room = makeRoom(".");
+    room.onEnter();
+    expect(room.getTile(4, 0)).toBe(TILE.DOOR_OPEN);
+  });
+
+  it("keeps the doors open when the player comes back to a cleared room", function () {
+    const room = makeRoom("J");
+    room.onEnter();
+    room.onClear();
+    room.onEnter();
+    expect(room.getTile(4, 0)).toBe(TILE.DOOR_OPEN);
+  });
+
+  it("leaves doors that lead nowhere as walls", function () {
+    const parsed = parseRoomTemplate({
+      name: "doors",
+      role: "normal",
+      rows: ["####++####", "#........#", "#...J....#", "#........#", "####++####"]
+    });
+    const room = new TemplateRoom(0, 0, parsed);
+    room.openDoor(parsed.doors[0], 1, 0); // only the north door is used
+    room.onEnter();
+    enterRoomFlow({}, room);
+    expect(room.getTile(4, 0)).toBe(TILE.DOOR_CLOSED);
+    expect(room.getTile(4, 4)).toBe(TILE.WALL);
+  });
+});
+
+describe("validateRoomTemplates for walls that stick into the room", function () {
+  const room = (rows) => ({ name: "walls", role: "normal", rows });
+  const base = [
+    "####++####",
+    "#........#",
+    "#........#",
+    "#........#",
+    "#........#",
+    "#........#",
+    "#........#",
+    "####++####"
+  ];
+  const withRows = (changes) => base.map((row, i) => (changes[i] !== undefined ? changes[i] : row));
+
+  it("accepts a wall block 2 tiles thick that is joined to the outer wall", function () {
+    const rows = withRows({ 1: "#.....##.#", 2: "#.....##.#" });
+    expect(validateRoomTemplates([room(rows)])).toEqual([]);
+  });
+
+  it("rejects a wall only 1 tile thick and says where", function () {
+    const rows = withRows({ 1: "#..#.....#", 2: "#..#.....#" });
+    expect(validateRoomTemplates([room(rows)])).toEqual([
+      "walls: the # at column 3, row 1 is a wall only 1 tile thick; walls inside the room must be at least 2 tiles thick (use x for a 1 tile obstacle)"
+    ]);
+  });
+
+  it("rejects a 1 tile thick wall that runs sideways too", function () {
+    const rows = withRows({ 4: "#.#####..#" });
+    expect(validateRoomTemplates([room(rows)]).length).toBe(1);
+  });
+
+  it("is fine with the walls and pillars that rooms already use", function () {
+    expect(validateRoomTemplates()).toEqual([]);
+  });
+});

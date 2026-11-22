@@ -478,6 +478,7 @@ describe("Enemy freeze, stagger and shot flash", function () {
       const enemy = new Enemy(100, 200, name);
       placeNear(enemy, 60);
       enemy.attackTimer = 0;
+      enemy.stareTimer = type.attack.stare || 0;
       expect(enemy.tryAttack(player, room)).withContext(name).toEqual([]);
       expect(enemy.shotFlash).withContext(name).toBe(type.attack.windup);
     }
