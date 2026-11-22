@@ -23,7 +23,7 @@ function makeSwingPlan(stats, step) {
     plan.knockback = FINISHER_KNOCKBACK;
     plan.lunge = LUNGE_FINISHER;
   }
-  plan.knockback *= stats.knockback / MELEE_DEFAULTS.knockback;
+  plan.knockback *= stats.knockback / MELEE_KNOCKBACK_UNIT;
   plan.total = Math.max(total, plan.windup + plan.active + 1);
   return plan;
 }
@@ -46,7 +46,7 @@ function makeSpinPlan(stats) {
     damage: stats.damage * SPIN_DAMAGE,
     reach: stats.reach * SPIN_REACH,
     arc: 360,
-    knockback: SPIN_KNOCKBACK * stats.knockback / MELEE_DEFAULTS.knockback,
+    knockback: SPIN_KNOCKBACK * stats.knockback / MELEE_KNOCKBACK_UNIT,
     lunge: LUNGE_SPIN,
     windup: SPIN_WINDUP,
     active: SPIN_ACTIVE,

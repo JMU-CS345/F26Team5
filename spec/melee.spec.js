@@ -45,7 +45,7 @@ describe("Melee", function () {
     expect(player.attack.plan.reach).toBe(50);
     expect(player.attack.plan.total).toBe(20);
     expect(player.attack.plan.arc).toBe(160);
-    expect(player.attack.plan.knockback).toBe(2); // 24 against the default 12
+    expect(player.attack.plan.knockback).toBe(24 / MELEE_KNOCKBACK_UNIT);
     expect(player.attack.stats.damage).toBe(6);
   });
 

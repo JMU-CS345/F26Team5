@@ -27,6 +27,8 @@ const SPIN_RECOVERY = 8;
 
 // Knockback on enemies: this share of the shove follows the swing, the rest is away from
 // the player.
+// A weapon's knockback stat divided by this is the shove strength (1 is a normal hit).
+const MELEE_KNOCKBACK_UNIT = 6;
 const KNOCKBACK_SWING_MIX = 0.6;
 
 // Walking. Speed is a share of the class speed, by swing phase.
@@ -45,7 +47,7 @@ const LUNGE_EASE = 0.5; // share of the remaining lunge taken each frame
 const LUNGE_STOP = 0.3; // below this much left the lunge ends
 
 // Player hurt and shove
-const HIT_IFRAMES = 45; // invulnerable frames after being hurt
+const HIT_IFRAMES = 90; // invulnerable frames after being hurt
 const ARMOR_BLOCK_CAP = 40; // helmet and leg block add up to at most this percent
 const PLAYER_KNOCKBACK_SPEED = 4; // pixels per frame at the start of a shove
 const PLAYER_KNOCKBACK_FRAMES = 6;

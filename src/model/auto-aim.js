@@ -10,7 +10,7 @@ function findAimTarget(player, enemies, room, range = AIM_RANGE) {
   let best = null;
   let bestDist = Infinity;
   for (const enemy of enemies) {
-    if (enemy.isDead() || enemy.isSpawning()) {
+    if (enemy.isDead() || enemy.isSpawning() || enemy.isWaking()) {
       continue;
     }
     const to = enemy.getCenter();

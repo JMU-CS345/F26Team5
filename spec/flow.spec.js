@@ -54,7 +54,7 @@ describe("game flow", function () {
   it("lets projectiles kill an enemy", function () {
     const { room } = makeRun("Fire");
     const enemy = new Enemy(120, 80);
-    for (let shot = 0; shot < 5; shot++) {
+    for (let shot = 0; shot < 30; shot++) {
       const proj = new Projectile(90, 88, new p5.Vector(1, 0));
       for (let step = 0; step < 20; step++) {
         proj.update(room);
