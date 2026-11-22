@@ -178,19 +178,27 @@ describe("encounters", function () {
         }
       });
 
-      it(template.name + " puts shooters on r spots and the rest on m spots", function () {
+      it(template.name + " puts shooters and the rest on far drawn spots", function () {
         const parsed = parseRoomTemplate(template);
+        const layout = buildEncounterLayout(parsed);
+        const far = (list) => list.filter((s) => doorDistance(layout, s) >= SPAWN_DOOR_DISTANCE);
+        const rangedSpots = far(layout.ranged);
+        const meleeSpots = far(layout.melee);
         const isSpot = (list, s) => list.some((p) => p.col === s.col && p.row === s.row);
+        // a wave that runs out of far drawn spots falls back to open floor, also far from doors
+        const onSpotOrFar = (list, s) => {
+          return isSpot(list, s) || doorDistance(layout, s) >= SPAWN_DOOR_DISTANCE;
+        };
         for (const seed of SEEDS.slice(0, 40)) {
           const room = new TemplateRoom(0, 0, parsed, { tier: 1 + (seed % 3), seed });
           for (const wave of room.planWaves()) {
             const shooters = wave.filter((s) => RANGED_ROLES.includes(ENEMY_ROLES[s.type]));
             const others = wave.filter((s) => MELEE_ROLES.includes(ENEMY_ROLES[s.type]));
-            if (shooters.length <= parsed.spots.ranged.length) {
-              expect(shooters.every((s) => isSpot(parsed.spots.ranged, s))).toBe(true);
+            if (shooters.length <= rangedSpots.length) {
+              expect(shooters.every((s) => onSpotOrFar(rangedSpots, s))).toBe(true);
             }
-            if (others.length <= parsed.spots.melee.length) {
-              expect(others.every((s) => isSpot(parsed.spots.melee, s))).toBe(true);
+            if (others.length <= meleeSpots.length) {
+              expect(others.every((s) => onSpotOrFar(meleeSpots, s))).toBe(true);
             }
           }
         }
@@ -255,6 +263,15 @@ describe("encounters", function () {
       const spot = layout.melee[0];
       const strays = spawns.filter((s) => !(s.col === spot.col && s.row === spot.row));
       for (const s of strays) {
+        expect(doorDistance(layout, s)).toBeGreaterThanOrEqual(SPAWN_DOOR_DISTANCE);
+      }
+    });
+
+    it("keeps drawn spots at least SPAWN_DOOR_DISTANCE tiles from every door", function () {
+      const layout = buildEncounterLayout(parseRoomTemplate(open));
+      layout.melee = layout.open.filter((s) => doorDistance(layout, s) < SPAWN_DOOR_DISTANCE);
+      layout.ranged = [];
+      for (const s of placeWave(["Zombie", "Zombie"], layout, createRng(3))) {
         expect(doorDistance(layout, s)).toBeGreaterThanOrEqual(SPAWN_DOOR_DISTANCE);
       }
     });

@@ -127,13 +127,16 @@ function rollClearReward(room, lootRun, x, y, tier = roomTier(room)) {
   const left = x - ITEM_DROP_SIZE / 2;
   const top = y - ITEM_DROP_SIZE / 2;
   const roll = lootRun.rng();
+  let drop;
   if (roll < CLEAR_GEAR_CHANCE) {
-    return new ItemDrop(left, top, lootRun.rollGearPiece(room, "chest"));
+    drop = new ItemDrop(left, top, lootRun.rollGearPiece(room, "chest"));
+  } else if (roll < CLEAR_GEAR_CHANCE + CLEAR_POTION_CHANCE) {
+    drop = new ItemDrop(left, top, makePotion());
+  } else {
+    drop = new ItemDrop(left, top, new Gold(), rollClearGold(lootRun, tier));
   }
-  if (roll < CLEAR_GEAR_CHANCE + CLEAR_POTION_CHANCE) {
-    return new ItemDrop(left, top, makePotion());
-  }
-  return new ItemDrop(left, top, new Gold(), rollClearGold(lootRun, tier));
+  settleDrop(drop, room, left, top); // enemies can die over a pit
+  return drop;
 }
 
 function rollClearGold(lootRun, tier) {

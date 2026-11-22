@@ -60,6 +60,21 @@ describe("enemy drops", function () {
 });
 
 describe("rollClearReward", function () {
+  it("settles the reward off a pit", function () {
+    const pitRoom = {
+      id: 1,
+      role: "normal",
+      x: 0,
+      y: 0,
+      tileSize: 32,
+      collidesWithWall: () => false,
+      overlapsPit: (box) => box.x < 64,
+      canStandAt: (c) => c >= 3
+    };
+    const drop = rollClearReward(pitRoom, new LootRun(7, []), 20, 20);
+    expect(drop.x).toBeGreaterThanOrEqual(64);
+  });
+
   function rewardsFor(count, depth, tier = 1) {
     const run = new LootRun(7, [0, depth]);
     const drops = [];

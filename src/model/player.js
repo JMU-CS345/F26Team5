@@ -460,17 +460,19 @@ class Player {
     return 0;
   }
 
-  // Matches max health to the chest armor. New hearts come in full, and losing them clamps
-  // health. Runs every update, so a swap made in the inventory shows up on the next frame.
+  // Matches max health to the chest armor. New hearts come in only at full health, and losing
+  // them clamps health. Runs every update, so an inventory swap shows up on the next frame.
   syncArmorHearts() {
     const bonus = this.getBonusHearts();
     const change = bonus - this.bonusHearts;
     if (change === 0) {
       return;
     }
+    const wasFull = this.health >= this.maxHealth;
     this.bonusHearts = bonus;
     this.maxHealth = this.baseMaxHealth + bonus;
-    if (change > 0 && !this.isDead()) {
+    // only a full-health player gains the new hearts, so swapping armor cannot heal
+    if (change > 0 && wasFull && !this.isDead()) {
       this.health += change;
     }
     this.health = Math.min(this.health, this.maxHealth);
@@ -533,6 +535,7 @@ class Player {
     this.fallFrames = 0;
     this.knockbackTimer = 0;
     this.vel.set(0, 0);
+    this.iFrames = PIT_RESPAWN_IFRAMES; // so a hit at the door cannot follow the fall
   }
 
   // Call once per frame. Counts the timers down. Pass the room so a shove can move us and

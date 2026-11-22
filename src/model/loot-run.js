@@ -97,7 +97,7 @@ class LootRun {
 
   // What a chest in this room holds: { weapon, gold }. The weapon is any gear piece, armor too.
   rollChestLoot(room) {
-    const depth = this.depthOf(room);
+    const depth = this.lootDepth(room);
     const weapon = this.rollGearPiece(room, "chest");
     const gold = randInt(this.rng, 10, 25) + depth * 5;
     return { weapon: weapon, gold: gold };

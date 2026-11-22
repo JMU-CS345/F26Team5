@@ -19,7 +19,14 @@ describe("RunTier", function () {
 
   it("rolls loot deeper in later dungeons", function () {
     expect(tierLootDepth(1)).toBe(0);
-    expect(tierLootDepth(3)).toBe(2 * TIER_LOOT_DEPTH);
+    expect(tierLootDepth(3)).toBe(2 * TIER_DEPTH_STEP);
+  });
+
+  it("counts the tier step once in LootRun depth and chest gold", function () {
+    const run = new LootRun(1, [0, 2]);
+    expect(run.lootDepth({ id: 1, tier: 2 })).toBe(2 + tierLootDepth(2));
+    const gold = (tier) => new LootRun(5, [0, 2]).rollChestLoot({ id: 1, tier: tier }).gold;
+    expect(gold(2)).toBeGreaterThan(gold(1));
   });
 });
 

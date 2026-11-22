@@ -482,6 +482,14 @@ describe("Player falling into pits", function () {
     expect(player.health).toBe(health); // the damage is not undone
   });
 
+  it("is invulnerable for a short while after a pit respawn", function () {
+    player.respawnAt(100, 120);
+    expect(player.iFrames).toBe(PIT_RESPAWN_IFRAMES);
+    const health = player.health;
+    player.takeDamage(1);
+    expect(player.health).toBe(health);
+  });
+
   it("dies if the fall takes the last of its health", function () {
     player.health = PIT_FALL_DAMAGE;
     player.update(room);

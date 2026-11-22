@@ -35,7 +35,7 @@ const ROLE_TYPES = Object.freeze({
 const MAX_TURRETS_PER_WAVE = 2;
 const MAX_OF_ONE_TYPE = 3;
 const MAX_BOUNCERS_PER_WAVE = 1; // a Bouncer is big and hits hard
-const SPAWN_DOOR_DISTANCE = 5; // fallback floor spots stay this many tiles from every door
+const SPAWN_DOOR_DISTANCE = 5; // spawn spots stay this many tiles from every door
 
 // How many enemies a room holds and how many waves they come in, by size class. waves is the
 // lowest and highest wave count; extraWaveAtTier3 adds one wave in dungeon 3.
@@ -292,7 +292,8 @@ function takeSpot(layout, typeName, spot, taken) {
   }
 }
 
-// Where one enemy stands: a drawn spot of its kind first, then any open floor tile 5 or more
+// Where one enemy stands: a drawn spot of its kind (5 or more tiles from every door) first,
+// then any open floor tile 5 or more
 // tiles from every door, then the open tile farthest from the doors. Returns null if nothing fits.
 function findSpot(layout, typeName, rng, taken) {
   let drawn = layout.melee;
@@ -300,7 +301,10 @@ function findSpot(layout, typeName, rng, taken) {
     drawn = layout.ranged;
   }
   const fits = (spot) => spotFits(layout, typeName, spot, taken);
-  const fromDrawn = shuffle(drawn, rng).filter(fits);
+  // drawn spots keep the same distance from doors as fallback spots
+  const fromDrawn = shuffle(drawn, rng).filter(
+    (spot) => fits(spot) && doorDistance(layout, spot) >= SPAWN_DOOR_DISTANCE
+  );
   if (fromDrawn.length > 0) {
     return fromDrawn[0];
   }

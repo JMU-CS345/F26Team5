@@ -2,7 +2,6 @@
 // No p5 drawing calls, so Jasmine can test it without a canvas.
 
 const FINAL_TIER = 3;
-const TIER_LOOT_DEPTH = 3; // each later dungeon rolls loot as if this many doors deeper
 const STAIRS_SIZE = 24; // pixels, the player's center must be inside half of this
 
 class RunTier {
@@ -30,7 +29,7 @@ class RunTier {
 
 // Extra loot depth for a dungeon number: 0 in the first dungeon.
 function tierLootDepth(tier) {
-  return (tier - 1) * TIER_LOOT_DEPTH;
+  return (tier - 1) * TIER_DEPTH_STEP; // the one source, shared with LootRun.lootDepth
 }
 
 // The stairs sit in the middle of the room.

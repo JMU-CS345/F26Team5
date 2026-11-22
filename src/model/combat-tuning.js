@@ -47,6 +47,7 @@ const LUNGE_EASE = 0.5; // share of the remaining lunge taken each frame
 const LUNGE_STOP = 0.3; // below this much left the lunge ends
 
 // Player hurt and shove
+const PIT_RESPAWN_IFRAMES = 30; // invulnerable frames after climbing out of a pit
 const HIT_IFRAMES = 90; // invulnerable frames after being hurt
 const ARMOR_BLOCK_CAP = 40; // helmet and leg block add up to at most this percent
 const PLAYER_KNOCKBACK_SPEED = 4; // pixels per frame at the start of a shove

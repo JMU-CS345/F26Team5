@@ -102,7 +102,7 @@ function startDungeon() {
     tier: runTier.tier
   });
   console.log("Dungeon seed:", dungeon.seed); // pass this as seed to replay a dungeon
-  const depths = doorDistances(dungeon.rooms, 0).map((d) => d + tierLootDepth(runTier.tier));
+  const depths = doorDistances(dungeon.rooms, 0).map((d) => d);
   lootRun = new LootRun(dungeon.seed + 1, depths);
   enterRoom(dungeon.start);
 }
@@ -618,9 +618,6 @@ function drawScreen() {
     } else if (exit) {
       useExit(exit);
     }
-    if (room.stairs !== null && room.cleared && playerOnStairs(room.stairs, player)) {
-      enterHub();
-    }
   }
   const shake = gameFeel.getShakeOffset();
   if (gameFeel.consumeHitstop()) {
@@ -773,6 +770,9 @@ function drawRunScene(shake = { x: 0, y: 0 }) {
   drawRoomFlow(room, player);
   if (room.stairs !== null) {
     drawStairs(room.stairs);
+    if (game.isPlaying() && room.cleared && playerOnStairs(room.stairs, player)) {
+      drawStairsPrompt(room.stairs);
+    }
   }
   for (const chest of room.chests) {
     drawChest(chest);
@@ -1162,6 +1162,11 @@ function keyPressed() {
       const floorWeapon = findWeaponDropUnderPlayer(player, room);
       if (floorWeapon !== null) {
         useWeaponDrop(player, room, floorWeapon);
+        return false;
+      }
+      // loot comes first, then E on the stairs goes down
+      if (room.stairs !== null && room.cleared && playerOnStairs(room.stairs, player)) {
+        enterHub();
         return false;
       }
     }

@@ -11,6 +11,19 @@ function drawStairs(stairs) {
   }
 }
 
+// The hint above stairs the player stands on, so the descent is a choice.
+function drawStairsPrompt(stairs) {
+  push();
+  textAlign(CENTER, CENTER);
+  textSize(10);
+  noStroke();
+  fill(0, 0, 0, 170);
+  rect(stairs.x - 36, stairs.y - STAIRS_SIZE / 2 - 20, 72, 14, 3);
+  fill(255);
+  text("E: Descend", stairs.x, stairs.y - STAIRS_SIZE / 2 - 13);
+  pop();
+}
+
 // Shown after the last boss. Enter goes back to the title.
 function drawVictoryScreen(stats) {
   noStroke();

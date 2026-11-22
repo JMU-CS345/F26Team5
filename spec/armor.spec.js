@@ -75,6 +75,18 @@ describe("Armor stats on the player", function () {
     expect(player.health).toBe(start - 0.25);
   });
 
+  it("re-equipping chest armor does not heal a hurt player", function () {
+    const chest = new ChestArmor({ id: "c", name: "C", hearts: 2 });
+    wear(chest);
+    player.syncArmorHearts();
+    player.health = 1;
+    player.inventory.unequip("body");
+    player.syncArmorHearts();
+    player.inventory.equip(chest);
+    player.syncArmorHearts();
+    expect(player.health).toBe(1);
+  });
+
   it("adds hearts and full health when chest armor goes on", function () {
     const start = player.maxHealth;
     wear(new ChestArmor({ id: "c", name: "C", hearts: 2 }));
@@ -83,12 +95,12 @@ describe("Armor stats on the player", function () {
     expect(player.health).toBe(start + 2);
   });
 
-  it("keeps missing health missing when hearts are added", function () {
+  it("leaves a hurt player's health alone when hearts are added", function () {
     player.takeDamage(2);
     const hurt = player.health;
     wear(new ChestArmor({ id: "c", name: "C", hearts: 1 }));
     player.update(room);
-    expect(player.health).toBe(hurt + 1);
+    expect(player.health).toBe(hurt);
   });
 
   it("clamps health when the chest armor comes off", function () {
