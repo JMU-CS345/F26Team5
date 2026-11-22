@@ -193,7 +193,12 @@ function inventoryItemInformation(item) {
     lines.push(`Attack: ${item.attackType}`);
     lines.push(`Sell value: ${item.value} gold`);
   } else if (item instanceof Armor) {
-    lines.push(`Defense: ${item.defense}`);
+    lines.push(`Rarity: ${getRarity(item.rarity).label}`);
+    if (item instanceof ChestArmor) {
+      lines.push(`Bonus hearts: ${item.hearts}`);
+    } else {
+      lines.push(`Block: ${item.block}%`);
+    }
     lines.push(`Sell value: ${item.value} gold`);
     const equipmentName = equipmentNameForItem(item);
     if (equipmentName !== null) {

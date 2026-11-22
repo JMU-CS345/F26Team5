@@ -48,16 +48,26 @@ describe("item tooltip lines", function () {
     expect(textsOf(lines).some((t) => t.startsWith("+") || t.startsWith("-"))).toBe(false);
   });
 
-  it("names the armor slot and compares defense", function () {
-    const better = new Helmet({ id: "a", name: "Iron Hat", defense: 3 });
-    const worse = new Helmet({ id: "b", name: "Cap", defense: 1 });
+  it("names the armor slot and compares block", function () {
+    const better = new Helmet({ id: "a", name: "Iron Hat", block: 9, rarity: "rare" });
+    const worse = new Helmet({ id: "b", name: "Cap", block: 4 });
     const lines = itemTooltipLines(better, worse);
-    expect(lines[1].text).toBe("Head armor");
-    expect(textsOf(lines)).toContain("Defense: 3");
-    const diff = lines.find((l) => l.text === "+2 Defense");
+    expect(lines[0].color).toBe("rarity");
+    expect(lines[1].text).toBe("Rare Head armor");
+    expect(textsOf(lines)).toContain("Block: 9%");
+    const diff = lines.find((l) => l.text === "+5% Block");
     expect(diff.color).toBe("green");
-    const down = itemTooltipLines(worse, better).find((l) => l.text === "-2 Defense");
+    const down = itemTooltipLines(worse, better).find((l) => l.text === "-5% Block");
     expect(down.color).toBe("red");
+  });
+
+  it("shows chest armor as bonus hearts and compares them", function () {
+    const plate = new ChestArmor({ id: "a", name: "Plate", hearts: 3, rarity: "legendary" });
+    const robe = new ChestArmor({ id: "b", name: "Robe", hearts: 1 });
+    const lines = itemTooltipLines(plate, robe);
+    expect(lines[1].text).toBe("Legendary Body armor");
+    expect(textsOf(lines)).toContain("+3 Hearts");
+    expect(lines.find((l) => l.text === "+2 Hearts").color).toBe("green");
   });
 
   it("shows what a potion restores and a locked flag", function () {

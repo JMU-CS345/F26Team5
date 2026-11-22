@@ -347,7 +347,7 @@ describe("Player health and death", function () {
   });
 });
 
-describe("Player i-frames and defense", function () {
+describe("Player i-frames", function () {
   let player;
   const room = new NormalRoom(0, 0, 160, 160);
 
@@ -394,17 +394,9 @@ describe("Player i-frames and defense", function () {
     expect(player.pos.x).toBe(before);
   });
 
-  it("reduces damage by worn armor", function () {
-    wear(new ChestArmor({ id: "robe", name: "Robe", defense: 1 }));
-    expect(player.getDefense()).toBe(1);
+  it("takes the full hit when nothing is worn", function () {
     player.takeDamage(2);
-    expect(player.health).toBe(player.maxHealth - 1);
-  });
-
-  it("never cuts a hit below the minimum", function () {
-    wear(new ChestArmor({ id: "plate", name: "Plate", defense: 50 }));
-    player.takeDamage(3);
-    expect(player.health).toBe(player.maxHealth - MIN_HIT_DAMAGE);
+    expect(player.health).toBe(player.maxHealth - 2);
   });
 
   it("does not heal from negative or zero damage", function () {

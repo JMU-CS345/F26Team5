@@ -113,8 +113,8 @@ function rollEnemyDrops(enemy, lootRun, room) {
   return drops;
 }
 
-// The one drop a cleared combat room gives, centered on (x, y): 25% gear, 45% health potion,
-// 30% gold. Returns the ItemDrop, or null for a room that is not a combat room or was already
+// The one drop a cleared combat room gives, centered on (x, y): 25% gear (40% of it armor),
+// 45% health potion, 30% gold. Returns the ItemDrop, or null for a room that is not a combat room or was already
 // cleared.
 function rollClearReward(room, lootRun, x, y) {
   if (room.role !== "normal" || lootRun.clearedRoomIds.has(room.id)) {
@@ -125,7 +125,7 @@ function rollClearReward(room, lootRun, x, y) {
   const top = y - ITEM_DROP_SIZE / 2;
   const roll = lootRun.rng();
   if (roll < CLEAR_GEAR_CHANCE) {
-    return new ItemDrop(left, top, lootRun.rollGear(room, "chest"));
+    return new ItemDrop(left, top, lootRun.rollGearPiece(room, "chest"));
   }
   if (roll < CLEAR_GEAR_CHANCE + CLEAR_POTION_CHANCE) {
     return new ItemDrop(left, top, makePotion());

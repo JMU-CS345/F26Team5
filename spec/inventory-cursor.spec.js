@@ -234,7 +234,7 @@ describe("keyboard inventory actions", function () {
   });
 
   it("drops an equipped item with X", function () {
-    const robe = new ChestArmor({ id: "robe", name: "Robe", defense: 1 });
+    const robe = new ChestArmor({ id: "robe", name: "Robe", hearts: 1 });
     inventory.add(robe);
     inventory.equip(robe);
     cursor.section = "equipment";

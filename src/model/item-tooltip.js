@@ -62,12 +62,26 @@ function weaponTooltip(weapon, equipped) {
   return lines;
 }
 
+// The one stat armor gives: bonus hearts for chest armor, block percent for the rest.
+function armorStat(armor) {
+  if (armor instanceof ChestArmor) {
+    return { label: "Hearts", value: armor.hearts, unit: "" };
+  }
+  return { label: "Block", value: armor.block, unit: "%" };
+}
+
 function armorTooltip(armor, equipped) {
-  const lines = [tooltipLine(armor.name, "white")];
-  lines.push(tooltipLine(armorSlotName(armor) + " armor", "grey"));
-  lines.push(tooltipLine("Defense: " + armor.defense));
+  const lines = [tooltipLine(armor.name, "rarity")];
+  const base = getRarity(armor.rarity).label + " " + armorSlotName(armor) + " armor";
+  lines.push(tooltipLine(base, "grey"));
+  const stat = armorStat(armor);
+  if (stat.label === "Hearts") {
+    lines.push(tooltipLine("+" + stat.value + " Hearts"));
+  } else {
+    lines.push(tooltipLine("Block: " + stat.value + stat.unit));
+  }
   if (equipped !== null && equipped !== armor) {
-    const diff = Math.round((armor.defense - equipped.defense) * 100) / 100;
+    const diff = Math.round((stat.value - armorStat(equipped).value) * 100) / 100;
     if (diff !== 0) {
       let color = "red";
       let sign = "";
@@ -75,7 +89,7 @@ function armorTooltip(armor, equipped) {
         color = "green";
         sign = "+";
       }
-      lines.push(tooltipLine(sign + diff + " Defense", color));
+      lines.push(tooltipLine(sign + diff + stat.unit + " " + stat.label, color));
     }
   }
   return lines;

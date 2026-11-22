@@ -72,7 +72,8 @@ describe("rollClearReward", function () {
 
   it("mixes 25% gear, 45% potion and 30% gold over 1000 rolls", function () {
     const drops = rewardsFor(1000, 0);
-    const gear = drops.filter((d) => d.item instanceof Weapon).length / 10;
+    const isGear = (d) => d.item instanceof Weapon || d.item instanceof Armor;
+    const gear = drops.filter(isGear).length / 10;
     const potions = drops.filter((d) => d.item instanceof Consumable).length / 10;
     const gold = drops.filter((d) => d.item instanceof Gold).length / 10;
     expect(Math.abs(gear - 25)).toBeLessThan(5);

@@ -10,6 +10,7 @@
 const BAD_LUCK_LIMIT = 4;
 const BAD_LUCK_RARITY = "rare";
 const CLEAR_DEPTH_STEP = 0.25; // rarity rolls act this much deeper for each room cleared
+const ARMOR_GEAR_SHARE = 0.4; // share of room and chest gear that is armor, the rest is weapons
 
 class LootRun {
   // depths: how many doors each room is from the start, indexed by room id.
@@ -22,14 +23,32 @@ class LootRun {
 
   // Rolls a gear piece for a room. Every cleared room nudges the rarity up a little.
   rollGear(room, source) {
-    const depth = this.depthOf(room) + this.clearedRoomIds.size * CLEAR_DEPTH_STEP;
-    const weapon = generateWeapon(this.rng, {
-      depth: depth,
-      source: source,
-      minRarity: this.nextChestMinRarity() || undefined
-    });
+    const weapon = generateWeapon(this.rng, this.gearOptions(room, source));
     this.recordChestRarity(weapon.rarity);
     return weapon;
+  }
+
+  // Same as rollGear, but a helmet, chest piece or leg armor. Shares the bad-luck counter.
+  rollArmor(room, source) {
+    const armor = generateArmor(this.rng, this.gearOptions(room, source));
+    this.recordChestRarity(armor.rarity);
+    return armor;
+  }
+
+  // The gear a room or chest gives: armor ARMOR_GEAR_SHARE of the time, else a weapon.
+  rollGearPiece(room, source) {
+    if (this.rng() < ARMOR_GEAR_SHARE) {
+      return this.rollArmor(room, source);
+    }
+    return this.rollGear(room, source);
+  }
+
+  gearOptions(room, source) {
+    return {
+      depth: this.depthOf(room) + this.clearedRoomIds.size * CLEAR_DEPTH_STEP,
+      source: source,
+      minRarity: this.nextChestMinRarity() || undefined
+    };
   }
 
   // Call when the boss dies. Returns its weapon (rare or better) in a list.
@@ -61,10 +80,10 @@ class LootRun {
     }
   }
 
-  // What a chest in this room holds: { weapon, gold }.
+  // What a chest in this room holds: { weapon, gold }. The weapon is any gear piece, armor too.
   rollChestLoot(room) {
     const depth = this.depthOf(room);
-    const weapon = this.rollGear(room, "chest");
+    const weapon = this.rollGearPiece(room, "chest");
     const gold = randInt(this.rng, 10, 25) + depth * 5;
     return { weapon: weapon, gold: gold };
   }

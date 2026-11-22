@@ -92,9 +92,14 @@ describe("Item hierarchy", () => {
     expect(gold.stackable).toBe(true);
   });
 
-  it("stores armor defense on specialized armor subclasses", () => {
-    const armor = new ChestArmor({ id: "robe", name: "Robe", defense: 4 });
-    expect(armor.defense).toBe(4);
+  it("stores armor block, hearts and rarity on specialized armor subclasses", () => {
+    const armor = new ChestArmor({ id: "robe", name: "Robe", hearts: 2, rarity: "epic" });
+    expect(armor.hearts).toBe(2);
+    expect(armor.block).toBe(0);
+    expect(armor.rarity).toBe("epic");
+    expect(new Helmet({ id: "h", name: "H", block: 6 }).block).toBe(6);
+    expect(() => new Helmet({ id: "h", name: "H", block: -1 })).toThrow();
+    expect(() => new Helmet({ id: "h", name: "H", rarity: "mythic" })).toThrow();
     expect(armor.maxStackSize).toBe(1);
   });
 
