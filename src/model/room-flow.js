@@ -68,6 +68,9 @@ function softlockTargets(room) {
 // Also drops every lock-on to the removed enemies, so nothing keeps homing on a ghost.
 function clearRoomDebug(room, player, shots) {
   room.enemies = [];
+  if (room.role === "boss") {
+    room.bossDefeated = true; // so the stairs or the victory can follow
+  }
   room.pendingWaves = [];
   player.aimTarget = null;
   for (const shot of shots) {

@@ -12,7 +12,8 @@ const GAME_STATES = Object.freeze({
   PLAYING: "playing",
   INVENTORY: "inventory",
   PAUSED: "paused",
-  DEAD: "dead"
+  DEAD: "dead",
+  VICTORY: "victory" // the last boss is dead
 });
 
 // Order matters: it is the order shown on the menu and the 1/2/3 key mapping.
@@ -67,6 +68,10 @@ class Game {
 
   isDead() {
     return this.state === GAME_STATES.DEAD;
+  }
+
+  isVictory() {
+    return this.state === GAME_STATES.VICTORY;
   }
 
   // Enemies, shots and timers only move on these states. Pause, inventory and every menu
@@ -220,12 +225,21 @@ class Game {
     return true;
   }
 
+  // The final boss is dead. Only a run in play can be won.
+  winRun() {
+    if (!this.isPlaying()) {
+      return false;
+    }
+    this.state = GAME_STATES.VICTORY;
+    return true;
+  }
+
   // Leaving a run (death screen or Quit to Title) or backing out of character select.
   // Clears the picked model and class, but keeps the appearance.
   backToTitle() {
     const allowed =
       this.isModelSelect() || this.isMenu() || this.isCustomizing() ||
-      this.isPaused() || this.isDead();
+      this.isPaused() || this.isDead() || this.isVictory();
     if (!allowed) {
       return false;
     }

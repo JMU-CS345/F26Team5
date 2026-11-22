@@ -6,7 +6,7 @@ const NPC_SIZE = 16; // default width and height, matches the tile grid
 const NPC_INTERACTION_DISTANCE = 36; // pixels within which player can interact
 
 class Npc {
-  constructor(x, y, name, dialogue = []) {
+  constructor(x, y, name, dialogue = [], choices = []) {
     if (!name || typeof name !== "string") {
       throw new Error("NPC must have a name");
     }
@@ -14,6 +14,7 @@ class Npc {
     this.length = NPC_SIZE;
     this.width = NPC_SIZE;
     this.name = name;
+    this.choices = choices.slice(); // [{ id, label }] shown after the last page, like a shop
 
     // Normalizes dialogue into an array of string pages
     if (typeof dialogue === "string") {

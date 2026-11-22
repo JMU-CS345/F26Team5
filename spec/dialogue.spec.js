@@ -61,4 +61,49 @@ describe("DialogueBox", function () {
     expect(dialogue.start(null)).toBe(false);
     expect(dialogue.isActive()).toBe(false);
   });
+
+  describe("choices", function () {
+    const choices = [{ id: "a", label: "A" }, { id: "b", label: "B" }];
+
+    it("show on the last page only", function () {
+      const npc = new Npc(0, 0, "Shop", ["One", "Two"], choices);
+      dialogue.start(npc);
+      expect(dialogue.hasChoices()).toBe(false);
+      dialogue.advance();
+      expect(dialogue.getChoices().length).toBe(2);
+    });
+
+    it("an NPC without choices has none", function () {
+      dialogue.start(singlePageNpc);
+      expect(dialogue.hasChoices()).toBe(false);
+      expect(dialogue.selectedChoice()).toBeNull();
+    });
+
+    it("move with wrap-around and pick the one under the cursor", function () {
+      dialogue.start(new Npc(0, 0, "Shop", "Hi", choices));
+      expect(dialogue.selectedChoice().id).toBe("a");
+      dialogue.moveChoice(1);
+      expect(dialogue.selectedChoice().id).toBe("b");
+      dialogue.moveChoice(1);
+      expect(dialogue.selectedChoice().id).toBe("a");
+      dialogue.moveChoice(-1);
+      expect(dialogue.selectedChoice().id).toBe("b");
+    });
+
+    it("say() swaps the text and keeps the choices", function () {
+      dialogue.start(new Npc(0, 0, "Shop", "Hi", choices));
+      dialogue.say("Sold!");
+      expect(dialogue.getCurrentText()).toBe("Sold!");
+      expect(dialogue.hasChoices()).toBe(true);
+    });
+
+    it("start again puts the cursor back on the first choice", function () {
+      const npc = new Npc(0, 0, "Shop", "Hi", choices);
+      dialogue.start(npc);
+      dialogue.moveChoice(1);
+      dialogue.close();
+      dialogue.start(npc);
+      expect(dialogue.selectedChoice().id).toBe("a");
+    });
+  });
 });
