@@ -112,7 +112,7 @@ describe("room flow", function () {
       const room = makeRoom("normal");
       room.spawnEnemies();
       expect(room.enemies.length).toBe(2);
-      expect(room.pendingWave.length).toBe(1);
+      expect(room.pendingWaves.length).toBe(1);
       expect(room.hasPendingWave()).toBe(true);
     });
 
@@ -191,18 +191,17 @@ describe("room flow", function () {
       expect(doorTypes(room).every((t) => t === TILE.DOOR_CLOSED)).toBe(true);
     });
 
-    it("gives a boss room only its boss", function () {
+    it("gives a boss room its boss and its other drawn enemies as adds, all at once", function () {
       const room = makeRoom("boss", BOSS_ROWS);
       room.spawnEnemies();
-      expect(room.enemies.length).toBe(1);
-      expect(room.enemies[0].type.boss).toBe(true);
+      expect(room.enemies.map((e) => e.typeName).sort()).toEqual(["Bat", "Bat", "Demon"]);
       expect(room.hasPendingWave()).toBe(false);
     });
 
     it("spawns every enemy of a boss room that has no boss", function () {
       const room = makeRoom("boss");
       room.spawnEnemies();
-      expect(room.enemies.length + room.pendingWave.length).toBe(3);
+      expect(room.enemies.length + room.pendingWaves.flat().length).toBe(3);
     });
 
     it("does nothing for a room that is not active", function () {
@@ -253,7 +252,7 @@ describe("room flow", function () {
       const room = makeRoom("normal");
       enter(room);
       killAll(room);
-      room.pendingWave = [];
+      room.pendingWaves = [];
       room.enemies.push(createEnemy("Bat", 100, 100));
       activeFor(room, SOFTLOCK_FRAMES - 1);
       expect(softlockTargets(room)).toEqual([]);

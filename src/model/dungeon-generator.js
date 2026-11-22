@@ -100,12 +100,15 @@ class Dungeon {
 }
 
 // Options (all optional):
-//   roomCount    how many rooms, counting the start and boss rooms (default 6 to 8, from the seed)
+//   roomCount    how many rooms, counting the start and boss rooms (default 9 to 11, from the
+//                the seed). One treasure room is added on top when the room list has one.
 //   seed         whole number; the same seed always gives the same dungeon
+//   tier         dungeon number 1 to 3 (default 1): bigger fights in later dungeons
 //   loopChance   0..1, chance that two doors that happen to meet get opened (default 0.5)
 //   branchiness  0..1, low = long winding path, high = bushy (default 0.5)
 //   screenX/Y    pixel position of the top-left corner of a screen (default 0, 0)
 //   templates    the room list to use (default ROOM_TEMPLATES)
+//   sizeClasses  the sizes normal rooms must have (default ROOM_SIZE_CLASSES, [] allows any)
 function generateDungeon(options = {}) {
   const {
     roomCount: askedCount,
@@ -114,10 +117,12 @@ function generateDungeon(options = {}) {
     branchiness = 0.5,
     screenX = 0,
     screenY = 0,
-    templates = ROOM_TEMPLATES
+    templates = ROOM_TEMPLATES,
+    sizeClasses = ROOM_SIZE_CLASSES,
+    tier = 1
   } = options;
 
-  const problems = validateRoomTemplates(templates);
+  const problems = validateRoomTemplates(templates, sizeClasses);
   if (problems.length > 0) {
     throw new Error("Bad room templates:\n" + problems.join("\n"));
   }
@@ -125,7 +130,7 @@ function generateDungeon(options = {}) {
   const rng = createRng(seed);
   let roomCount = askedCount;
   if (roomCount === undefined) {
-    roomCount = 6 + Math.floor(rng() * 3); // 6 to 8
+    roomCount = 9 + Math.floor(rng() * 3); // 9 to 11
   }
   const library = templates.map(parseRoomTemplate);
   const poolFor = (role) => {
@@ -196,6 +201,15 @@ function generateDungeon(options = {}) {
       }
     }
 
+    // The treasure room hangs off any room with a free door. It is a dead end.
+    const hasTreasure = library.some((t) => t.role === "treasure") && roomCount >= 3;
+    if (hasTreasure) {
+      const hosts = shuffle(placed.filter((p) => openDoors(p).length > 0), rng);
+      if (!hosts.some((a) => attach(a, library.filter((t) => t.role === "treasure"), "treasure"))) {
+        return null;
+      }
+    }
+
     // The boss room goes on the room farthest from the start that it fits against.
     if (roomCount >= 2) {
       const dist = doorDistances(placed, 0, (p) => p.links);
@@ -240,7 +254,13 @@ function generateDungeon(options = {}) {
   const rooms = layout.map((p) => {
     const col = Math.floor((SCREEN_COLS - p.template.cols) / 2);
     const row = Math.floor((SCREEN_ROWS - p.template.rows) / 2);
-    const room = new TemplateRoom(screenX + col * TILE_SIZE, screenY + row * TILE_SIZE, p.template);
+    const roomSeed = (seed ^ Math.imul(p.id + 1, 0x9e3779b1)) >>> 0; // its own enemy mix
+    const room = new TemplateRoom(
+      screenX + col * TILE_SIZE,
+      screenY + row * TILE_SIZE,
+      p.template,
+      { tier, seed: roomSeed }
+    );
     return Object.assign(room, { id: p.id, role: p.role, worldCol: p.wx, worldRow: p.wy });
   });
   for (const p of layout) {

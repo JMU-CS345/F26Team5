@@ -10,7 +10,7 @@ function drawRoomFlow(room, player) {
     noFill();
     stroke(PALETTE.fire);
     strokeWeight(2);
-    for (const spawn of room.pendingWave) {
+    for (const spawn of room.nextWaveSpots()) {
       ellipse(room.x + (spawn.col + 0.5) * ts, room.y + (spawn.row + 0.5) * ts, size, size);
     }
     pop();

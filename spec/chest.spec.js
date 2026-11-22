@@ -30,7 +30,7 @@ describe("chest", function () {
     it("passes the template validator", function () {
       const problems = validateRoomTemplates([
         { name: "chest-room", role: "normal", rows: CHEST_ROOM }
-      ]);
+      ], []);
       expect(problems).toEqual([]);
     });
 
@@ -42,10 +42,10 @@ describe("chest", function () {
       expect(room.chests[0].opened).toBe(false);
     });
 
-    it("is not used by combat room templates, a clear drops a reward instead", function () {
-      const withChests = ROOM_TEMPLATES.filter((t) => t.role === "normal"
-        && t.rows.some((r) => r.includes("C")));
-      expect(withChests).toEqual([]);
+    it("is only used by treasure rooms, a combat room clear drops a reward instead", function () {
+      const withChests = ROOM_TEMPLATES.filter((t) => t.rows.some((r) => r.includes("C")));
+      expect(withChests.length).toBeGreaterThan(0);
+      expect(withChests.every((t) => t.role === "treasure")).toBe(true);
     });
   });
 

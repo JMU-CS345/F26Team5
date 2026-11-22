@@ -23,13 +23,14 @@ class Room {
     this.visited = false; // set when the player first walks in, the minimap reads it
     this.lastKillPos = null; // { x, y } centre of the last enemy that died here
     this.activeFrames = 0; // frames spent in the active state, for the anti-softlock arrow
-    this.pendingWave = []; // spawn spots of the second wave, not created yet
-    this.waveTimer = 0; // frames since the first wave was beaten
+    this.pendingWaves = []; // the waves not created yet, each a list of spawn spots
+    this.waveNumber = 0; // how many waves have appeared so far
+    this.waveTimer = 0; // frames since the last wave was beaten
     this.tileVersion = 0; // goes up whenever a tile changes, so the view knows to redraw the room
 
     // Filled in by the dungeon generator.
     this.id = null;
-    this.role = "normal"; // "start", "normal" or "boss"
+    this.role = "normal"; // "start", "normal", "boss" or "treasure"
     this.worldCol = 0; // where the room's top-left tile sits on the dungeon map
     this.worldRow = 0;
   }
@@ -69,7 +70,15 @@ class Room {
 
   // True while a later wave still has to appear, so the room is not clear yet.
   hasPendingWave() {
-    return this.pendingWave.length > 0;
+    return this.pendingWaves.length > 0;
+  }
+
+  // The spawn spots of the wave that appears next, or [] when there is none.
+  nextWaveSpots() {
+    if (this.pendingWaves.length === 0) {
+      return [];
+    }
+    return this.pendingWaves[0];
   }
 
   // Same as closeDoors, the name the room flow uses.

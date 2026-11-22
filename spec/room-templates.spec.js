@@ -1,3 +1,8 @@
+// The hand-made test rooms are tiny, so they skip the size class check.
+function validateSmall(templates) {
+  return validateRoomTemplates(templates, []);
+}
+
 describe("ROOM_TEMPLATES (the pre-made rooms)", function () {
   it("has no problems", function () {
     expect(validateRoomTemplates(ROOM_TEMPLATES)).toEqual([]);
@@ -83,85 +88,85 @@ describe("validateRoomTemplates", function () {
   }
 
   it("accepts a good room", function () {
-    expect(validateRoomTemplates([good])).toEqual([]);
+    expect(validateSmall([good])).toEqual([]);
   });
 
   it("names the room in every problem", function () {
-    const problems = validateRoomTemplates(withRow(4, "#...?....#"));
+    const problems = validateSmall(withRow(4, "#...?....#"));
     expect(problems.length).toBe(1);
     expect(problems[0]).toContain("test");
   });
 
   it("catches rows of different lengths", function () {
-    expect(validateRoomTemplates(withRow(4, "#.......#")).length).toBe(1);
+    expect(validateSmall(withRow(4, "#.......#")).length).toBe(1);
   });
 
   it("catches a room that is too small or too big", function () {
-    expect(validateRoomTemplates(with_({ rows: ["##++", "#..#", "#..#", "####"] })).length).toBe(1);
+    expect(validateSmall(with_({ rows: ["##++", "#..#", "#..#", "####"] })).length).toBe(1);
     const huge = good.rows.map((r) => r + r + r + r + r);
-    expect(validateRoomTemplates(with_({ rows: huge })).length).toBe(1);
+    expect(validateSmall(with_({ rows: huge })).length).toBe(1);
   });
 
   it("catches an unknown character", function () {
-    expect(validateRoomTemplates(withRow(4, "#...?....#")).length).toBe(1);
+    expect(validateSmall(withRow(4, "#...?....#")).length).toBe(1);
   });
 
   it("catches a hole in the outer wall", function () {
-    expect(validateRoomTemplates(withRow(5, ".........#")).length).toBe(1);
+    expect(validateSmall(withRow(5, ".........#")).length).toBe(1);
   });
 
   it("catches floor that is cut off from the rest", function () {
     const rows = good.rows.slice();
     rows[1] = "#.x......#";
     rows[2] = "#xx......#";
-    expect(validateRoomTemplates(with_({ rows })).length).toBe(1);
+    expect(validateSmall(with_({ rows })).length).toBe(1);
   });
 
   it("needs at least one door", function () {
-    expect(validateRoomTemplates(withRow(0, "##########")).length).toBe(1);
+    expect(validateSmall(withRow(0, "##########")).length).toBe(1);
   });
 
   it("catches a door that is not 2 tiles wide", function () {
-    expect(validateRoomTemplates(withRow(0, "####+#####")).length).toBe(1);
-    expect(validateRoomTemplates(withRow(0, "###+++####")).length).toBe(1);
-    expect(validateRoomTemplates(withRow(0, "###++++###")).length).toBe(1);
+    expect(validateSmall(withRow(0, "####+#####")).length).toBe(1);
+    expect(validateSmall(withRow(0, "###+++####")).length).toBe(1);
+    expect(validateSmall(withRow(0, "###++++###")).length).toBe(1);
   });
 
   it("catches a door with something in front of it", function () {
-    expect(validateRoomTemplates(withRow(1, "#...xx...#")).length).toBe(1);
-    expect(validateRoomTemplates(withRow(1, "#...JJ...#")).length).toBe(1);
+    expect(validateSmall(withRow(1, "#...xx...#")).length).toBe(1);
+    expect(validateSmall(withRow(1, "#...JJ...#")).length).toBe(1);
   });
 
   it("catches a door that is not on the outer wall", function () {
-    expect(validateRoomTemplates(withRow(4, "#...+....#")).length).toBe(1);
+    expect(validateSmall(withRow(4, "#...+....#")).length).toBe(1);
   });
 
   it("allows several doors on a wall, and doors on other walls", function () {
     const two = ["##++##++##", ...good.rows.slice(1)];
-    expect(validateRoomTemplates(with_({ rows: two }))).toEqual([]);
+    expect(validateSmall(with_({ rows: two }))).toEqual([]);
     const west = good.rows.slice();
     west[4] = "+........#";
     west[5] = "+........#";
-    expect(validateRoomTemplates(with_({ rows: west }))).toEqual([]);
+    expect(validateSmall(with_({ rows: west }))).toEqual([]);
   });
 
   it("catches a bad role and a duplicate or missing name", function () {
-    expect(validateRoomTemplates(with_({ role: "shop" })).length).toBeGreaterThan(0);
-    expect(validateRoomTemplates([good, good]).length).toBe(1);
-    expect(validateRoomTemplates(with_({ name: "" })).length).toBe(1);
+    expect(validateSmall(with_({ role: "shop" })).length).toBeGreaterThan(0);
+    expect(validateSmall([good, good]).length).toBe(1);
+    expect(validateSmall(with_({ name: "" })).length).toBe(1);
   });
 
   it("wants exactly one @ in a start room and none anywhere else", function () {
     const noStart = [...with_({ role: "start" }), { ...good, name: "other" }];
-    expect(validateRoomTemplates(noStart).length).toBe(1);
-    expect(validateRoomTemplates(withRow(4, "#...@....#")).length).toBe(1);
+    expect(validateSmall(noStart).length).toBe(1);
+    expect(validateSmall(withRow(4, "#...@....#")).length).toBe(1);
     const start = with_({ role: "start", rows: good.rows.map((r, i) => (i === 4 ? "#...@....#" : r)) });
-    expect(validateRoomTemplates([...start, { ...good, name: "other" }])).toEqual([]);
+    expect(validateSmall([...start, { ...good, name: "other" }])).toEqual([]);
   });
 
   it("needs at least one normal room", function () {
     const boss = with_({ role: "boss" });
-    expect(validateRoomTemplates(boss).length).toBe(1);
+    expect(validateSmall(boss).length).toBe(1);
   });
 });
 
@@ -223,7 +228,7 @@ describe("parseRoomTemplate and TemplateRoom", function () {
     room.spawnEnemies();
     room.spawnEnemies();
     expect(room.enemies.length).toBe(1); // the first wave, the second waits
-    expect(room.pendingWave.length).toBe(1);
+    expect(room.pendingWaves.length).toBe(1);
   });
 
   it("puts each enemy in the middle of its tile", function () {
@@ -359,22 +364,22 @@ describe("validateRoomTemplates for walls that stick into the room", function ()
 
   it("accepts a wall block 2 tiles thick that is joined to the outer wall", function () {
     const rows = withRows({ 1: "#.....##.#", 2: "#.....##.#" });
-    expect(validateRoomTemplates([room(rows)])).toEqual([]);
+    expect(validateSmall([room(rows)])).toEqual([]);
   });
 
   it("rejects a wall only 1 tile thick and says where", function () {
     const rows = withRows({ 1: "#..#.....#", 2: "#..#.....#" });
-    expect(validateRoomTemplates([room(rows)])).toEqual([
+    expect(validateSmall([room(rows)])).toEqual([
       "walls: the # at column 3, row 1 is a wall only 1 tile thick; walls inside the room must be at least 2 tiles thick (use x for a 1 tile obstacle)"
     ]);
   });
 
   it("rejects a 1 tile thick wall that runs sideways too", function () {
     const rows = withRows({ 4: "#.#####..#" });
-    expect(validateRoomTemplates([room(rows)]).length).toBe(1);
+    expect(validateSmall([room(rows)]).length).toBe(1);
   });
 
   it("is fine with the walls and pillars that rooms already use", function () {
-    expect(validateRoomTemplates()).toEqual([]);
+    expect(validateSmall()).toEqual([]);
   });
 });
