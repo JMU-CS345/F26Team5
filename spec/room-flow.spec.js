@@ -214,6 +214,82 @@ describe("room flow", function () {
     });
   });
 
+  describe("several waves", function () {
+    const large = ROOM_TEMPLATES.find((t) => t.name === "open-field");
+
+    function makeLarge(tier, seed) {
+      const template = parseRoomTemplate(large);
+      const room = new TemplateRoom(0, 0, template, { tier, seed });
+      room.id = 1;
+      room.openDoor(template.doors[0], 0, 0);
+      return room;
+    }
+
+    function waitForNextWave(room) {
+      for (let i = 0; i < WAVE_GAP_FRAMES; i++) {
+        updateRoomFlow(room);
+      }
+    }
+
+    it("keeps a list of waves and spawns them one at a time", function () {
+      const room = makeLarge(1, 4);
+      enter(room);
+      expect(room.waveNumber).toBe(1);
+      expect(room.pendingWaves.length).toBe(2);
+      killAll(room);
+      waitForNextWave(room);
+      expect(room.waveNumber).toBe(2);
+      expect(room.enemies.length).toBeGreaterThan(0);
+      expect(room.pendingWaves.length).toBe(1);
+      expect(room.hasPendingWave()).toBe(true);
+      killAll(room);
+      waitForNextWave(room);
+      expect(room.waveNumber).toBe(3);
+      expect(room.hasPendingWave()).toBe(false);
+    });
+
+    it("is not done until the last wave is dead", function () {
+      const room = makeLarge(1, 4);
+      enter(room);
+      killAll(room);
+      expect(roomWaveDone(room)).toBe(false);
+      waitForNextWave(room);
+      killAll(room);
+      expect(roomWaveDone(room)).toBe(false);
+      waitForNextWave(room);
+      killAll(room);
+      expect(roomWaveDone(room)).toBe(true);
+    });
+
+    it("shows the floor marker on the spots of the next wave only", function () {
+      const room = makeLarge(1, 4);
+      enter(room);
+      killAll(room);
+      expect(room.nextWaveSpots()).toBe(room.pendingWaves[0]);
+      expect(waveMarkerShows(room)).toBe(false);
+      room.waveTimer = WAVE_GAP_FRAMES - WAVE_MARKER_FRAMES;
+      expect(waveMarkerShows(room)).toBe(true);
+    });
+
+    it("has no next wave spots when nothing is pending", function () {
+      expect(makeRoom("normal").nextWaveSpots()).toEqual([]);
+    });
+
+    it("clears every wave with the debug key", function () {
+      const room = makeLarge(1, 4);
+      enter(room);
+      clearRoomDebug(room, { aimTarget: null }, []);
+      expect(room.hasPendingWave()).toBe(false);
+      expect(roomWaveDone(room)).toBe(true);
+    });
+
+    it("gives an extra wave at tier 3", function () {
+      const room = makeLarge(3, 4);
+      enter(room);
+      expect(room.pendingWaves.length).toBe(3);
+    });
+  });
+
   describe("lastKillPos", function () {
     it("is null until something dies", function () {
       expect(makeRoom("normal").lastKillPos).toBe(null);

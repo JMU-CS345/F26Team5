@@ -22,6 +22,77 @@ describe("ROOM_TEMPLATES (the pre-made rooms)", function () {
     }
   });
 
+  describe("size classes", function () {
+    const normals = ROOM_TEMPLATES.filter((t) => t.role === "normal");
+    const byClass = (name) => normals.filter((t) => roomSizeName(t.rows[0].length, t.rows.length) === name);
+
+    it("puts every normal and treasure room in one of the three sizes", function () {
+      for (const t of ROOM_TEMPLATES) {
+        if (t.role === "normal" || t.role === "treasure") {
+          expect(roomSizeName(t.rows[0].length, t.rows.length)).withContext(t.name).not.toBe(null);
+        }
+      }
+    });
+
+    it("has the three sizes at 22x13, 28x17 and 36x21", function () {
+      expect(ROOM_SIZE_CLASSES.map((s) => s.cols + "x" + s.rows)).toEqual(["22x13", "28x17", "36x21"]);
+    });
+
+    it("has at least 6 different layouts in each size", function () {
+      for (const name of ["small", "medium", "large"]) {
+        expect(byClass(name).length).withContext(name).toBeGreaterThanOrEqual(6);
+      }
+    });
+
+    it("fits every room, start and boss rooms too, in the 40x22 tiles the camera shows", function () {
+      const viewCols = 1280 / WORLD_ZOOM / TILE_SIZE; // the game screen is 1280x720
+      const viewRows = Math.floor(720 / WORLD_ZOOM / TILE_SIZE);
+      for (const t of ROOM_TEMPLATES) {
+        expect(t.rows[0].length).withContext(t.name).toBeLessThanOrEqual(viewCols);
+        expect(t.rows.length).withContext(t.name).toBeLessThanOrEqual(viewRows);
+      }
+    });
+
+    it("draws at least 4 melee spots and 3 ranged spots in every normal room, none by a door", function () {
+      for (const t of normals) {
+        const parsed = parseRoomTemplate(t);
+        expect(parsed.spots.melee.length).withContext(t.name).toBeGreaterThanOrEqual(4);
+        expect(parsed.spots.ranged.length).withContext(t.name).toBeGreaterThanOrEqual(3);
+        for (const spot of parsed.spots.melee.concat(parsed.spots.ranged)) {
+          const layout = buildEncounterLayout(parsed);
+          expect(doorDistance(layout, spot)).withContext(t.name).toBeGreaterThanOrEqual(2.5);
+        }
+      }
+    });
+
+    it("draws no fixed enemies in normal rooms, the mix comes from the recipes", function () {
+      for (const t of normals) {
+        expect(parseRoomTemplate(t).spawns).withContext(t.name).toEqual([]);
+      }
+    });
+
+    it("keeps start rooms free of enemies", function () {
+      for (const t of ROOM_TEMPLATES.filter((r) => r.role === "start")) {
+        const parsed = parseRoomTemplate(t);
+        expect(parsed.spawns.length + parsed.spots.melee.length + parsed.spots.ranged.length).toBe(0);
+      }
+    });
+
+    it("makes treasure rooms small dead ends with one chest and no enemies", function () {
+      const vaults = ROOM_TEMPLATES.filter((t) => t.role === "treasure");
+      expect(vaults.length).toBeGreaterThanOrEqual(4);
+      for (const t of vaults) {
+        const parsed = parseRoomTemplate(t);
+        expect(parsed.cols + "x" + parsed.rows).toBe("22x13");
+        expect(parsed.doors.length).toBe(1);
+        expect(parsed.chests.length).toBe(1);
+        expect(parsed.spawns.length + parsed.spots.melee.length + parsed.spots.ranged.length).toBe(0);
+      }
+      const sides = vaults.map((t) => parseRoomTemplate(t).doors[0].side).sort();
+      expect(sides).toEqual(["E", "N", "S", "W"]);
+    });
+  });
+
   for (const template of ROOM_TEMPLATES) {
     describe(template.name, function () {
       let room;
@@ -58,6 +129,71 @@ describe("ROOM_TEMPLATES (the pre-made rooms)", function () {
       });
     });
   }
+});
+
+describe("validateRoomTemplates size classes", function () {
+  const rowsOf = (cols, rows) => {
+    const list = [];
+    for (let r = 0; r < rows; r++) {
+      let line = "";
+      for (let c = 0; c < cols; c++) {
+        line += (r === 0 || c === 0 || r === rows - 1 || c === cols - 1) ? "#" : ".";
+      }
+      list.push(line);
+    }
+    list[0] = list[0].slice(0, 4) + "++" + list[0].slice(6);
+    return list;
+  };
+  const room = (role, cols, rows) => [{ name: "size-test", role, rows: rowsOf(cols, rows) }];
+  const withNormal = (extra) => [...extra, { name: "ok", role: "normal", rows: rowsOf(22, 13) }];
+
+  it("accepts the three sizes", function () {
+    expect(validateRoomTemplates(room("normal", 22, 13))).toEqual([]);
+    expect(validateRoomTemplates(room("normal", 28, 17))).toEqual([]);
+    expect(validateRoomTemplates(room("normal", 36, 21))).toEqual([]);
+  });
+
+  it("rejects a normal room of any other size and lists the sizes", function () {
+    const problems = validateRoomTemplates(room("normal", 30, 15));
+    expect(problems.length).toBe(1);
+    expect(problems[0]).toContain("size-test");
+    expect(problems[0]).toContain("small 22x13, medium 28x17, large 36x21");
+  });
+
+  it("rejects a treasure room that is not a size class", function () {
+    const vault = room("treasure", 16, 10);
+    vault[0].rows[5] = vault[0].rows[5].slice(0, 5) + "C" + vault[0].rows[5].slice(6);
+    expect(validateRoomTemplates(withNormal(vault)).length).toBe(1);
+  });
+
+  it("needs a chest in a treasure room", function () {
+    const problems = validateRoomTemplates(withNormal(room("treasure", 22, 13)));
+    expect(problems).toEqual(["size-test: a treasure room needs a chest (C)"]);
+  });
+
+  it("lets start and boss rooms be any size that fits the screen", function () {
+    expect(validateRoomTemplates(withNormal(room("boss", 30, 15)))).toEqual([]);
+    expect(validateRoomTemplates(withNormal(room("boss", 40, 22)))).toEqual([]);
+  });
+
+  it("rejects any room taller than the 22 rows the camera shows", function () {
+    expect(validateRoomTemplates(withNormal(room("boss", 36, 23))).length).toBe(1);
+    expect(validateRoomTemplates(withNormal(room("boss", 41, 13))).length).toBe(1);
+  });
+
+  it("skips the size check when told to", function () {
+    expect(validateRoomTemplates(room("normal", 30, 15), [])).toEqual([]);
+  });
+
+  it("accepts m and r as floor and keeps them off the door tiles", function () {
+    const rows = rowsOf(22, 13);
+    rows[3] = rows[3].slice(0, 6) + "m" + rows[3].slice(7, 9) + "r" + rows[3].slice(10);
+    expect(validateRoomTemplates(withNormal([{ name: "spots", role: "normal", rows }]))).toEqual([]);
+    const blocked = rowsOf(22, 13);
+    blocked[1] = blocked[1].slice(0, 4) + "m" + blocked[1].slice(5);
+    expect(validateRoomTemplates(withNormal([{ name: "blocked", role: "normal", rows: blocked }])).length)
+      .toBe(1);
+  });
 });
 
 describe("validateRoomTemplates", function () {
