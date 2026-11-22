@@ -60,32 +60,45 @@ describe("enemy drops", function () {
 });
 
 describe("rollClearReward", function () {
-  function rewardsFor(count, depth) {
+  function rewardsFor(count, depth, tier = 1) {
     const run = new LootRun(7, [0, depth]);
     const drops = [];
     for (let i = 0; i < count; i++) {
       run.clearedRoomIds.clear(); // a fresh room each roll
-      drops.push(rollClearReward({ id: 1, role: "normal" }, run, 200, 300));
+      drops.push(rollClearReward({ id: 1, role: "normal" }, run, 200, 300, tier));
     }
     return drops;
   }
 
-  it("mixes 25% gear, 45% potion and 30% gold over 1000 rolls", function () {
+  it("mixes 30% gear, 35% potion and 35% gold over 1000 rolls", function () {
     const drops = rewardsFor(1000, 0);
     const isGear = (d) => d.item instanceof Weapon || d.item instanceof Armor;
     const gear = drops.filter(isGear).length / 10;
     const potions = drops.filter((d) => d.item instanceof Consumable).length / 10;
     const gold = drops.filter((d) => d.item instanceof Gold).length / 10;
-    expect(Math.abs(gear - 25)).toBeLessThan(5);
-    expect(Math.abs(potions - 45)).toBeLessThan(5);
-    expect(Math.abs(gold - 30)).toBeLessThan(5);
+    expect(Math.abs(gear - 30)).toBeLessThan(5);
+    expect(Math.abs(potions - 35)).toBeLessThan(5);
+    expect(Math.abs(gold - 35)).toBeLessThan(5);
   });
 
-  it("gives gold of 10 to 25 plus 5 per depth", function () {
-    for (const drop of rewardsFor(300, 3).filter((d) => d.item instanceof Gold)) {
-      expect(drop.quantity).toBeGreaterThanOrEqual(25);
-      expect(drop.quantity).toBeLessThanOrEqual(40);
+  it("gives gold of 15 to 30 plus 8 per tier", function () {
+    for (const tier of [1, 2, 3]) {
+      for (const drop of rewardsFor(300, 3, tier).filter((d) => d.item instanceof Gold)) {
+        expect(drop.quantity).toBeGreaterThanOrEqual(15 + 8 * tier);
+        expect(drop.quantity).toBeLessThanOrEqual(30 + 8 * tier);
+      }
     }
+  });
+
+  it("uses the room's own tier when none is passed", function () {
+    const run = new LootRun(7, [0]);
+    const room = { id: 0, role: "normal", tier: 3 };
+    let drop = rollClearReward(room, run, 0, 0);
+    while (!(drop.item instanceof Gold)) {
+      run.clearedRoomIds.clear();
+      drop = rollClearReward(room, run, 0, 0);
+    }
+    expect(drop.quantity).toBeGreaterThanOrEqual(15 + 8 * 3);
   });
 
   it("centers the drop on the given point", function () {

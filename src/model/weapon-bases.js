@@ -73,7 +73,7 @@ const WEAPON_BASES = Object.freeze([
     id: "staff", name: "Staff", kind: "ranged",
     blurb: "Slow, heavy orb.",
     stats: {
-      damage: [2.0, 3.0], fireRate: [32, 42], shotSpeed: [3.5, 4.5], range: [220, 280],
+      damage: [2.6, 3.6], fireRate: [32, 42], shotSpeed: [3.5, 4.5], range: [220, 280],
       projectileCount: [1, 1], spread: [0, 0], pierce: [0, 0]
     }
   },
@@ -81,7 +81,7 @@ const WEAPON_BASES = Object.freeze([
     id: "tome", name: "Tome", kind: "ranged",
     blurb: "Casts a three-way spread.",
     stats: {
-      damage: [0.7, 1.2], fireRate: [22, 28], shotSpeed: [4.5, 5.5], range: [160, 210],
+      damage: [0.9, 1.4], fireRate: [22, 28], shotSpeed: [4.5, 5.5], range: [160, 210],
       projectileCount: [3, 3], spread: [24, 34], pierce: [0, 0]
     }
   },
@@ -89,7 +89,7 @@ const WEAPON_BASES = Object.freeze([
     id: "orb", name: "Orb", kind: "ranged",
     blurb: "Slow, drifting shot that covers a lot of ground.",
     stats: {
-      damage: [1.3, 2.0], fireRate: [34, 44], shotSpeed: [2.2, 3.0], range: [260, 340],
+      damage: [2.2, 3.0], fireRate: [34, 44], shotSpeed: [2.2, 3.0], range: [260, 340],
       projectileCount: [1, 1], spread: [0, 0], pierce: [0, 0]
     }
   },
@@ -97,7 +97,7 @@ const WEAPON_BASES = Object.freeze([
     id: "scepter", name: "Scepter", kind: "ranged",
     blurb: "Shots pass through several enemies.",
     stats: {
-      damage: [1.1, 1.8], fireRate: [20, 26], shotSpeed: [5, 6], range: [240, 300],
+      damage: [1.4, 2.1], fireRate: [20, 26], shotSpeed: [5, 6], range: [240, 300],
       projectileCount: [1, 1], spread: [0, 3], pierce: [2, 3]
     }
   }

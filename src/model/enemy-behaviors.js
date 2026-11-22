@@ -98,7 +98,7 @@ const ENEMY_MOVES = Object.freeze({
     }
     if (enemy.attackTimer === 0 && rectsOverlap(enemy.getSwingBox(attack.reach), player.getBounds())) {
       enemy.setState("windup", attack.windup);
-      enemy.attackTimer = attack.cooldown;
+      enemy.attackTimer = enemy.cooldownOf(attack);
       return;
     }
     bounceStep(enemy, player, room);
@@ -121,7 +121,7 @@ const ENEMY_MOVES = Object.freeze({
       if (inSight && distance <= attack.reach) {
         if (enemy.attackTimer === 0) {
           enemy.setState("windup", attack.windup);
-          enemy.attackTimer = attack.cooldown;
+          enemy.attackTimer = enemy.cooldownOf(attack);
         } // else the swing is still cooling down, so stand ready
       } else {
         hopStep(enemy, player, room, "hop");
@@ -332,7 +332,7 @@ const ENEMY_ATTACKS = Object.freeze({
     if (aim.magSq() === 0) {
       return []; // no direction to aim, and a zero vector would give NaN
     }
-    enemy.attackTimer = attack.cooldown;
+    enemy.attackTimer = enemy.cooldownOf(attack);
     enemy.stareTimer = 0;
     if (attack.windup > 0) {
       enemy.aimDir = aim;

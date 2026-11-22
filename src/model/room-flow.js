@@ -32,6 +32,7 @@ function updateRoomFlow(room) {
     return;
   }
   room.activeFrames++;
+  spawnPhaseAdds(room);
   const alive = room.enemies.some((e) => !e.isDead());
   if (!room.hasPendingWave() || alive) {
     return;
@@ -40,6 +41,35 @@ function updateRoomFlow(room) {
   if (room.waveTimer >= WAVE_GAP_FRAMES) {
     room.spawnPendingWave();
     room.waveTimer = 0;
+  }
+}
+
+const ADD_SPOT_OFFSETS = [[-48, 0], [48, 0], [0, -48], [0, 48], [-48, -48], [48, 48]];
+
+// A boss that entered a phase with summon asks for enemies (enemy.summonDue). They appear
+// on open floor around it, harmless for a moment, at the boss's tier.
+function spawnPhaseAdds(room) {
+  for (const boss of room.enemies) {
+    if (boss.summonDue === null || boss.isDead()) {
+      continue;
+    }
+    const { type, count } = boss.summonDue;
+    let added = 0;
+    const center = boss.getCenter();
+    for (const [dx, dy] of ADD_SPOT_OFFSETS) {
+      if (added === count) {
+        break;
+      }
+      const size = ENEMY_TYPES[type].length;
+      const add = createEnemy(type, center.x + dx - size / 2, center.y + dy - size / 2, true);
+      const blocked = room.collidesWithWall(add.getBounds()) || room.overlapsPit(add.getBounds());
+      if (!blocked) {
+        add.setTier(boss.tier);
+        room.enemies.push(add);
+        added++;
+      }
+    }
+    boss.summonDue = null; // spots that were all blocked are skipped, not retried
   }
 }
 

@@ -15,8 +15,11 @@ const LOOT_TABLES = Object.freeze({
   boss: { goldChance: 1, gold: [30, 60], potionChance: 0.5, bossGear: true }
 });
 
-const CLEAR_GEAR_CHANCE = 0.25;
-const CLEAR_POTION_CHANCE = 0.45; // the rest of the rolls (30%) is a gold pile
+const CLEAR_GEAR_CHANCE = 0.3;
+const CLEAR_POTION_CHANCE = 0.35; // the rest of the rolls (35%) is a gold pile
+const CLEAR_GOLD_BASE = [15, 30];
+const CLEAR_GOLD_PER_TIER = 8;
+const WAVE_GOLD_CHANCE = 0.15; // each wave after the first may drop a gold pile
 
 const DROP_SPACING = ITEM_DROP_SIZE * 1.5;
 
@@ -33,7 +36,7 @@ function makePotion() {
     id: "health-potion",
     name: "Health Potion",
     value: 5,
-    maxStackSize: 5,
+    maxStackSize: 3,
     healthRestore: 2,
     description: "A small restorative potion."
   });
@@ -113,10 +116,10 @@ function rollEnemyDrops(enemy, lootRun, room) {
   return drops;
 }
 
-// The one drop a cleared combat room gives, centered on (x, y): 25% gear (40% of it armor),
-// 45% health potion, 30% gold. Returns the ItemDrop, or null for a room that is not a combat room or was already
-// cleared.
-function rollClearReward(room, lootRun, x, y) {
+// The one drop a cleared combat room gives, centered on (x, y): 30% gear (40% of it armor),
+// 35% health potion, 35% gold. tier is the dungeon number and defaults to the room's own.
+// Returns the ItemDrop, or null for a room that is not a combat room or was already cleared.
+function rollClearReward(room, lootRun, x, y, tier = roomTier(room)) {
   if (room.role !== "normal" || lootRun.clearedRoomIds.has(room.id)) {
     return null;
   }
@@ -130,8 +133,27 @@ function rollClearReward(room, lootRun, x, y) {
   if (roll < CLEAR_GEAR_CHANCE + CLEAR_POTION_CHANCE) {
     return new ItemDrop(left, top, makePotion());
   }
-  const gold = randInt(lootRun.rng, 10, 25) + lootRun.depthOf(room) * 5;
-  return new ItemDrop(left, top, new Gold(), gold);
+  return new ItemDrop(left, top, new Gold(), rollClearGold(lootRun, tier));
+}
+
+function rollClearGold(lootRun, tier) {
+  return randInt(lootRun.rng, CLEAR_GOLD_BASE[0], CLEAR_GOLD_BASE[1]) + CLEAR_GOLD_PER_TIER * tier;
+}
+
+// Call once when a wave's last enemy dies. A wave after the first may drop one gold pile
+// beside (x, y), and a wave rolls only once. Returns the ItemDrop or null.
+function rollWaveGold(room, lootRun, x, y, tier = roomTier(room)) {
+  if (room.role !== "normal" || room.waveNumber < 2 || room.goldRolledWave === room.waveNumber) {
+    return null;
+  }
+  room.goldRolledWave = room.waveNumber;
+  if (lootRun.rng() >= WAVE_GOLD_CHANCE) {
+    return null;
+  }
+  const left = x - ITEM_DROP_SIZE / 2 - DROP_SPACING;
+  const drop = new ItemDrop(left, y - ITEM_DROP_SIZE / 2, new Gold(), rollClearGold(lootRun, tier));
+  settleDrop(drop, room, left, y - ITEM_DROP_SIZE / 2);
+  return drop;
 }
 
 // Where the clear reward lands: room.lastKillPos when the room tracks it, else the last kill

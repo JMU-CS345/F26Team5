@@ -1,5 +1,6 @@
 // Boss phases: a type can change speed, move and attack once its health gets low.
 describe("Enemy phases", function () {
+  const max = ENEMY_TYPES.Demon.maxHealth;
   let room;
   let player;
 
@@ -18,13 +19,13 @@ describe("Enemy phases", function () {
     it("is null above the threshold and at exactly 50%", function () {
       const demon = createEnemy("Demon", 100, 100);
       expect(demon.getPhase()).toBeNull();
-      demon.health = 20;
+      demon.health = max * 0.5;
       expect(demon.getPhase()).toBeNull();
     });
 
     it("is active below the threshold", function () {
       const demon = createEnemy("Demon", 100, 100);
-      demon.health = 19;
+      demon.health = max * 0.5 - 1;
       expect(demon.getPhase()).toBe(ENEMY_TYPES.Demon.phases[0]);
     });
 
@@ -32,9 +33,9 @@ describe("Enemy phases", function () {
       const demon = createEnemy("Demon", 100, 100);
       const phases = [{ below: 0.75, speed: 2 }, { below: 0.25, speed: 3 }];
       demon.type = Object.assign({}, demon.type, { phases: phases });
-      demon.health = 20;
+      demon.health = max * 0.5;
       expect(demon.getPhase()).toBe(phases[0]);
-      demon.health = 5;
+      demon.health = max * 0.125;
       expect(demon.getPhase()).toBe(phases[1]);
     });
   });
@@ -58,7 +59,7 @@ describe("Enemy phases", function () {
 
     it("use the phase values below the threshold", function () {
       const demon = createEnemy("Demon", 100, 100);
-      demon.health = 10;
+      demon.health = max * 0.25;
       expect(demon.getSpeed()).toBe(1.6);
       expect(demon.getAttack()).toBe(ENEMY_TYPES.Demon.phases[0].attack);
       expect(demon.getMoveName()).toBe("chase");
@@ -67,7 +68,7 @@ describe("Enemy phases", function () {
     it("use a phase move name when it has one", function () {
       const demon = createEnemy("Demon", 100, 100);
       demon.type = Object.assign({}, demon.type, { phases: [{ below: 0.5, move: "erratic" }] });
-      demon.health = 10;
+      demon.health = max * 0.25;
       expect(demon.getMoveName()).toBe("erratic");
     });
 
@@ -75,7 +76,7 @@ describe("Enemy phases", function () {
       const demon = createEnemy("Demon", 100, 100);
       demon.type = Object.assign({}, demon.type, { phases: [{ below: 0.5, move: "none" }] });
       demon.speed = 0;
-      demon.health = 10;
+      demon.health = max * 0.25;
       expect(demon.getSpeed()).toBe(0);
     });
   });
@@ -84,7 +85,7 @@ describe("Enemy phases", function () {
     it("moves at the phase speed", function () {
       const demon = createEnemy("Demon", 96, 96); // on the tile grid, so it runs straight along its row
       placePlayer(demon, 200);
-      demon.health = 10;
+      demon.health = max * 0.25;
       const startX = demon.pos.x;
       demon.update(player, room);
       expect(demon.pos.x - startX).toBeCloseTo(1.6, 3);
@@ -93,7 +94,7 @@ describe("Enemy phases", function () {
     it("fires the phase attack with its count", function () {
       const demon = createEnemy("Demon", 100, 100);
       placePlayer(demon, 200);
-      demon.health = 10;
+      demon.health = max * 0.25;
       demon.attackTimer = 0;
       expect(tryAttackThroughWindup(demon, player).length).toBe(3);
       expect(demon.attackTimer).toBe(50);
@@ -112,21 +113,21 @@ describe("Enemy phases", function () {
     it("clamps attackTimer to the new cooldown", function () {
       const demon = createEnemy("Demon", 100, 100);
       demon.attackTimer = 75;
-      demon.takeDamage(21);
+      demon.takeDamage(max * 0.5 + 1);
       expect(demon.attackTimer).toBe(50);
     });
 
     it("never raises attackTimer", function () {
       const demon = createEnemy("Demon", 100, 100);
       demon.attackTimer = 10;
-      demon.takeDamage(21);
+      demon.takeDamage(max * 0.5 + 1);
       expect(demon.attackTimer).toBe(10);
     });
 
     it("flashes after the crossing hit and stops after the flash frames", function () {
       const demon = createEnemy("Demon", 100, 100);
       expect(demon.justChangedPhase()).toBe(false);
-      demon.takeDamage(21);
+      demon.takeDamage(max * 0.5 + 1);
       expect(demon.justChangedPhase()).toBe(true);
       for (let i = 0; i < ENEMY_PHASE_FLASH_FRAMES; i++) {
         demon.update(player, room);
@@ -136,9 +137,9 @@ describe("Enemy phases", function () {
 
     it("does not flash for a hit that stays in the same phase", function () {
       const demon = createEnemy("Demon", 100, 100);
-      demon.takeDamage(5);
+      demon.takeDamage(max * 0.125);
       expect(demon.justChangedPhase()).toBe(false);
-      demon.takeDamage(21);
+      demon.takeDamage(max * 0.5 + 1);
       demon.phaseFlashTimer = 0;
       demon.takeDamage(1);
       expect(demon.justChangedPhase()).toBe(false);

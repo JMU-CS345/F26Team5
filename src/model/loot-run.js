@@ -10,7 +10,16 @@
 const BAD_LUCK_LIMIT = 4;
 const BAD_LUCK_RARITY = "rare";
 const CLEAR_DEPTH_STEP = 0.25; // rarity rolls act this much deeper for each room cleared
+const TIER_DEPTH_STEP = 3; // each later dungeon rolls loot as if its rooms were this much deeper
 const ARMOR_GEAR_SHARE = 0.4; // share of room and chest gear that is armor, the rest is weapons
+
+// The dungeon number of a room, 1 when it has none.
+function roomTier(room) {
+  if (room && room.tier >= 1) {
+    return room.tier;
+  }
+  return 1;
+}
 
 class LootRun {
   // depths: how many doors each room is from the start, indexed by room id.
@@ -45,7 +54,7 @@ class LootRun {
 
   gearOptions(room, source) {
     return {
-      depth: this.depthOf(room) + this.clearedRoomIds.size * CLEAR_DEPTH_STEP,
+      depth: this.lootDepth(room) + this.clearedRoomIds.size * CLEAR_DEPTH_STEP,
       source: source,
       minRarity: this.nextChestMinRarity() || undefined
     };
@@ -61,6 +70,12 @@ class LootRun {
       return Math.max(0, this.depths[room.id]);
     }
     return 0;
+  }
+
+  // How deep the rarity rolls act: the room's depth plus a step for each dungeon after the first.
+  // tier is the dungeon number, and defaults to the room's own tier (1 for a room without one).
+  lootDepth(room, tier = roomTier(room)) {
+    return this.depthOf(room) + TIER_DEPTH_STEP * (tier - 1);
   }
 
   // The lowest rarity the next chest may roll: null normally, rare once luck has run out.

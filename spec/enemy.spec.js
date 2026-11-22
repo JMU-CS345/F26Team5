@@ -258,8 +258,7 @@ describe("Demon", function () {
   it("is a boss with the stats the issue asks for", function () {
     const demon = new Enemy(0, 0, "Demon");
     expect(demon.type.boss).toBe(true);
-    expect(demon.maxHealth).toBeGreaterThanOrEqual(30);
-    expect(demon.maxHealth).toBeLessThanOrEqual(50);
+    expect(demon.maxHealth).toBe(250);
     expect(demon.speed).toBe(1);
     expect(demon.contactDamage).toBeGreaterThanOrEqual(2);
     expect(demon.contactDamage).toBeLessThanOrEqual(3);

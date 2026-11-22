@@ -870,6 +870,12 @@ function handleDeadEnemies(dead) {
     lastKillCenter = enemy.getCenter();
     room.items.push(...rollEnemyDrops(enemy, lootRun, room));
   }
+  if (dead.length > 0 && room.enemies.length === 0) {
+    const waveGold = rollWaveGold(room, lootRun, lastKillCenter.x, lastKillCenter.y);
+    if (waveGold !== null) {
+      room.items.push(waveGold);
+    }
+  }
   if (dead.length > 0) {
     playSfx("death");
   }

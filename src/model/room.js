@@ -26,6 +26,7 @@ class Room {
     this.activeFrames = 0; // frames spent in the active state, for the anti-softlock arrow
     this.pendingWaves = []; // the waves not created yet, each a list of spawn spots
     this.waveNumber = 0; // how many waves have appeared so far
+    this.goldRolledWave = 0; // the last wave whose bonus gold was rolled
     this.waveTimer = 0; // frames since the last wave was beaten
     this.tileVersion = 0; // goes up whenever a tile changes, so the view knows to redraw the room
 

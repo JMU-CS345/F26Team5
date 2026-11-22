@@ -433,7 +433,7 @@ class TemplateRoom extends Room {
       const centerX = this.x + (spawn.col + 0.5) * this.tileSize;
       const centerY = this.y + (spawn.row + 0.5) * this.tileSize;
       const enemy = createEnemy(spawn.type, centerX - type.length / 2, centerY - type.width / 2);
-      enemy.tier = this.tier; // read by the tier scaling, if any
+      enemy.setTier(this.tier);
       this.enemies.push(enemy);
     }
   }
