@@ -223,8 +223,12 @@ function drawInventoryMenu(
 
   drawPixelText("Inventory", panelX + 40, panelY + 36, 32, UI_COLORS.goldLight);
   drawPixelText(
-    "Arrows move, Enter pick up or place, R sort, L lock, X drop, Q drink, Esc close",
-    panelX + 40, panelY + 82, 8, UI_COLORS.stoneLight
+    "Arrows move   Tab bag or doll   Enter equip or drink   Space pick up or place",
+    panelX + 40, panelY + 76, 12, UI_COLORS.stoneLight
+  );
+  drawPixelText(
+    "Q drink   L lock   X drop   R sort   Esc close",
+    panelX + 40, panelY + 96, 12, UI_COLORS.stoneLight
   );
   drawPixelText(
     "Gold: " + inventory.gold, panelX + INVENTORY_PANEL.w - 40, panelY + 42, 16,

@@ -301,8 +301,9 @@ function inventoryCursorSlot(inventory, cursor) {
   return layout.bagSlots[cursor.index];
 }
 
-// Arrows or WASD. Returns true when the key moved the cursor.
-function moveInventoryCursorForKey(cursor, code) {
+// Arrows or WASD. Returns true when the key moved the cursor. Pass the bag grid to skip ahead
+// to the next different item; leave it out (while holding an item) to step one cell.
+function moveInventoryCursorForKey(cursor, code, grid = null) {
   const moves = {
     37: [-1, 0], 65: [-1, 0],
     39: [1, 0], 68: [1, 0],
@@ -313,8 +314,25 @@ function moveInventoryCursorForKey(cursor, code) {
   if (step === undefined) {
     return false;
   }
-  cursor.move(step[0], step[1]);
+  cursor.move(step[0], step[1], grid);
   return true;
+}
+
+// One KeyRepeat for each direction, with the key codes that hold it down.
+const INVENTORY_REPEAT_KEYS = Object.freeze([[37, 65], [39, 68], [38, 87], [40, 83]]);
+
+// Holding an arrow keeps moving the cursor (keyPressed does the first move). repeats is an
+// array of 4 KeyRepeat, isDown(code) says if a key is held. Returns true if the cursor moved.
+function repeatInventoryMoves(cursor, repeats, isDown, grid = null) {
+  let moved = false;
+  for (let i = 0; i < INVENTORY_REPEAT_KEYS.length; i++) {
+    const codes = INVENTORY_REPEAT_KEYS[i];
+    if (repeats[i].update(isDown(codes[0]) || isDown(codes[1]))) {
+      moveInventoryCursorForKey(cursor, codes[0], grid);
+      moved = true;
+    }
+  }
+  return moved;
 }
 
 // X: takes the item under the cursor out of the inventory and returns it as a drop at the

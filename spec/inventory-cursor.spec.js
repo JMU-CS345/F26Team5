@@ -1,5 +1,15 @@
 describe("InventoryCursor", function () {
   let cursor;
+  const MELEE = 0;
+  const MAGIC = 1;
+  const HEAD = 2;
+  const BODY = 3;
+  const LEGS = 4;
+
+  function onDoll(index) {
+    cursor.section = "equipment";
+    cursor.index = index;
+  }
 
   beforeEach(function () {
     cursor = new InventoryCursor();
@@ -10,7 +20,7 @@ describe("InventoryCursor", function () {
     expect(cursor.index).toBe(0);
   });
 
-  it("moves through the bag grid and stops at the edges", function () {
+  it("steps one cell through the bag and stops at the edges", function () {
     cursor.move(1, 0);
     cursor.move(0, 1);
     expect(cursor.index).toBe(11);
@@ -29,40 +39,124 @@ describe("InventoryCursor", function () {
     expect(cursor.index).toBe(0);
   });
 
-  it("crosses from the bag to the equipment and back", function () {
-    cursor.move(-1, 0);
-    expect(cursor.section).toBe("equipment");
-    expect(cursor.index).toBe(1); // projectile, the last slot of the top row
-    cursor.move(1, 0);
-    expect(cursor.section).toBe("bag");
-    expect(cursor.index).toBe(0);
+  describe("moving on the doll like the screen layout", function () {
+    it("goes Head, Body, Legs with Up and Down", function () {
+      onDoll(HEAD);
+      cursor.move(0, 1);
+      expect(cursor.index).toBe(BODY);
+      cursor.move(0, 1);
+      expect(cursor.index).toBe(LEGS);
+      cursor.move(0, 1);
+      expect(cursor.index).toBe(LEGS);
+      cursor.move(0, -1);
+      cursor.move(0, -1);
+      expect(cursor.index).toBe(HEAD);
+      cursor.move(0, -1);
+      expect(cursor.index).toBe(HEAD);
+    });
+
+    it("goes Melee, Body, Magic with Left and Right", function () {
+      onDoll(MELEE);
+      cursor.move(1, 0);
+      expect(cursor.index).toBe(BODY);
+      cursor.move(1, 0);
+      expect(cursor.index).toBe(MAGIC);
+      cursor.move(-1, 0);
+      cursor.move(-1, 0);
+      expect(cursor.index).toBe(MELEE);
+      cursor.move(-1, 0);
+      expect(cursor.index).toBe(MELEE);
+    });
+
+    it("sends Head and Legs sideways to the weapon slots", function () {
+      onDoll(HEAD);
+      cursor.move(-1, 0);
+      expect(cursor.index).toBe(MELEE);
+      onDoll(LEGS);
+      cursor.move(1, 0);
+      expect(cursor.index).toBe(MAGIC);
+    });
+
+    it("does not move up or down from the weapon slots", function () {
+      onDoll(MAGIC);
+      cursor.move(0, -1);
+      cursor.move(0, 1);
+      expect(cursor.index).toBe(MAGIC);
+    });
+
+    it("leaves Magic for the bag with Right, level with the slot", function () {
+      onDoll(MAGIC);
+      cursor.move(1, 0);
+      expect(cursor.section).toBe("bag");
+      expect(cursor.index).toBe(20); // row 2, column 0
+    });
+
+    it("enters the doll from bag column 0 with Left", function () {
+      cursor.move(-1, 0);
+      expect(cursor.section).toBe("equipment");
+      expect(cursor.index).toBe(MAGIC);
+    });
   });
 
-  it("enters the second equipment row from the second bag row", function () {
-    cursor.move(0, 1);
-    cursor.move(-1, 0);
-    expect(cursor.section).toBe("equipment");
-    expect(cursor.index).toBe(4); // legs
+  describe("Tab", function () {
+    it("jumps to the doll and back, each side remembering its cell", function () {
+      cursor.setBag(3, 4);
+      cursor.switchSection();
+      expect(cursor.section).toBe("equipment");
+      expect(cursor.index).toBe(BODY);
+      cursor.move(0, -1);
+      cursor.switchSection();
+      expect(cursor.section).toBe("bag");
+      expect(cursor.index).toBe(34);
+      cursor.switchSection();
+      expect(cursor.index).toBe(HEAD);
+    });
   });
 
-  it("moves between equipment rows and keeps the column inside the row", function () {
-    cursor.move(-1, 0);
-    cursor.move(0, 1);
-    expect(cursor.index).toBe(3); // body, under projectile
-    cursor.move(1, 0);
-    expect(cursor.index).toBe(4);
-    cursor.move(0, -1);
-    expect(cursor.index).toBe(1); // legs has nothing above, so it lands on projectile
-    cursor.move(0, -1);
-    expect(cursor.index).toBe(1);
-  });
+  describe("skipping over items", function () {
+    let grid;
+    const gem = (name) => new Item({ id: name, name: name, value: 1 });
 
-  it("stops at the left edge of the equipment", function () {
-    cursor.move(-1, 0);
-    cursor.move(-1, 0);
-    cursor.move(-1, 0);
-    expect(cursor.index).toBe(0);
-    expect(cursor.section).toBe("equipment");
+    beforeEach(function () {
+      grid = new BagGrid();
+    });
+
+    it("jumps from an empty cell to the next item", function () {
+      grid.place(gem("a"), 5, 0);
+      cursor.move(1, 0, grid);
+      expect(cursor.index).toBe(5);
+    });
+
+    it("jumps from an item to the next empty cell, or the next item", function () {
+      grid.place(gem("a"), 0, 0);
+      grid.place(gem("b"), 1, 0);
+      grid.place(gem("c"), 3, 0);
+      cursor.move(1, 0, grid);
+      expect(cursor.index).toBe(1); // a different item straight away
+      cursor.move(1, 0, grid);
+      expect(cursor.index).toBe(2); // then the empty cell
+      cursor.move(1, 0, grid);
+      expect(cursor.index).toBe(3);
+    });
+
+    it("crosses a tall item in one press", function () {
+      const blade = new MeleeWeapon({ id: "b", name: "Blade" }); // 1x3
+      grid.place(blade, 0, 1);
+      cursor.setBag(1, 0);
+      cursor.move(0, 1, grid);
+      expect(cursor.index).toBe(40); // row 4, below rows 1 to 3
+      cursor.move(0, -1, grid);
+      expect(cursor.index).toBe(30); // row 3, the blade again
+      cursor.move(0, -1, grid);
+      expect(cursor.index).toBe(0);
+    });
+
+    it("stops at the edge of an empty bag", function () {
+      cursor.move(1, 0, grid);
+      expect(cursor.index).toBe(9);
+      cursor.move(0, 1, grid);
+      expect(cursor.index).toBe(59);
+    });
   });
 
   it("maps arrow keys and WASD to moves", function () {
@@ -73,6 +167,41 @@ describe("InventoryCursor", function () {
     expect(moveInventoryCursorForKey(cursor, 38)).toBe(true);
     expect(cursor.index).toBe(0);
     expect(moveInventoryCursorForKey(cursor, 81)).toBe(false);
+  });
+
+  describe("repeatInventoryMoves", function () {
+    let repeats;
+    beforeEach(function () {
+      repeats = [new KeyRepeat(), new KeyRepeat(), new KeyRepeat(), new KeyRepeat()];
+    });
+
+    it("moves again after the first delay while an arrow is held", function () {
+      const isDown = (code) => code === 39;
+      let moves = 0;
+      for (let frame = 0; frame < 20; frame++) {
+        if (repeatInventoryMoves(cursor, repeats, isDown)) {
+          moves++;
+        }
+      }
+      expect(moves).toBe(2); // frames 12 and 16 of the hold
+      expect(cursor.index).toBe(2);
+    });
+
+    it("does nothing with no key held and restarts the delay on release", function () {
+      for (let frame = 0; frame < 10; frame++) {
+        repeatInventoryMoves(cursor, repeats, (code) => code === 40);
+      }
+      repeatInventoryMoves(cursor, repeats, () => false);
+      expect(cursor.index).toBe(0);
+      expect(repeats[3].held).toBe(-1);
+    });
+
+    it("also reads WASD", function () {
+      for (let frame = 0; frame < 13; frame++) {
+        repeatInventoryMoves(cursor, repeats, (code) => code === 68);
+      }
+      expect(cursor.index).toBe(1);
+    });
   });
 });
 

@@ -187,4 +187,186 @@ describe("holding items in the bag", function () {
       expect(player.inventory.size).toBe(1);
     });
   });
+
+  describe("spaceInventorySlot", function () {
+    it("explains a wrong slot", function () {
+      const held = { item: sword(), quantity: 1, col: 0, row: 0 };
+      const head = inventoryUiLayout(inventory).equipmentSlots
+        .find((s) => s.equipmentName === "head");
+      const result = spaceInventorySlot(inventory, held, head);
+      expect(result.held).toBe(held);
+      expect(result.message).toBe("Wrong slot");
+    });
+
+    it("explains a spot that is taken", function () {
+      inventory.add(sword("A"), 1);
+      inventory.add(sword("B"), 1);
+      const held = pickUpFromBag(inventory, 0, 0);
+      inventory.grid.place(potion(), 0, 0);
+      inventory.grid.place(potion(), 0, 1);
+      const result = spaceInventorySlot(inventory, held, cell(0, 0));
+      expect(result.message).toBe("Can't place there");
+      expect(result.held).toBe(held);
+    });
+
+    it("says the bag is full when unequipping cannot fit the piece", function () {
+      const blade = sword();
+      inventory.swapEquipped(blade);
+      for (let col = 0; col < INVENTORY_BAG_COLUMNS; col++) {
+        for (let row = 0; row < INVENTORY_BAG_ROWS; row++) {
+          inventory.grid.place(new Item({ id: "g", name: "G" }), col, row);
+        }
+      }
+      const melee = inventoryUiLayout(inventory).equipmentSlots
+        .find((s) => s.equipmentName === "melee");
+      const result = spaceInventorySlot(inventory, null, melee);
+      expect(result.message).toBe("Bag full");
+      expect(inventory.getEquipped("melee")).toBe(blade);
+    });
+
+    it("gives no message when the pick up works", function () {
+      inventory.add(sword());
+      const result = spaceInventorySlot(inventory, null, cell(0, 0));
+      expect(result.held).not.toBeNull();
+      expect(result.message).toBe("");
+    });
+  });
+
+  describe("enterInventorySlot", function () {
+    let player;
+    let room;
+
+    beforeEach(function () {
+      player = new Player(80, 80, "Fire", "Tall");
+      inventory = player.inventory;
+      room = { items: [] };
+      inventory.grid.clear();
+    });
+
+    it("equips bag gear and puts the old piece in the freed cells", function () {
+      const old = sword("Old");
+      const next = sword("Next");
+      inventory.swapEquipped(old);
+      inventory.grid.place(next, 3, 1);
+      const result = enterInventorySlot(player, room, null, cell(3, 2));
+      expect(result.message).toBe("");
+      expect(inventory.getEquipped("melee")).toBe(next);
+      expect(inventory.grid.itemAt(3, 1).item).toBe(old);
+      expect(inventory.grid.entryOf(next)).toBeNull();
+    });
+
+    it("equips into an empty slot and frees the cells", function () {
+      const next = sword("Next");
+      inventory.grid.place(next, 0, 0);
+      enterInventorySlot(player, room, null, cell(0, 0));
+      expect(inventory.getEquipped("melee")).toBe(next);
+      expect(inventory.size).toBe(0);
+    });
+
+    it("puts the old piece in the first free spot when it does not fit the freed cells", function () {
+      const old = new MeleeWeapon({ id: "h", name: "Hammer", baseId: "hammer" }); // 2x3
+      const next = sword("Next"); // 1x3
+      inventory.swapEquipped(old);
+      inventory.grid.place(next, 9, 0); // a 2 wide piece does not fit the last column
+      enterInventorySlot(player, room, null, cell(9, 0));
+      expect(inventory.grid.entryOf(old)).not.toBeNull();
+      expect(inventory.grid.entryOf(old).col).toBe(0);
+      expect(room.items.length).toBe(0);
+    });
+
+    function fillBagExcept(freeItem) {
+      for (let col = 0; col < INVENTORY_BAG_COLUMNS; col++) {
+        for (let row = 0; row < INVENTORY_BAG_ROWS; row++) {
+          inventory.grid.place(new Item({ id: "g", name: "G" }), col, row);
+        }
+      }
+      const entry = inventory.grid.entryOf(freeItem);
+      return entry;
+    }
+
+    it("drops the old piece on the floor when the bag has no room", function () {
+      const old = new MeleeWeapon({ id: "h", name: "Hammer", baseId: "hammer" });
+      const next = sword("Next");
+      inventory.swapEquipped(old);
+      inventory.grid.place(next, 0, 0);
+      fillBagExcept(next);
+      const result = enterInventorySlot(player, room, null, cell(0, 0));
+      expect(inventory.getEquipped("melee")).toBe(next);
+      expect(room.items.length).toBe(1);
+      expect(room.items[0].item).toBe(old);
+      expect(result.message).toContain("dropped");
+    });
+
+    it("refuses when the old piece is locked and has no room", function () {
+      const old = new MeleeWeapon({ id: "h", name: "Hammer", baseId: "hammer" });
+      old.locked = true;
+      const next = sword("Next");
+      inventory.swapEquipped(old);
+      inventory.grid.place(next, 0, 0);
+      fillBagExcept(next);
+      const result = enterInventorySlot(player, room, null, cell(0, 0));
+      expect(result.message).toBe("Bag full");
+      expect(inventory.getEquipped("melee")).toBe(old);
+      expect(inventory.grid.itemAt(0, 0).item).toBe(next);
+      expect(room.items.length).toBe(0);
+    });
+
+    it("drinks a potion", function () {
+      player.health = 1;
+      inventory.grid.place(potion(), 2, 2, 2);
+      const result = enterInventorySlot(player, room, null, cell(2, 2));
+      expect(player.health).toBe(3);
+      expect(result.message).toBe("");
+      expect(inventory.grid.itemAt(2, 2).quantity).toBe(1);
+    });
+
+    it("says so when a potion cannot be used", function () {
+      inventory.grid.place(potion(), 2, 2);
+      const result = enterInventorySlot(player, room, null, cell(2, 2));
+      expect(result.message).toBe("Can't use that now");
+      expect(inventory.size).toBe(1);
+    });
+
+    it("says so for an item that cannot be worn", function () {
+      inventory.grid.place(new Item({ id: "gem", name: "Gem" }), 1, 1);
+      expect(enterInventorySlot(player, room, null, cell(1, 1)).message)
+        .toBe("Can't equip that");
+    });
+
+    it("unequips from a doll slot and does nothing on an empty cell", function () {
+      const blade = sword();
+      inventory.swapEquipped(blade);
+      const melee = inventoryUiLayout(inventory).equipmentSlots
+        .find((s) => s.equipmentName === "melee");
+      enterInventorySlot(player, room, null, melee);
+      expect(inventory.getEquipped("melee")).toBeNull();
+      expect(inventory.quantityOf(blade)).toBe(1);
+      expect(enterInventorySlot(player, room, null, cell(9, 5)).held).toBeNull();
+    });
+
+    it("acts like Space when the hand is full", function () {
+      const next = sword("Next");
+      inventory.grid.place(next, 0, 0);
+      const held = pickUpFromBag(inventory, 0, 0);
+      const result = enterInventorySlot(player, room, held, cell(4, 0));
+      expect(result.held).toBeNull();
+      expect(inventory.grid.entryOf(next).col).toBe(4);
+    });
+  });
+
+  describe("drinkBagPotion with a slot", function () {
+    it("drinks the potion under the cursor before the first one", function () {
+      const player = new Player(0, 0, "Fire");
+      player.health = 1;
+      const strong = new Consumable({
+        id: "big", name: "Big", maxStackSize: 5, healthRestore: 2
+      });
+      player.inventory.grid.place(potion(), 0, 0);
+      player.inventory.grid.place(strong, 3, 0);
+      const slot = inventoryUiLayout(player.inventory).bagSlots[3];
+      expect(drinkBagPotion(player, slot)).toBe(true);
+      expect(player.inventory.grid.entryOf(strong)).toBeNull();
+      expect(player.inventory.grid.entryOf(player.inventory.grid.itemAt(0, 0).item)).not.toBeNull();
+    });
+  });
 });

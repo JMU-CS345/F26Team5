@@ -228,30 +228,6 @@ describe("bag", function () {
     });
   });
 
-  describe("moving the selection with the arrow keys", function () {
-    it("starts on the first item and steps over empty slots", function () {
-      const player = newPlayer();
-      const a = sword("A");
-      const b = sword("B");
-      player.inventory.add(a);
-      player.inventory.add(b);
-      let selection = moveBagSelection(player.inventory, null, 1, 0);
-      expect(selection.item).toBe(a);
-      selection = moveBagSelection(player.inventory, selection, 0, 1); // a covers 3 cells
-      expect(selection.item).toBe(b);
-      selection = moveBagSelection(player.inventory, selection, 0, 1);
-      expect(selection.item).toBe(b);
-      selection = moveBagSelection(player.inventory, selection, 0, -1);
-      expect(selection.item).toBe(a);
-      selection = moveBagSelection(player.inventory, selection, 1, 0);
-      expect(selection.item).toBe(a);
-    });
-
-    it("returns null for an empty bag", function () {
-      expect(moveBagSelection(newPlayer().inventory, null, 1, 0)).toBeNull();
-    });
-  });
-
   describe("sell value and borders", function () {
     it("shows the sell value on the item card lines", function () {
       const blade = generateWeapon(createRng(3), { rarity: "rare", kind: "melee" });

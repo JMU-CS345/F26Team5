@@ -41,42 +41,20 @@ function dropBagItem(player, room, selection) {
   }
   const quantity = entry.quantity; // only the selected stack, not every stack of the item
   grid.removeEntry(entry);
+  dropItemAtFeet(player, room, selection.item, quantity);
+  return true;
+}
+
+function dropItemAtFeet(player, room, item, quantity) {
   const center = player.getCenter();
   const drop = new ItemDrop(
     center.x - ITEM_DROP_SIZE / 2,
     center.y - ITEM_DROP_SIZE / 2,
-    selection.item,
+    item,
     quantity
   );
   drop.justDropped = true;
   room.items.push(drop);
-  return true;
-}
-
-// The selection one step from the current one, skipping empty slots. With no selection it
-// picks the first item in the bag. Returns the same selection when nothing lies that way.
-function moveBagSelection(inventory, selection, columnStep, rowStep) {
-  const slots = inventoryUiLayout(inventory).bagSlots;
-  const first = slots.find((slot) => slot.item !== null);
-  if (selection === null || selection.sourceKind !== "bag") {
-    if (first === undefined) {
-      return null;
-    }
-    return inventorySelectionFromSlot(first);
-  }
-  let column = selection.index % INVENTORY_BAG_COLUMNS;
-  let row = Math.floor(selection.index / INVENTORY_BAG_COLUMNS);
-  while (true) {
-    column += columnStep;
-    row += rowStep;
-    if (column < 0 || column >= INVENTORY_BAG_COLUMNS || row < 0 || row >= INVENTORY_BAG_ROWS) {
-      return selection;
-    }
-    const slot = slots[row * INVENTORY_BAG_COLUMNS + column];
-    if (slot.item !== null && slot.item !== selection.item) {
-      return inventorySelectionFromSlot(slot);
-    }
-  }
 }
 
 // Picking items up and putting them down. A held item is { item, quantity, col, row } (col and
@@ -158,6 +136,62 @@ function activateInventorySlot(inventory, held, slot) {
   return pickUpFromBag(inventory, slot.col, slot.row);
 }
 
+// Space (and Enter with a full hand): pick up, place, equip onto a doll slot or unequip. Returns
+// { held, message } with the new hand and a short note for the player ("" when it worked).
+function spaceInventorySlot(inventory, held, slot) {
+  if (slot === null) {
+    return { held, message: "" };
+  }
+  const after = activateInventorySlot(inventory, held, slot);
+  let message = "";
+  if (slot.kind === "equipment" && held !== null && after === held) {
+    message = "Wrong slot";
+  } else if (slot.kind === "equipment" && held === null && slot.item !== null
+      && inventory.getEquipped(slot.equipmentName) !== null) {
+    message = "Bag full";
+  } else if (slot.kind === "bag" && held !== null && after === held) {
+    message = "Can't place there";
+  }
+  return { held: after, message };
+}
+
+// Enter: gear in the bag goes straight to its slot, a potion is drunk, anything else acts like
+// Space. The piece it replaces takes the freed cells, or the first free spot, or the floor.
+function enterInventorySlot(player, room, held, slot) {
+  if (held !== null || slot === null || slot.kind !== "bag" || slot.item === null) {
+    return spaceInventorySlot(player.inventory, held, slot);
+  }
+  if (slot.item instanceof Consumable) {
+    if (player.inventory.consume(slot.item, player)) {
+      return { held, message: "" };
+    }
+    return { held, message: "Can't use that now" };
+  }
+  if (equipmentNameForItem(slot.item) === null) {
+    return { held, message: "Can't equip that" };
+  }
+  return { held, message: equipFromBag(player, room, slot.entry) };
+}
+
+function equipFromBag(player, room, entry) {
+  const inventory = player.inventory;
+  const grid = inventory.grid;
+  const item = entry.item;
+  const old = inventory.getEquipped(equipmentNameForItem(item));
+  grid.removeEntry(entry);
+  let message = "";
+  if (old !== null && !grid.place(old, entry.col, entry.row) && grid.autoPlace(old) === null) {
+    if (old.locked) {
+      grid.place(item, entry.col, entry.row, entry.quantity);
+      return "Bag full";
+    }
+    dropItemAtFeet(player, room, old, 1);
+    message = "Bag full, dropped " + old.name;
+  }
+  inventory.swapEquipped(item);
+  return message;
+}
+
 // Puts a held item back in the bag (where it came from if that is free). Returns the held
 // item when the bag has no room for it, so the caller can drop it, otherwise null.
 function releaseHeld(inventory, held) {
@@ -172,11 +206,17 @@ function releaseHeld(inventory, held) {
   return held;
 }
 
-// Q: drinks the first health potion in the bag. False when there is none or health is full.
-function drinkBagPotion(player) {
-  const entry = player.inventory.grid.entries()
-    .find((e) => e.item instanceof Consumable && e.item.healthRestore > 0);
-  if (entry === undefined) {
+// Q: drinks the health potion in the slot the cursor is on, or else the first one in the bag.
+// False when there is none or health is full.
+function drinkBagPotion(player, slot = null) {
+  const isPotion = (e) => e.item instanceof Consumable && e.item.healthRestore > 0;
+  let entry = null;
+  if (slot !== null && slot.kind === "bag" && slot.entry !== null && isPotion(slot.entry)) {
+    entry = slot.entry;
+  } else {
+    entry = player.inventory.grid.entries().find(isPotion);
+  }
+  if (entry === undefined || entry === null) {
     return false;
   }
   return player.inventory.consume(entry.item, player);

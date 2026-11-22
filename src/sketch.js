@@ -33,6 +33,7 @@ let confirmDialog;
 let screenFade = new ScreenFade();
 let upRepeat = new KeyRepeat();
 let downRepeat = new KeyRepeat();
+let inventoryRepeats = [new KeyRepeat(), new KeyRepeat(), new KeyRepeat(), new KeyRepeat()];
 let creditsScroll = 0; // pixels the credits have scrolled
 let resumeInputBlocked = false;
 let activeDialogue;
@@ -485,6 +486,19 @@ function repeatMenuMoves() {
   }
 }
 
+// Holding an arrow in the inventory keeps moving the cursor, one cell while holding an item.
+function repeatInventoryKeys() {
+  let grid = null;
+  if (game.isInventory()) {
+    grid = inventorySkipGrid();
+  }
+  const isDown = (code) => game.isInventory() && keyIsDown(code);
+  if (repeatInventoryMoves(inventoryCursor, inventoryRepeats, isDown, grid)) {
+    inventorySelection = null;
+    inventoryInfoLines = [];
+  }
+}
+
 function draw() {
   // p5 starts calling draw() while the async setup() is still loading images. If draw()
   // throws, p5 stops its loop for good, so skip frames until setup() has finished.
@@ -493,6 +507,7 @@ function draw() {
   }
   screenFade.watch(fadeScreenName());
   repeatMenuMoves();
+  repeatInventoryKeys();
   drawScreen();
   if (confirmDialog.isOpen()) {
     drawConfirmDialog(confirmDialog);
@@ -858,30 +873,54 @@ function toggleTopRightNpc() {
   }
 }
 
-// Keys inside the inventory: arrows move the cursor, Enter picks up, places or equips, R sorts,
-// L locks, Q drinks a potion, X drops.
+// The grid the arrows skip over, or null to step one cell while an item is in the hand.
+function inventorySkipGrid() {
+  if (inventoryHeld !== null) {
+    return null;
+  }
+  return player.inventory.grid;
+}
+
+// Shows the result of Enter or Space: the new hand and a note when the action failed.
+function applyInventoryResult(result) {
+  inventoryHeld = result.held;
+  inventorySelection = null;
+  inventoryInfoLines = [];
+  if (result.message !== "") {
+    inventoryInfoLines = [result.message];
+  }
+}
+
+// Keys inside the inventory: arrows move the cursor, Tab swaps bag and doll, Enter equips or
+// drinks, Space picks up or places, R sorts, L locks, Q drinks a potion, X drops.
 function handleInventoryKey() {
   inventoryKeyboardMode = true;
   if (keyCode === ESCAPE) {
     toggleInventoryMenu();
     return;
   }
-  if (moveInventoryCursorForKey(inventoryCursor, keyCode)) {
+  if (moveInventoryCursorForKey(inventoryCursor, keyCode, inventorySkipGrid())) {
     inventorySelection = null;
     inventoryInfoLines = [];
     return;
   }
-  const atCursor = inventorySelectionFromSlot(
-    inventoryCursorSlot(player.inventory, inventoryCursor)
-  );
-  if (keyCode === ENTER) {
-    inventoryHeld = activateInventorySlot(
-      player.inventory, inventoryHeld, inventoryCursorSlot(player.inventory, inventoryCursor)
-    );
+  if (keyCode === TAB) {
+    inventoryCursor.switchSection();
     inventorySelection = null;
     inventoryInfoLines = [];
+    return;
+  }
+  const cursorSlot = inventoryCursorSlot(player.inventory, inventoryCursor);
+  const atCursor = inventorySelectionFromSlot(cursorSlot);
+  if (keyCode === ENTER) {
+    applyInventoryResult(enterInventorySlot(player, room, inventoryHeld, cursorSlot));
+  } else if (key === " ") {
+    applyInventoryResult(spaceInventorySlot(player.inventory, inventoryHeld, cursorSlot));
   } else if (key.toLowerCase() === "q") {
-    drinkBagPotion(player);
+    inventoryInfoLines = [];
+    if (!drinkBagPotion(player, cursorSlot)) {
+      inventoryInfoLines = ["Nothing to drink"];
+    }
   } else if (key.toLowerCase() === "r") {
     player.inventory.sortBag();
     inventorySelection = null;
@@ -893,6 +932,7 @@ function handleInventoryKey() {
     inventorySelection = null;
     inventoryInfoLines = [];
     if (atCursor !== null && atCursor.item.locked) {
+      inventoryInfoLines = ["Locked"];
       return;
     }
     const drop = dropInventoryCursorItem(player.inventory, player, inventoryCursor);
