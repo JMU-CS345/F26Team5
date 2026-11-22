@@ -1,8 +1,8 @@
-// Soul Knight style rooms: doors seal while enemies fight, a second wave follows the first.
+// Soul Knight style rooms: doors seal while enemies fight, and more waves follow the first.
 // No p5 drawing calls, so Jasmine can test it without a canvas.
 // Load after room.js, template-room.js and enemy.js, before sketch.js.
 
-const WAVE_GAP_FRAMES = 45; // after the first wave is dead, the second spawns this much later
+const WAVE_GAP_FRAMES = 45; // after a wave is dead, the next one spawns this much later
 const WAVE_MARKER_FRAMES = 30; // the floor marker shows for the last frames of that gap
 const SOFTLOCK_FRAMES = 3600; // 60 s at 60 fps in an active room before the arrow shows
 
@@ -43,7 +43,7 @@ function updateRoomFlow(room) {
   }
 }
 
-// True while the floor marker for the second wave should show.
+// True while the floor marker for the next wave should show.
 function waveMarkerShows(room) {
   return room.hasPendingWave() && room.waveTimer >= WAVE_GAP_FRAMES - WAVE_MARKER_FRAMES;
 }
@@ -68,7 +68,7 @@ function softlockTargets(room) {
 // Also drops every lock-on to the removed enemies, so nothing keeps homing on a ghost.
 function clearRoomDebug(room, player, shots) {
   room.enemies = [];
-  room.pendingWave = [];
+  room.pendingWaves = [];
   player.aimTarget = null;
   for (const shot of shots) {
     shot.target = null;

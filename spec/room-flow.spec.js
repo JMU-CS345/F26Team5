@@ -112,7 +112,7 @@ describe("room flow", function () {
       const room = makeRoom("normal");
       room.spawnEnemies();
       expect(room.enemies.length).toBe(2);
-      expect(room.pendingWave.length).toBe(1);
+      expect(room.pendingWaves.length).toBe(1);
       expect(room.hasPendingWave()).toBe(true);
     });
 
@@ -191,18 +191,17 @@ describe("room flow", function () {
       expect(doorTypes(room).every((t) => t === TILE.DOOR_CLOSED)).toBe(true);
     });
 
-    it("gives a boss room only its boss", function () {
+    it("gives a boss room its boss and its other drawn enemies as adds, all at once", function () {
       const room = makeRoom("boss", BOSS_ROWS);
       room.spawnEnemies();
-      expect(room.enemies.length).toBe(1);
-      expect(room.enemies[0].type.boss).toBe(true);
+      expect(room.enemies.map((e) => e.typeName).sort()).toEqual(["Bat", "Bat", "Demon"]);
       expect(room.hasPendingWave()).toBe(false);
     });
 
     it("spawns every enemy of a boss room that has no boss", function () {
       const room = makeRoom("boss");
       room.spawnEnemies();
-      expect(room.enemies.length + room.pendingWave.length).toBe(3);
+      expect(room.enemies.length + room.pendingWaves.flat().length).toBe(3);
     });
 
     it("does nothing for a room that is not active", function () {
@@ -212,6 +211,82 @@ describe("room flow", function () {
       updateRoomFlow(room);
       expect(room.waveTimer).toBe(0);
       expect(room.activeFrames).toBe(0);
+    });
+  });
+
+  describe("several waves", function () {
+    const large = ROOM_TEMPLATES.find((t) => t.name === "open-field");
+
+    function makeLarge(tier, seed) {
+      const template = parseRoomTemplate(large);
+      const room = new TemplateRoom(0, 0, template, { tier, seed });
+      room.id = 1;
+      room.openDoor(template.doors[0], 0, 0);
+      return room;
+    }
+
+    function waitForNextWave(room) {
+      for (let i = 0; i < WAVE_GAP_FRAMES; i++) {
+        updateRoomFlow(room);
+      }
+    }
+
+    it("keeps a list of waves and spawns them one at a time", function () {
+      const room = makeLarge(1, 4);
+      enter(room);
+      expect(room.waveNumber).toBe(1);
+      expect(room.pendingWaves.length).toBe(2);
+      killAll(room);
+      waitForNextWave(room);
+      expect(room.waveNumber).toBe(2);
+      expect(room.enemies.length).toBeGreaterThan(0);
+      expect(room.pendingWaves.length).toBe(1);
+      expect(room.hasPendingWave()).toBe(true);
+      killAll(room);
+      waitForNextWave(room);
+      expect(room.waveNumber).toBe(3);
+      expect(room.hasPendingWave()).toBe(false);
+    });
+
+    it("is not done until the last wave is dead", function () {
+      const room = makeLarge(1, 4);
+      enter(room);
+      killAll(room);
+      expect(roomWaveDone(room)).toBe(false);
+      waitForNextWave(room);
+      killAll(room);
+      expect(roomWaveDone(room)).toBe(false);
+      waitForNextWave(room);
+      killAll(room);
+      expect(roomWaveDone(room)).toBe(true);
+    });
+
+    it("shows the floor marker on the spots of the next wave only", function () {
+      const room = makeLarge(1, 4);
+      enter(room);
+      killAll(room);
+      expect(room.nextWaveSpots()).toBe(room.pendingWaves[0]);
+      expect(waveMarkerShows(room)).toBe(false);
+      room.waveTimer = WAVE_GAP_FRAMES - WAVE_MARKER_FRAMES;
+      expect(waveMarkerShows(room)).toBe(true);
+    });
+
+    it("has no next wave spots when nothing is pending", function () {
+      expect(makeRoom("normal").nextWaveSpots()).toEqual([]);
+    });
+
+    it("clears every wave with the debug key", function () {
+      const room = makeLarge(1, 4);
+      enter(room);
+      clearRoomDebug(room, { aimTarget: null }, []);
+      expect(room.hasPendingWave()).toBe(false);
+      expect(roomWaveDone(room)).toBe(true);
+    });
+
+    it("gives an extra wave at tier 3", function () {
+      const room = makeLarge(3, 4);
+      enter(room);
+      expect(room.pendingWaves.length).toBe(3);
     });
   });
 
@@ -253,7 +328,7 @@ describe("room flow", function () {
       const room = makeRoom("normal");
       enter(room);
       killAll(room);
-      room.pendingWave = [];
+      room.pendingWaves = [];
       room.enemies.push(createEnemy("Bat", 100, 100));
       activeFor(room, SOFTLOCK_FRAMES - 1);
       expect(softlockTargets(room)).toEqual([]);

@@ -1,6 +1,6 @@
 // Pre-made rooms: turns the text drawings in room-templates.js into real rooms.
 // No p5 drawing calls, so Jasmine can test it without a canvas.
-// Load after room.js and enemy-types.js.
+// Load after room.js, enemy-types.js and encounters.js.
 
 // What each character in a template means. Enemy letters stand on floor. A + is a door:
 // it is a wall until the generator opens it.
@@ -21,16 +21,36 @@ const ENEMY_CHARS = Object.freeze({
   T: "SparkBark",
   D: "Demon"
 });
+const MELEE_SPOT_CHAR = "m"; // floor where a melee enemy (chaser or swarm) may start
+const RANGED_SPOT_CHAR = "r"; // floor where a ranged enemy or turret may start
 const DOOR_CHAR = "+";
 const CHEST_CHAR = "C"; // a treasure chest standing on floor
 const PLAYER_START_CHAR = "@";
-const ROOM_ROLES = Object.freeze(["start", "normal", "boss"]);
+const ROOM_ROLES = Object.freeze(["start", "normal", "boss", "treasure"]);
+// The sizes normal rooms come in, walls included. Each fits the 40x22 tiles the camera shows.
+const ROOM_SIZE_CLASSES = Object.freeze([
+  { name: "small", cols: 22, rows: 13 },
+  { name: "medium", cols: 28, rows: 17 },
+  { name: "large", cols: 36, rows: 21 }
+]);
+const ROOM_VIEW_COLS = 40; // the whole room has to fit the screen, so it never scrolls
+const ROOM_VIEW_ROWS = 22;
+const SIZE_CHECKED_ROLES = Object.freeze(["normal", "treasure"]); // start and boss rooms may differ
 const SIDE_LABELS = Object.freeze({ N: "north", E: "east", S: "south", W: "west" });
 const DOOR_WIDTH = 2; // tiles. Every door is this wide so any two doors can meet.
 
 function isWalkableChar(ch) {
   return ch === "." || ch === PLAYER_START_CHAR || ch === CHEST_CHAR
-    || ENEMY_CHARS[ch] !== undefined;
+    || ch === MELEE_SPOT_CHAR || ch === RANGED_SPOT_CHAR || ENEMY_CHARS[ch] !== undefined;
+}
+
+// The size class name ("small", "medium" or "large") of a room size, or null for any other size.
+function roomSizeName(cols, rows) {
+  const found = ROOM_SIZE_CLASSES.find((size) => size.cols === cols && size.rows === rows);
+  if (found === undefined) {
+    return null;
+  }
+  return found.name;
 }
 
 // Finds every run of + along the four outer walls. Returns a list of
@@ -84,9 +104,10 @@ function doorTiles(cols, rows, side, start) {
 }
 
 // Reads one template into the shape the generator and TemplateRoom use:
-//   { name, role, text, cols, rows, grid, spawns, chests, player, doors }
+//   { name, role, text, cols, rows, grid, spawns, spots, chests, player, doors }
 //   grid    tile types, row by row (doors are walls until opened)
 //   spawns  [{ type, col, row }] one per enemy letter
+//   spots   { melee: [{ col, row }], ranged: [...] } one per m and r (see encounters.js)
 //   chests  [{ col, row }] one per C
 //   player  { col, row } where @ is, or null
 //   doors   [{ index, side, start, tiles: [{col, row}, ...] }] one per drawn door
@@ -101,6 +122,7 @@ function parseRoomTemplate(template) {
     rows: text.length,
     grid: [],
     spawns: [],
+    spots: { melee: [], ranged: [] },
     chests: [],
     player: null,
     doors: []
@@ -111,6 +133,12 @@ function parseRoomTemplate(template) {
       const ch = text[row][col];
       if (ENEMY_CHARS[ch] !== undefined) {
         parsed.spawns.push({ type: ENEMY_CHARS[ch], col, row });
+        tiles.push(TILE.FLOOR);
+      } else if (ch === MELEE_SPOT_CHAR) {
+        parsed.spots.melee.push({ col, row });
+        tiles.push(TILE.FLOOR);
+      } else if (ch === RANGED_SPOT_CHAR) {
+        parsed.spots.ranged.push({ col, row });
         tiles.push(TILE.FLOOR);
       } else if (ch === CHEST_CHAR) {
         parsed.chests.push({ col, row });
@@ -136,8 +164,9 @@ function parseRoomTemplate(template) {
 }
 
 // Checks a list of templates and returns a list of problems (empty if all is well). Each
-// problem starts with the room's name. Same idea as validateEnemyTypes.
-function validateRoomTemplates(templates = ROOM_TEMPLATES) {
+// problem starts with the room's name. Same idea as validateEnemyTypes. Normal and treasure
+// rooms must be one of sizeClasses (pass [] to skip that check).
+function validateRoomTemplates(templates = ROOM_TEMPLATES, sizeClasses = ROOM_SIZE_CLASSES) {
   const problems = [];
   const names = new Set();
   let normalCount = 0;
@@ -179,9 +208,15 @@ function validateRoomTemplates(templates = ROOM_TEMPLATES) {
       bad("every row must be the same length");
       return;
     }
-    if (cols < 8 || rows < 8 || cols > SCREEN_COLS || rows > SCREEN_ROWS) {
-      bad("size " + cols + "x" + rows + " must be 8 to " + SCREEN_COLS + " wide and 8 to " + SCREEN_ROWS + " tall");
+    if (cols < 8 || rows < 8 || cols > ROOM_VIEW_COLS || rows > ROOM_VIEW_ROWS) {
+      bad("size " + cols + "x" + rows + " must be 8 to " + ROOM_VIEW_COLS
+        + " wide and 8 to " + ROOM_VIEW_ROWS + " tall");
       return;
+    }
+    const sizeLabels = sizeClasses.map((s) => s.name + " " + s.cols + "x" + s.rows);
+    const isSizeClass = sizeClasses.some((s) => s.cols === cols && s.rows === rows);
+    if (SIZE_CHECKED_ROLES.includes(role) && sizeClasses.length > 0 && !isSizeClass) {
+      bad("size " + cols + "x" + rows + " must be one of " + sizeLabels.join(", "));
     }
 
     const unknown = new Set();
@@ -189,7 +224,8 @@ function validateRoomTemplates(templates = ROOM_TEMPLATES) {
     for (const row of t.rows) {
       for (const ch of row) {
         if (ROOM_CHARS[ch] === undefined && ENEMY_CHARS[ch] === undefined
-            && ch !== PLAYER_START_CHAR && ch !== CHEST_CHAR) {
+            && ch !== PLAYER_START_CHAR && ch !== CHEST_CHAR
+            && ch !== MELEE_SPOT_CHAR && ch !== RANGED_SPOT_CHAR) {
           unknown.add(ch);
         }
         if (ch === PLAYER_START_CHAR) {
@@ -207,6 +243,9 @@ function validateRoomTemplates(templates = ROOM_TEMPLATES) {
     }
     if (role !== "start" && starts > 0) {
       bad("only a start room can have an @");
+    }
+    if (role === "treasure" && !t.rows.some((r) => r.includes(CHEST_CHAR))) {
+      bad("a treasure room needs a chest (C)");
     }
 
     // The outer ring is wall or door. Corners are always wall. Doors only go on the ring.
@@ -307,10 +346,14 @@ function validateRoomTemplates(templates = ROOM_TEMPLATES) {
 
 // A room built from a template. Enemies appear the first time the player walks in.
 // Every drawn door starts as wall; openDoor turns one into a way through.
+// options: { tier: dungeon number 1 to 3 (default 1), seed: whole number for the enemy mix }
 class TemplateRoom extends Room {
-  constructor(x, y, template) {
+  constructor(x, y, template, options = {}) {
     super(x, y, template.cols * TILE_SIZE, template.rows * TILE_SIZE);
     this.template = template;
+    this.role = template.role;
+    this.tier = options.tier || 1;
+    this.encounterSeed = options.seed || 0;
     this.doors = template.doors;
     this.spawned = false;
     this.tileGrid = [];
@@ -337,36 +380,61 @@ class TemplateRoom extends Room {
     this.exits.push({ side: door.side, tiles: door.tiles, toId, doorIndex: door.index, toDoor });
   }
 
-  // Creates the template's enemies, once. Each stands in the middle of its tile.
-  // The first half of the list appears now, the second half later (see room-flow.js). A boss
-  // room only gets its boss.
+  // The waves of this room, each a list of { type, col, row }. A boss room puts its boss and the
+  // other drawn enemies in one wave. A room with m and r spots gets seeded encounters (see
+  // encounters.js), plus any drawn letters in the first wave. A room with only drawn letters
+  // splits them in two, the second half coming later.
+  planWaves() {
+    const drawn = this.template.spawns;
+    const spots = this.template.spots;
+    if (this.role === "boss" && drawn.some((s) => ENEMY_TYPES[s.type].boss)) {
+      return [drawn];
+    }
+    if (spots.melee.length + spots.ranged.length === 0) {
+      const firstCount = Math.ceil(drawn.length / 2);
+      const waves = [drawn.slice(0, firstCount)];
+      if (drawn.length > firstCount) {
+        waves.push(drawn.slice(firstCount));
+      }
+      return waves;
+    }
+    const sizeName = roomSizeName(this.template.cols, this.template.rows) || "medium";
+    const waves = planEncounter(buildEncounterLayout(this.template), {
+      sizeName,
+      tier: this.tier,
+      rng: createRng(this.encounterSeed)
+    });
+    waves[0] = drawn.concat(waves[0]);
+    return waves;
+  }
+
+  // Creates the first wave, once. The later waves wait in pendingWaves (see room-flow.js).
   spawnEnemies() {
     if (this.spawned) {
       return;
     }
     this.spawned = true;
-    let spawns = this.template.spawns;
-    const bosses = spawns.filter((s) => ENEMY_TYPES[s.type].boss);
-    if (this.role === "boss" && bosses.length > 0) {
-      spawns = bosses;
-    }
-    const firstCount = Math.ceil(spawns.length / 2);
-    this.addEnemies(spawns.slice(0, firstCount));
-    this.pendingWave = spawns.slice(firstCount);
+    const waves = this.planWaves();
+    this.addEnemies(waves[0]);
+    this.pendingWaves = waves.slice(1);
+    this.waveNumber = 1;
   }
 
-  // Creates the second wave.
+  // Creates the next wave.
   spawnPendingWave() {
-    this.addEnemies(this.pendingWave);
-    this.pendingWave = [];
+    this.addEnemies(this.pendingWaves.shift());
+    this.waveNumber++;
   }
 
+  // Each enemy stands in the middle of its tile.
   addEnemies(spawns) {
     for (const spawn of spawns) {
       const type = ENEMY_TYPES[spawn.type];
       const centerX = this.x + (spawn.col + 0.5) * this.tileSize;
       const centerY = this.y + (spawn.row + 0.5) * this.tileSize;
-      this.enemies.push(createEnemy(spawn.type, centerX - type.length / 2, centerY - type.width / 2));
+      const enemy = createEnemy(spawn.type, centerX - type.length / 2, centerY - type.width / 2);
+      enemy.tier = this.tier; // read by the tier scaling, if any
+      this.enemies.push(enemy);
     }
   }
 
