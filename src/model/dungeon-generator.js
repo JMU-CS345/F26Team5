@@ -101,7 +101,7 @@ class Dungeon {
 
 // Options (all optional):
 //   roomCount    how many rooms, counting the start and boss rooms (default 9 to 11, from the
-//                the seed). One treasure room is added on top when the room list has one.
+//                seed). One treasure room is added on top when the room list has one.
 //   seed         whole number; the same seed always gives the same dungeon
 //   tier         dungeon number 1 to 3 (default 1): bigger fights in later dungeons
 //   loopChance   0..1, chance that two doors that happen to meet get opened (default 0.5)
