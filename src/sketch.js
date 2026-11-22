@@ -488,8 +488,12 @@ function repeatMenuMoves() {
 
 // Holding an arrow in the inventory keeps moving the cursor, one cell while holding an item.
 function repeatInventoryKeys() {
+  let grid = null;
+  if (game.isInventory()) {
+    grid = inventorySkipGrid();
+  }
   const isDown = (code) => game.isInventory() && keyIsDown(code);
-  if (repeatInventoryMoves(inventoryCursor, inventoryRepeats, isDown, inventorySkipGrid())) {
+  if (repeatInventoryMoves(inventoryCursor, inventoryRepeats, isDown, grid)) {
     inventorySelection = null;
     inventoryInfoLines = [];
   }
