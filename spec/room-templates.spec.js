@@ -65,6 +65,17 @@ describe("ROOM_TEMPLATES (the pre-made rooms)", function () {
       }
     });
 
+    it("keeps spots in large rooms from under the heads-up display in the top corners", function () {
+      for (const t of byClass("large")) {
+        const parsed = parseRoomTemplate(t);
+        for (const spot of parsed.spots.melee.concat(parsed.spots.ranged)) {
+          const underLeft = spot.col <= 8 && spot.row <= 2; // hearts and class name
+          const underRight = spot.col >= 31 && spot.row <= 4; // minimap
+          expect(underLeft || underRight).withContext(t.name + " " + spot.col + "," + spot.row).toBe(false);
+        }
+      }
+    });
+
     it("draws no fixed enemies in normal rooms, the mix comes from the recipes", function () {
       for (const t of normals) {
         expect(parseRoomTemplate(t).spawns).withContext(t.name).toEqual([]);
