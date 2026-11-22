@@ -34,7 +34,8 @@
 // The two tiles just inside a door must be plain floor (.). Doors can't be next to each other.
 //
 // role: "start" (the first room), "boss" (the last room), "treasure" (a dead end with a chest
-// and no enemies) or "normal" (everything else). Every room needs at least one door.
+// and no enemies), "hub" (the stop between dungeons, see HUB_TEMPLATE) or "normal" (everything
+// else). Every room needs at least one door.
 // validateRoomTemplates() checks all of this, and the specs run it, so a mistake shows up as
 // a failing spec with the room's name. Keep a 3x3 area around a D or a K clear (the Demon and the Bouncer are big).
 const ROOM_TEMPLATES = [
@@ -999,3 +1000,29 @@ const ROOM_TEMPLATES = [
     ]
   }
 ];
+
+// The hub between dungeons. It is not in ROOM_TEMPLATES, so the generator never places it:
+// hub.js builds it as a stand-alone room. No enemies, one door, and it is the medium size.
+const HUB_TEMPLATE = {
+  name: "hub",
+  role: "hub",
+  rows: [
+    "############################",
+    "#..........................#",
+    "#..........................#",
+    "#..........................#",
+    "#..........................#",
+    "#..........................#",
+    "#..........................#",
+    "#....xx..............xx....#",
+    "#....xx..............xx....#",
+    "#..........................#",
+    "#..........................#",
+    "#..........................#",
+    "#..........................#",
+    "#..........................#",
+    "#..........................#",
+    "#..........................#",
+    "#############++#############"
+  ]
+};

@@ -7,6 +7,7 @@ class DialogueBox {
     this.npc = null;
     this.pages = [];
     this.pageIndex = 0;
+    this.choiceIndex = 0;
   }
 
   isActive() {
@@ -25,6 +26,7 @@ class DialogueBox {
       this.pages = ["..."];
     }
     this.pageIndex = 0;
+    this.choiceIndex = 0;
     return true;
   }
 
@@ -47,6 +49,43 @@ class DialogueBox {
     this.npc = null;
     this.pages = [];
     this.pageIndex = 0;
+    this.choiceIndex = 0;
+  }
+
+  // Replaces the text with one page, for an NPC's answer to a choice.
+  say(text) {
+    if (this.active) {
+      this.pages = [text];
+      this.pageIndex = 0;
+    }
+  }
+
+  // The NPC's choices show on its last page, otherwise there are none.
+  getChoices() {
+    if (!this.active || !this.isLastPage()) {
+      return [];
+    }
+    return this.npc.choices || [];
+  }
+
+  hasChoices() {
+    return this.getChoices().length > 0;
+  }
+
+  // step is 1 (down) or -1 (up). The cursor wraps around.
+  moveChoice(step) {
+    const count = this.getChoices().length;
+    if (count > 0) {
+      this.choiceIndex = (this.choiceIndex + step + count) % count;
+    }
+  }
+
+  selectedChoice() {
+    const choices = this.getChoices();
+    if (choices.length === 0) {
+      return null;
+    }
+    return choices[this.choiceIndex];
   }
 
   getCurrentText() {

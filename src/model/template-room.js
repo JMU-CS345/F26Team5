@@ -26,7 +26,7 @@ const RANGED_SPOT_CHAR = "r"; // floor where a ranged enemy or turret may start
 const DOOR_CHAR = "+";
 const CHEST_CHAR = "C"; // a treasure chest standing on floor
 const PLAYER_START_CHAR = "@";
-const ROOM_ROLES = Object.freeze(["start", "normal", "boss", "treasure"]);
+const ROOM_ROLES = Object.freeze(["start", "normal", "boss", "treasure", "hub"]);
 // The sizes normal rooms come in, walls included. Each fits the 40x22 tiles the camera shows.
 const ROOM_SIZE_CLASSES = Object.freeze([
   { name: "small", cols: 22, rows: 13 },

@@ -19,6 +19,7 @@ class Room {
     this.chests = [];
     this.exits = [];
     this.cleared = false;
+    this.stairs = null; // { x, y } in a boss room after the boss dies, the way to the hub
     this.state = "unvisited"; // "unvisited", "active" or "cleared"
     this.visited = false; // set when the player first walks in, the minimap reads it
     this.lastKillPos = null; // { x, y } centre of the last enemy that died here

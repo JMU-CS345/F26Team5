@@ -367,6 +367,13 @@ describe("room flow", function () {
       expect(softlockTargets(room)).toEqual([]);
     });
 
+    it("F3 then K in a boss room counts the boss as beaten", function () {
+      const room = makeRoom("boss");
+      enter(room);
+      clearRoomDebug(room, new Player(100, 100, "Fire"), []);
+      expect(room.bossDefeated).toBe(true);
+    });
+
     it("F3 then K clears the room and its doors open", function () {
       const room = makeRoom("normal");
       enter(room);

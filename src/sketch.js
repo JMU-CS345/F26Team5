@@ -24,6 +24,7 @@ let inventoryCursor = new InventoryCursor();
 let inventoryKeyboardMode = false; // true after a key press in the inventory, false after the mouse
 let gameSettings; // loaded from localStorage in setup()
 let runStats = new RunStats();
+let runTier = new RunTier(); // which dungeon of the three the run is in
 let titleMenu;
 let modelMenu;
 let classMenu;
@@ -89,22 +90,53 @@ function useExit(exit) {
   player.pos.set(spot.x - player.length / 2, spot.y - player.width / 2);
 }
 
-// Makes a fresh player with the class picked on the menu.
-function startRun() {
-  refreshBindings(); // the menus may have changed the controls setting
-  gameFeel.refreshSettings();
-  gameFeel.reset();
+// Builds the dungeon of the current tier and puts the player in its start room.
+function startDungeon() {
   for (const cached of roomGraphics.values()) {
     cached.graphic.remove(); // free the old dungeon's pictures
   }
   roomGraphics.clear();
   dungeon = generateDungeon({
     screenX: ROOM_X,
-    screenY: ROOM_Y
+    screenY: ROOM_Y,
+    tier: runTier.tier
   });
   console.log("Dungeon seed:", dungeon.seed); // pass this as seed to replay a dungeon
-  lootRun = new LootRun(dungeon.seed + 1, doorDistances(dungeon.rooms, 0));
+  const depths = doorDistances(dungeon.rooms, 0).map((d) => d + tierLootDepth(runTier.tier));
+  lootRun = new LootRun(dungeon.seed + 1, depths);
   enterRoom(dungeon.start);
+}
+
+// Stairs after a boss lead here: a quiet room with a shop and a story, then the next dungeon.
+function enterHub() {
+  enterRoom(makeHubRoom(ROOM_X, ROOM_Y, runTier.tier));
+  placePlayerAtSpawn();
+  player.health = player.maxHealth;
+  lastPlayerHealth = player.health;
+}
+
+// The hub door leads to the next dungeon.
+function leaveHub() {
+  activeDialogue.close();
+  runTier.advance();
+  startDungeon();
+  placePlayerAtSpawn();
+  lastKillCenter = null;
+}
+
+function placePlayerAtSpawn() {
+  const spawn = room.getPlayerSpawn();
+  player.pos.set(spawn.x - player.length / 2, spawn.y - player.width / 2);
+  entrySpot = { x: spawn.x, y: spawn.y };
+}
+
+// Makes a fresh player with the class picked on the menu.
+function startRun() {
+  refreshBindings(); // the menus may have changed the controls setting
+  gameFeel.refreshSettings();
+  gameFeel.reset();
+  runTier.start();
+  startDungeon();
   playMusic();
   const spawn = room.getPlayerSpawn(); // the @ in the start room's drawing
   player = new Player(
@@ -553,6 +585,11 @@ function drawScreen() {
     drawCustomizeMenu(game);
     return;
   }
+  if (game.isVictory()) {
+    drawRunScene();
+    drawVictoryScreen(runStats);
+    return;
+  }
   if (game.isInventory()) {
     const cursorSlot = inventoryCursorSlot(player.inventory, inventoryCursor);
     const pointer = inventoryPointerFor(inventoryKeyboardMode, canvasPointer(), cursorSlot);
@@ -576,8 +613,13 @@ function drawScreen() {
   if (!player.isDead()) {
     const center = player.getCenter();
     const exit = room.getExitAt(center.x, center.y);
-    if (exit) {
+    if (exit && room.role === "hub") {
+      leaveHub();
+    } else if (exit) {
       useExit(exit);
+    }
+    if (room.stairs !== null && room.cleared && playerOnStairs(room.stairs, player)) {
+      enterHub();
     }
   }
   const shake = gameFeel.getShakeOffset();
@@ -679,6 +721,9 @@ function drawScreen() {
   if (!room.cleared && roomWaveDone(room)) {
     // A room with no enemies at all is not counted, only one the player emptied.
     markRoomCleared(room, deadThisFrame.length, runStats);
+    if (room.role === "boss" && room.bossDefeated) {
+      bossRoomCleared();
+    }
     const spot = clearRewardPoint(room, lastKillCenter);
     const reward = rollClearReward(room, lootRun, spot.x, spot.y);
     if (reward !== null) {
@@ -726,6 +771,9 @@ function drawRunScene(shake = { x: 0, y: 0 }) {
   translate(-worldCamera.x, -worldCamera.y);
   drawRoom(room, getRoomGraphic(room));
   drawRoomFlow(room, player);
+  if (room.stairs !== null) {
+    drawStairs(room.stairs);
+  }
   for (const chest of room.chests) {
     drawChest(chest);
   }
@@ -771,7 +819,9 @@ function drawRunScene(shake = { x: 0, y: 0 }) {
   drawHud(player);
   drawFirstBossBar();
   drawClassLabel(player.mageClass);
-  drawMinimap(dungeon, room);
+  if (room.role !== "hub") {
+    drawMinimap(dungeon, room);
+  }
   if (game.isPlaying() || game.isInventory()) {
     drawInventoryHudButton(game.isInventory());
   }
@@ -828,6 +878,15 @@ function handleDeadEnemies(dead) {
   }
 }
 
+// The last boss ends the run, any other one leaves stairs to the hub.
+function bossRoomCleared() {
+  if (runTier.isFinal()) {
+    game.winRun();
+  } else {
+    room.stairs = makeStairs(room);
+  }
+}
+
 // Only one boss bar shows, even if several bosses are alive.
 function drawFirstBossBar() {
   const boss = room.enemies.find((e) => e.type.boss && !e.isDead());
@@ -855,6 +914,17 @@ function spawnNextEnemy() {
       return;
     }
   }
+}
+
+// Press G: jumps to the boss room, standing at its door.
+function debugGoToBoss() {
+  const boss = dungeon.boss;
+  const neighbour = dungeon.rooms[boss.exits[0].toId];
+  const door = neighbour.exits.find((e) => e.toId === boss.id);
+  const spot = dungeon.entryPoint(neighbour, door);
+  enterRoom(boss);
+  entrySpot = spot;
+  player.pos.set(spot.x - player.length / 2, spot.y - player.width / 2);
 }
 
 // Creates the test Elder NPC in the top right of the room.
@@ -949,6 +1019,22 @@ function handleInventoryKey() {
   }
 }
 
+// Up and Down move the cursor in an NPC's choice list, Enter or E picks.
+function handleChoiceKey() {
+  if (keyCode === UP_ARROW) {
+    activeDialogue.moveChoice(-1);
+  } else if (keyCode === DOWN_ARROW) {
+    activeDialogue.moveChoice(1);
+  } else if (keyCode === ENTER || actionForKey(keyCode) === "interact") {
+    const choice = activeDialogue.selectedChoice();
+    if (choice.id === "leave") {
+      activeDialogue.close();
+    } else {
+      activeDialogue.say(shopChoose(choice.id, player, lootRun, runTier.tier));
+    }
+  }
+}
+
 function keyPressed() {
   playMusic(); // browsers only allow audio after a key press, so the first one starts the loop
   if (keyCode === 114) {
@@ -1037,12 +1123,20 @@ function keyPressed() {
       clearRoomDebug(room, player, projectiles);
       return false;
     }
+    if (debugOverlay && action === null && key.toLowerCase() === "g") {
+      debugGoToBoss();
+      return false;
+    }
     if (debugOverlay && action === null && key.toLowerCase() === "b") {
       spawnNextEnemy();
       return false;
     }
     if (key.toLowerCase() === "q") {
       drinkBagPotion(player);
+      return false;
+    }
+    if (activeDialogue.isActive() && activeDialogue.hasChoices()) {
+      handleChoiceKey();
       return false;
     }
     if (action === "interact") {
@@ -1070,7 +1164,7 @@ function keyPressed() {
   // if (key === "h") {
     //player.takeDamage(1);
   //}
-  if (game.isDead() && keyCode === ENTER) {
+  if ((game.isDead() || game.isVictory()) && keyCode === ENTER) {
     goToTitle();
   }
   if (
