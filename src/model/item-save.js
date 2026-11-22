@@ -17,9 +17,9 @@ const RANGED_SAVE_STATS = [
 const ITEM_SAVE_KINDS = [
   { type: "melee", make: MeleeWeapon, stats: MELEE_SAVE_STATS },
   { type: "ranged", make: ProjectileWeapon, stats: RANGED_SAVE_STATS },
-  { type: "helmet", make: Helmet, stats: ["defense"] },
-  { type: "chest", make: ChestArmor, stats: ["defense"] },
-  { type: "legs", make: LegArmor, stats: ["defense"] },
+  { type: "helmet", make: Helmet, stats: ["block"] },
+  { type: "chest", make: ChestArmor, stats: ["hearts"] },
+  { type: "legs", make: LegArmor, stats: ["block"] },
   { type: "consumable", make: Consumable, stats: ["healthRestore"] },
   { type: "gold", make: Gold, stats: [] }
 ];
@@ -82,6 +82,9 @@ function serializeItem(item) {
   for (const name of kind.stats) {
     data.stats[name] = item[name];
   }
+  if (item instanceof Armor) {
+    data.rarity = item.rarity;
+  }
   if (item instanceof Weapon) {
     data.rarity = item.rarity;
     data.element = item.element;
@@ -109,6 +112,9 @@ function buildSavedItem(data) {
   };
   if (data.maxStackSize !== undefined && data.maxStackSize !== null) {
     options.maxStackSize = data.maxStackSize;
+  }
+  if (data.type === "helmet" || data.type === "chest" || data.type === "legs") {
+    options.rarity = data.rarity; // an older save has none, so armor falls back to common
   }
   if (data.type === "melee" || data.type === "ranged") {
     options.rarity = data.rarity;

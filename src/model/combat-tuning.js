@@ -46,7 +46,7 @@ const LUNGE_STOP = 0.3; // below this much left the lunge ends
 
 // Player hurt and shove
 const HIT_IFRAMES = 45; // invulnerable frames after being hurt
-const MIN_HIT_DAMAGE = 0.5; // armor never cuts a hit below this
+const ARMOR_BLOCK_CAP = 40; // helmet and leg block add up to at most this percent
 const PLAYER_KNOCKBACK_SPEED = 4; // pixels per frame at the start of a shove
 const PLAYER_KNOCKBACK_FRAMES = 6;
 const PLAYER_KNOCKBACK_DECAY = 0.8;

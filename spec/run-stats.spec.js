@@ -26,7 +26,7 @@ describe("RunStats", function () {
   it("keeps the best item picked up", function () {
     const stick = new ProjectileWeapon({ id: "stick", name: "Stick", damage: 1 });
     const wand = new ProjectileWeapon({ id: "wand", name: "Wand", damage: 4 });
-    const robe = new ChestArmor({ id: "robe", name: "Robe", defense: 2 });
+    const robe = new ChestArmor({ id: "robe", name: "Robe", hearts: 2 });
     stats.recordPickup(wand);
     stats.recordPickup(stick);
     stats.recordPickup(robe);

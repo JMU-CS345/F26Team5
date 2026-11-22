@@ -18,8 +18,12 @@ class Player {
     this.width = PLAYER_WIDTH;
     this.stats = getStatsForClass(mageClass);
     this.speed = this.stats.speed;
-    this.maxHealth = this.stats.health;
+    this.baseMaxHealth = this.stats.health;
+    this.bonusHearts = 0; // hearts from worn chest armor, see syncArmorHearts
+    this.maxHealth = this.baseMaxHealth;
     this.health = this.maxHealth;
+    this.blockRng = Math.random; // specs swap this for a fixed roll
+    this.blockCount = 0; // hits blocked so far, the sketch watches it for the Block text
     this.inventory = new PlayerInventory();
     this.deathFrames = 0; // frames spent dead
     this.fireCooldown = 0; // frames until the player can fire again
@@ -435,20 +439,46 @@ class Player {
     return 1;
   }
 
-  // Total defense of the armor being worn.
-  getDefense() {
+  // Percent chance (0 to ARMOR_BLOCK_CAP) that a hit does nothing, from helmet and leg armor.
+  getBlockChance() {
     let total = 0;
-    for (const slot of ["head", "body", "legs"]) {
+    for (const slot of ["head", "legs"]) {
       const armor = this.inventory.getEquipped(slot);
       if (armor) {
-        total += armor.defense;
+        total += armor.block;
       }
     }
-    return total;
+    return Math.min(total, ARMOR_BLOCK_CAP);
+  }
+
+  // Extra hearts from the chest armor being worn.
+  getBonusHearts() {
+    const armor = this.inventory.getEquipped("body");
+    if (armor) {
+      return armor.hearts;
+    }
+    return 0;
+  }
+
+  // Matches max health to the chest armor. New hearts come in full, and losing them clamps
+  // health. Runs every update, so a swap made in the inventory shows up on the next frame.
+  syncArmorHearts() {
+    const bonus = this.getBonusHearts();
+    const change = bonus - this.bonusHearts;
+    if (change === 0) {
+      return;
+    }
+    this.bonusHearts = bonus;
+    this.maxHealth = this.baseMaxHealth + bonus;
+    if (change > 0 && !this.isDead()) {
+      this.health += change;
+    }
+    this.health = Math.min(this.health, this.maxHealth);
   }
 
   // Enemies and hazards should call this instead of changing health directly.
-  // fromDir is the way the hit travels, used for the shove. Returns true if damage landed.
+  // fromDir is the way the hit travels, used for the shove. Returns true if the hit was used
+  // up, whether it hurt or was blocked by armor (a block still gives i-frames, no shove).
   takeDamage(amount, fromDir) {
     if (this.isDead() || amount <= 0) {
       return false; // a negative hit must never heal
@@ -459,9 +489,12 @@ class Player {
     if (this.isInvulnerable()) {
       return false;
     }
-    const reduced = Math.max(MIN_HIT_DAMAGE, amount - this.getDefense());
-    this.health = Math.max(0, this.health - Math.min(amount, reduced));
     this.iFrames = HIT_IFRAMES;
+    if (this.blockRng() * 100 < this.getBlockChance()) {
+      this.blockCount++;
+      return true;
+    }
+    this.health = Math.max(0, this.health - amount);
     if (fromDir && fromDir.magSq() > 0 && !this.isDead()) {
       this.knockback = fromDir.copy().setMag(PLAYER_KNOCKBACK_SPEED);
       this.knockbackTimer = PLAYER_KNOCKBACK_FRAMES;
@@ -507,6 +540,7 @@ class Player {
   update(room, input = {}) {
     this.lastHits = [];
     this.room = room || null;
+    this.syncArmorHearts();
     if (this.isDead()) {
       this.deathFrames = Math.min(this.deathFrames + 1, DEATH_FRAMES);
       this.attack = null;

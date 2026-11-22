@@ -111,7 +111,7 @@ function drawClassMenu(menu, modelName, appearance) {
 // Shows the chosen class during a run, under the HUD boxes.
 function drawClassLabel(mageClass) {
   const c = CLASS_COLORS[mageClass];
-  drawPixelText(mageClass + " Mage", 20, 100, 16, color(c[0], c[1], c[2]));
+  drawPixelText(mageClass + " Mage", 20, 130, 16, color(c[0], c[1], c[2]));
 }
 
 function drawPauseMenu(menu) {

@@ -35,6 +35,14 @@ describe("HUD layout", function () {
     expect(spots[5].x).toBe(spots[0].x);
   });
 
+  it("wraps 8 hearts into two rows and puts gold under both", function () {
+    const spots = heartPositions(8);
+    expect(spots[4].y).toBe(spots[0].y);
+    expect(spots[5].y).toBe(spots[0].y + HUD.heartStep);
+    expect(spots[7].x).toBe(spots[2].x);
+    expect(goldHudPosition(8).y).toBeGreaterThan(spots[7].y + HUD.heartSize - 1);
+  });
+
   it("puts the melee box before the ranged box without overlap", function () {
     const boxes = weaponBoxRects();
     expect(boxes[0].slot).toBe("melee");

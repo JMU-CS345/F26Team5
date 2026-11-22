@@ -1,13 +1,13 @@
 // Counters for the run summary on the death screen. No p5 calls.
 
-// A rough score so the summary can name the best item: value plus damage or defense.
+// A rough score so the summary can name the best item: value plus damage or armor power.
 function itemScore(item) {
   let score = item.value;
   if (item instanceof Weapon) {
     score += item.damage;
   }
   if (item instanceof Armor) {
-    score += item.defense;
+    score += item.block + item.hearts;
   }
   return score;
 }

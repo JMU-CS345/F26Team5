@@ -5,7 +5,6 @@ function isGearDrop(drop) {
   return drop.item instanceof Weapon || drop.item instanceof Armor;
 }
 
-// Armor has no rarity yet, so it counts as common.
 function dropRarity(drop) {
   if (drop.item.rarity === undefined) {
     return "common";

@@ -58,9 +58,9 @@ describe("item save", function () {
 
   it("round trips armor, potions and gold", function () {
     const items = [
-      new Helmet({ id: "cap", name: "Cap", defense: 1, value: 3 }),
-      new ChestArmor({ id: "robe", name: "Robe", defense: 2 }),
-      new LegArmor({ id: "pants", name: "Pants", defense: 1 }),
+      new Helmet({ id: "cap", name: "Cap", block: 6, rarity: "uncommon", value: 3 }),
+      new ChestArmor({ id: "robe", name: "Robe", hearts: 2 }),
+      new LegArmor({ id: "pants", name: "Pants", block: 5 }),
       new Consumable({ id: "potion", name: "Potion", healthRestore: 2, maxStackSize: 5 }),
       new Gold()
     ];
@@ -72,7 +72,10 @@ describe("item save", function () {
       expect(copy.value).toBe(item.value);
       expect(copy.maxStackSize).toBe(item.maxStackSize);
     }
-    expect(roundTrip(items[0]).defense).toBe(1);
+    expect(roundTrip(items[0]).block).toBe(6);
+    expect(roundTrip(items[0]).rarity).toBe("uncommon");
+    expect(roundTrip(items[1]).hearts).toBe(2);
+    expect(roundTrip(items[2]).block).toBe(5);
     expect(roundTrip(items[3]).healthRestore).toBe(2);
   });
 

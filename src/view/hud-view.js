@@ -28,41 +28,12 @@ function drawWeaponBox(box, item, selected) {
   }
 }
 
-// Diablo-style health globe, bottom left. The red fill rises with health.
-function drawHealthGlobe(player) {
-  const radius = 46;
-  const centerX = 20 + radius;
-  const centerY = height - 20 - radius;
-  const fillTop = map(player.health, 0, player.maxHealth, centerY + radius, centerY - radius);
-  push();
-  noStroke();
-  fill(UI_COLORS.void);
-  circle(centerX, centerY, radius * 2);
-  drawingContext.save();
-  drawingContext.beginPath();
-  drawingContext.arc(centerX, centerY, radius - 3, 0, TWO_PI);
-  drawingContext.clip();
-  fill(UI_COLORS.fire);
-  const level = constrain(fillTop, centerY - radius, centerY + radius);
-  rect(centerX - radius, level, radius * 2, radius * 2);
-  fill(255, 255, 255, 60);
-  ellipse(centerX - radius / 3, centerY - radius / 3, radius / 2, radius / 3);
-  drawingContext.restore();
-  noFill();
-  stroke(UI_COLORS.goldDark);
-  strokeWeight(3);
-  circle(centerX, centerY, radius * 2);
-  pop();
-}
-
 // selectedWeaponSlot is "melee" or "projectile". The ranged box is highlighted by default.
 function drawHud(player, selectedWeaponSlot = "projectile") {
   for (const box of weaponBoxRects()) {
     const item = player.inventory.getEquipped(box.slot);
     drawWeaponBox(box, item, box.slot === selectedWeaponSlot);
   }
-
-  drawHealthGlobe(player);
 
   const hearts = heartsForHealth(player.health, player.maxHealth);
   const spots = heartPositions(hearts.length);

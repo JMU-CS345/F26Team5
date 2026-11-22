@@ -39,6 +39,7 @@ let activeDialogue;
 let gameFeel; // hitstop, shake and damage numbers
 let enemyClock = new EnemyClock(); // slows enemy updates after a perfect dodge
 let lastPlayerHealth = 0;
+let lastBlockCount = 0;
 let setupDone = false; // draw() waits for this, because setup() loads art with await
 //temp
 const ROOM_WIDTH = 640;
@@ -119,13 +120,14 @@ function startRun() {
     new ItemDrop(spawn.x + 48, spawn.y - 48, new ChestArmor({
       id: "apprentice-robe",
       name: "Apprentice Robe",
-      defense: 1,
-      description: "A light robe with basic protection."
+      hearts: 1,
+      description: "A light robe that adds a heart."
     })),
     new ItemDrop(spawn.x - 48, spawn.y + 48, makePotion()),
     new ItemDrop(spawn.x + 48, spawn.y + 48, new Gold(), 25)
   ];
   lastPlayerHealth = player.health;
+  lastBlockCount = player.blockCount;
   nextSpawnIndex = ENEMY_TYPE_NAMES.indexOf("Demon");
   projectiles = [];
   enemyProjectiles = [];
@@ -653,6 +655,10 @@ function drawScreen() {
     gameFeel.onPlayerHurt();
   }
   lastPlayerHealth = player.health;
+  if (player.blockCount > lastBlockCount) {
+    gameFeel.onBlock(player.getCenter().x, player.pos.y);
+  }
+  lastBlockCount = player.blockCount;
   gameFeel.update();
   drawRunScene(shake);
   if (!room.cleared && roomWaveDone(room)) {

@@ -194,9 +194,15 @@ class Armor extends Item {
   constructor(options = {}) {
     const resolved = { ...options, maxStackSize: 1 };
     super(resolved);
-    const defense = options.defense === undefined ? 0 : options.defense;
-    requireNonNegativeNumber(defense, "defense");
-    this.defense = defense;
+    // block: percent chance to take no damage (helmet, legs). hearts: extra max health (chest).
+    this.block = valueOr(options.block, 0);
+    requireNonNegativeNumber(this.block, "block");
+    this.hearts = valueOr(options.hearts, 0);
+    requireNonNegativeNumber(this.hearts, "hearts");
+    this.rarity = valueOr(options.rarity, "common");
+    if (!RARITY_IDS.includes(this.rarity)) {
+      throw new TypeError(`rarity must be one of ${RARITY_IDS.join(", ")}`);
+    }
   }
 }
 

@@ -72,6 +72,13 @@ class GameFeel {
     this.startShake(SHAKE_HURT);
   }
 
+  // A floating "Block" over the player (x, y is the top middle of the player).
+  onBlock(x, y) {
+    if (this.settings.damageNumbers) {
+      this.numbers.push({ x: x, y: y, text: "Block", age: 0 });
+    }
+  }
+
   // dir (optional) shakes along that line instead of at random. The setting still rules.
   startShake(strength, dir = null) {
     if (!this.settings.screenShake) {
