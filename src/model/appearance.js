@@ -3,12 +3,9 @@
 // Load this after player-models.js and before game.js and player.js.
 
 // Order matters: it is the order of the rows on the customization screen.
-// "body" tints the playermodel's own sprite sheet. The other three are layers drawn on top.
+// "body" tints the playermodel's own sprite sheet. The other three are layers drawn on top, in the
+// order given by APPEARANCE_LAYER_ORDER in view/player-art.js.
 const APPEARANCE_PARTS = Object.freeze(["body", "eyes", "shirt", "pants"]);
-
-// The layer parts, bottom to top. Each one has a sheet in PLAYER_MODELS[model].layerSheets.
-// Pants go under the shirt, and the eyes go on top of everything.
-const APPEARANCE_LAYER_ORDER = Object.freeze(["pants", "shirt", "eyes"]);
 
 // Every part is a hex color like "#f1c299". The color picker and the hex box both produce these.
 const DEFAULT_APPEARANCE = Object.freeze({
@@ -49,14 +46,6 @@ function hexToRgb(text) {
     parseInt(hex.slice(3, 5), 16),
     parseInt(hex.slice(5, 7), 16)
   ];
-}
-
-// [241, 194, 153] -> "#f1c299". Values are clamped to 0-255.
-function rgbToHex(rgb) {
-  return "#" + rgb.map((value) => {
-    const clamped = Math.max(0, Math.min(255, Math.round(value)));
-    return clamped.toString(16).padStart(2, "0");
-  }).join("");
 }
 
 // Returns a new, complete appearance. Missing or invalid colors fall back to the default,

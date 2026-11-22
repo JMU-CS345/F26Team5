@@ -145,7 +145,7 @@ describe("Every enemy type", function () {
           it("shoots projectiles that can hurt the player", function () {
             placePlayer(type.detectionRange / 2);
             enemy.attackTimer = 0;
-            enemy.stareTimer = type.attack.stare || 0; // a staring shooter has stared long enough
+            enemy.memory.stareFrames = type.attack.stare || 0; // a staring shooter has stared long enough
             const shots = tryAttackThroughWindup(enemy, player);
             expect(shots.length).toBe(type.attack.count || 1);
             for (const shot of shots) {
@@ -165,7 +165,7 @@ describe("Every enemy type", function () {
           it("starts the cooldown again after it fires", function () {
             placePlayer(type.detectionRange / 2);
             enemy.attackTimer = 0;
-            enemy.stareTimer = type.attack.stare || 0;
+            enemy.memory.stareFrames = type.attack.stare || 0;
             enemy.tryAttack(player);
             expect(enemy.attackTimer).toBe(type.attack.cooldown);
             expect(enemy.tryAttack(player)).toEqual([]);

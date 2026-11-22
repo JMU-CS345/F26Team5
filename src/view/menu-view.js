@@ -56,7 +56,7 @@ function drawModelMenu() {
 
   // Each model standing and facing down, feet on one shared line above the buttons.
   PLAYER_MODEL_NAMES.forEach((name, i) => {
-    const model = PLAYER_MODELS[name];
+    const model = PLAYER_ART[name];
     const w = model.spriteW * MODEL_PREVIEW_SCALE;
     const h = model.spriteH * MODEL_PREVIEW_SCALE;
     image(
@@ -119,7 +119,7 @@ function drawCustomizeMenu(game) {
   text("Customize your " + game.selectedClass + " Mage", width / 2, 140);
 
   // Preview: standing and facing down, feet on the same line for both models.
-  const model = PLAYER_MODELS[game.selectedModel];
+  const model = PLAYER_ART[game.selectedModel];
   const w = model.spriteW * CUSTOMIZE_PREVIEW_SCALE;
   const h = model.spriteH * CUSTOMIZE_PREVIEW_SCALE;
   drawPlayerSprite(game.selectedModel, game.appearance, 0, 0,

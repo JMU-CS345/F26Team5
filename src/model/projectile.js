@@ -14,7 +14,7 @@ class Projectile {
     this.vel = dir.copy().setMag(speed);
     this.alive = true;
     this.age = 0; // frames flown, for animated pictures
-    this.sprite = null; // optional { frameTime, frames } picture, set by whoever fires it
+    this.shooter = null; // name of the enemy type that fired it, so the view can pick its picture
   }
   
   update(room) {

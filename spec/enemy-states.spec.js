@@ -102,16 +102,14 @@ describe("Hop move", function () {
   });
 });
 
-describe("Melee attack and hopSwing", function () {
+describe("Melee attack and bounce", function () {
   let room;
   let enemy;
   let player;
   const swingType = {
     ...ENEMY_TYPES.Jelly,
-    move: "hopSwing",
-    hopRest: 10,
-    hopFrames: 5,
-    hopSpeed: 2,
+    move: "bounce",
+    speed: 1,
     attack: { kind: "melee", cooldown: 60, damage: 1, reach: 26, windup: 5, recover: 7 }
   };
 
@@ -139,7 +137,7 @@ describe("Melee attack and hopSwing", function () {
     expect(enemy.pos.y).toBe(start.y);
   });
 
-  it("hits once in the attack state, then recovers and goes idle", function () {
+  it("hits once in the attack state, then recovers and goes back to bouncing", function () {
     placePlayerRightOf(enemy, player, 20);
     const before = player.health;
     let hits = 0;
@@ -149,20 +147,20 @@ describe("Melee attack and hopSwing", function () {
         hits++;
         expect(enemy.state).toBe("attack"); // the sword stays out after the hit
       }
-      if (hits > 0 && enemy.state === "idle") {
+      if (hits > 0 && enemy.state === "bounce") {
         break; // the swing is over, before the next one starts
       }
     }
     expect(hits).toBe(1);
-    expect(enemy.state).toBe("idle");
+    expect(enemy.state).toBe("bounce");
     expect(player.health).toBe(before - swingType.attack.damage);
     expect(enemy.tryAttack(player)).toEqual([]);
   });
 
-  it("hops instead of winding up when the player is out of reach", function () {
+  it("bounces toward the player instead of winding up when the player is out of reach", function () {
     placePlayerRightOf(enemy, player, 100);
     enemy.update(player, room);
-    expect(enemy.state).toBe("hop");
+    expect(enemy.state).toBe("bounce");
     expect(enemy.pos.x).toBeGreaterThan(100);
   });
 
@@ -224,7 +222,7 @@ describe("Melee attack and hopSwing", function () {
   });
 });
 
-describe("validateEnemyTypes for hop and melee", function () {
+describe("validateEnemyTypes for hop, bounce and melee", function () {
   const melee = { kind: "melee", cooldown: 60, damage: 1, reach: 26, windup: 20, recover: 24 };
 
   function tableWith(changes) {
@@ -232,14 +230,12 @@ describe("validateEnemyTypes for hop and melee", function () {
   }
 
   function swinger(changes) {
-    return tableWith({
-      move: "hopSwing", hopRest: 50, hopFrames: 14, hopSpeed: 2, attack: melee, ...changes
-    });
+    return tableWith({ move: "bounce", speed: 1, attack: melee, ...changes });
   }
 
   const hop = { move: "hop", hopRest: 40, hopFrames: 14, hopSpeed: 2.2 };
 
-  it("accepts the current table, a hop type and a hopSwing type", function () {
+  it("accepts the current table, a hop type and a bounce type", function () {
     expect(validateEnemyTypes()).toEqual([]);
     expect(validateEnemyTypes(tableWith(hop))).toEqual([]);
     expect(validateEnemyTypes(swinger({}))).toEqual([]);
@@ -250,14 +246,18 @@ describe("validateEnemyTypes for hop and melee", function () {
     expect(problems).toEqual(["Test: hop needs hopSpeed above 0"]);
   });
 
-  it("rejects a hopSwing without a melee attack", function () {
+  it("rejects a bounce without a melee attack", function () {
     expect(validateEnemyTypes(swinger({ attack: null }))).toEqual([
-      "Test: hopSwing needs a melee attack"
+      "Test: bounce needs a melee attack"
     ]);
     const shoot = { kind: "shoot", cooldown: 50, damage: 1, speed: 2, color: [1, 2, 3] };
     expect(validateEnemyTypes(swinger({ attack: shoot }))).toEqual([
-      "Test: hopSwing needs a melee attack"
+      "Test: bounce needs a melee attack"
     ]);
+  });
+
+  it("rejects a bounce with no speed", function () {
+    expect(validateEnemyTypes(swinger({ speed: 0 }))).toEqual(["Test: bounce needs speed above 0"]);
   });
 
   it("rejects a melee attack missing reach", function () {
@@ -273,13 +273,13 @@ describe("validateEnemyTypes for hop and melee", function () {
   it("checks sprite frame sizes and state frames", function () {
     const frame = { sheet: "a.png", x: 0, y: 0 };
     const sprite = { frameTime: 5, frames: [frame] };
-    expect(validateEnemyTypes(tableWith({ sprite: { ...sprite, frames: [{ ...frame, w: 32 }] } })))
-      .toEqual([]);
-    expect(validateEnemyTypes(tableWith({ sprite: { ...sprite, frames: [{ ...frame, w: 0 }] } })))
+    const types = tableWith({});
+    const artWith = (changes) => ({ Test: { sprite: { ...sprite, ...changes } } });
+    expect(validateEnemyArt(artWith({ frames: [{ ...frame, w: 32 }] }), types)).toEqual([]);
+    expect(validateEnemyArt(artWith({ frames: [{ ...frame, w: 0 }] }), types))
       .toEqual(["Test: sprite frame w must be at least 1"]);
-    expect(validateEnemyTypes(tableWith({ sprite: { ...sprite, states: { windup: [frame] } } })))
-      .toEqual([]);
-    expect(validateEnemyTypes(tableWith({ sprite: { ...sprite, states: { attack: [] } } })))
+    expect(validateEnemyArt(artWith({ states: { windup: [frame] } }), types)).toEqual([]);
+    expect(validateEnemyArt(artWith({ states: { attack: [] } }), types))
       .toEqual(["Test: sprite.states.attack must be a non-empty list"]);
   });
 });

@@ -67,10 +67,8 @@ describe("Melee swing", function () {
     enemy = new Enemy(100, 100);
     enemy.type = {
       ...ENEMY_TYPES.Jelly,
-      move: "hopSwing",
-      hopRest: 10,
-      hopFrames: 5,
-      hopSpeed: 2,
+      move: "bounce",
+      speed: 1,
       attack: { kind: "melee", cooldown: 60, damage: 1, reach: 26, windup: 5, recover: 7 }
     };
     player = new Player(0, 0);
@@ -96,7 +94,7 @@ describe("Melee swing", function () {
     expect(hits).toBe(swings);
   });
 
-  it("keeps the attack state after a hit, then recovers, then goes idle", function () {
+  it("keeps the attack state after a hit, then recovers, then goes back to bouncing", function () {
     let sawAttackAfterHit = false;
     let hitFrame = -1;
     for (let frame = 0; frame < 120; frame++) {
@@ -111,7 +109,7 @@ describe("Melee swing", function () {
         expect(enemy.state).toBe("recover"); // not stuck once the hit pause ends
       }
       if (hitFrame >= 0 && frame === hitFrame + ENEMY_HIT_PAUSE_FRAMES + 12) {
-        expect(enemy.state).toBe("idle");
+        expect(enemy.state).toBe("bounce");
         break;
       }
     }
@@ -144,7 +142,7 @@ describe("Choosing sprite frames", function () {
 
   it("shows the Spark Bark aim frame for where the player is", function () {
     const bark = new Enemy(0, 0, "SparkBark");
-    const sprite = bark.type.sprite;
+    const sprite = ENEMY_ART.SparkBark.sprite;
     bark.facingAngle = Math.PI / 2;
     expect(enemySpriteFrame(bark, sprite, 0)).toBe(sprite.aimFrames[0]);
     bark.facingAngle = -Math.PI / 2;
@@ -153,7 +151,7 @@ describe("Choosing sprite frames", function () {
 
   it("shows the Bouncer art for its direction and state", function () {
     const bouncer = new Enemy(0, 0, "Bouncer");
-    const sprite = bouncer.type.sprite;
+    const sprite = ENEMY_ART.Bouncer.sprite;
     const left = sprite.directions.left;
     bouncer.facingDir = "left";
     expect(enemySpriteFrame(bouncer, sprite, 0)).toBe(left.hop[0]);
@@ -168,7 +166,7 @@ describe("Choosing sprite frames", function () {
 
   it("keeps every direction, aim and fallback frame inside its sheet", function () {
     for (const name of ["Bouncer", "SparkBark"]) {
-      for (const frame of allSpriteFrames(ENEMY_TYPES[name].sprite)) {
+      for (const frame of allSpriteFrames(ENEMY_ART[name].sprite)) {
         const size = SHEET_SIZES[frame.sheet];
         expect(size).withContext(frame.sheet).toBeDefined();
         expect(frame.x + (frame.w || ENEMY_SPRITE_SIZE)).toBeLessThanOrEqual(size.w);
@@ -181,16 +179,16 @@ describe("Choosing sprite frames", function () {
     const frame = { sheet: "a.png", x: 0, y: 0 };
     const set = { hop: [frame], attack: [frame] };
     const dirs = { down: set, up: set, left: set, right: set };
-    const base = { ...ENEMY_TYPES.Jelly };
+    const types = { Test: { ...ENEMY_TYPES.Jelly } };
     const withSprite = (extra) => ({
-      Test: { ...base, sprite: { frameTime: 5, frames: [frame], ...extra } }
+      Test: { sprite: { frameTime: 5, frames: [frame], ...extra } }
     });
-    expect(validateEnemyTypes(withSprite({ directions: dirs, aimFrames: [frame] }))).toEqual([]);
+    expect(validateEnemyArt(withSprite({ directions: dirs, aimFrames: [frame] }), types)).toEqual([]);
     const missing = { ...dirs, up: { hop: [frame], attack: [] } };
-    expect(validateEnemyTypes(withSprite({ directions: missing }))).toEqual([
+    expect(validateEnemyArt(withSprite({ directions: missing }), types)).toEqual([
       "Test: sprite.directions.up.attack must be a non-empty list"
     ]);
-    expect(validateEnemyTypes(withSprite({ aimFrames: [] }))).toEqual([
+    expect(validateEnemyArt(withSprite({ aimFrames: [] }), types)).toEqual([
       "Test: sprite.aimFrames must be a non-empty list"
     ]);
   });

@@ -6,13 +6,8 @@ const dyingEnemies = []; // { enemy, age } ghosts that keep fading after the mod
 
 // Call once in setup(), with await.
 async function loadEnemySheets() {
-  for (const name of ENEMY_TYPE_NAMES) {
-    const sprite = ENEMY_TYPES[name].sprite;
-    if (!sprite) {
-      continue;
-    }
-    const allFrames = allSpriteFrames(sprite);
-    for (const frame of allFrames) {
+  for (const name of Object.keys(ENEMY_ART)) {
+    for (const frame of allArtFrames(ENEMY_ART[name])) {
       if (!enemySheets[frame.sheet]) {
         enemySheets[frame.sheet] = await loadImageFile(frame.sheet);
       }
@@ -96,8 +91,9 @@ function drawBossBar(enemy) {
 
 // Sprite or colored square, whichever the type has.
 function drawEnemyBody(enemy, alpha = 255) {
-  if (enemy.type.sprite) {
-    drawEnemySprite(enemy, enemy.type.sprite, alpha);
+  const art = ENEMY_ART[enemy.typeName];
+  if (art && art.sprite) {
+    drawEnemySprite(enemy, art.sprite, alpha);
   } else {
     drawEnemySquare(enemy, alpha);
   }
@@ -116,8 +112,7 @@ function drawEnemy(enemy) {
 
 // An animated shot. With sprite.rotate the art faces down (or down and to the left for the
 // diagonal frames) and is turned to the way the shot is flying, around the center of the hitbox.
-function drawShotSprite(p) {
-  const sprite = p.sprite;
+function drawShotSprite(p, sprite) {
   let frames = sprite.frames;
   let turn = 0;
   if (sprite.rotate) {
@@ -138,8 +133,9 @@ function drawShotSprite(p) {
 }
 
 function drawEnemyProjectile(p) {
-  if (p.sprite) {
-    drawShotSprite(p);
+  const art = p.shooter ? ENEMY_ART[p.shooter] : null;
+  if (art && art.projectile) {
+    drawShotSprite(p, art.projectile);
     return;
   }
   const c = p.color;

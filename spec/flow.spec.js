@@ -130,10 +130,14 @@ describe("getModelForKey", () => {
   });
 });
 
-describe("PLAYER_MODELS", () => {
+describe("PLAYER_ART", () => {
+  it("has art for every player model name and for nothing else", () => {
+    expect(Object.keys(PLAYER_ART).sort()).toEqual([...PLAYER_MODEL_NAMES].sort());
+  });
+
   it("has a sheet, a sprite size and a walk cycle for every direction on every model", () => {
     for (const name of PLAYER_MODEL_NAMES) {
-      const model = PLAYER_MODELS[name];
+      const model = PLAYER_ART[name];
       expect(model.sheet).toBeTruthy();
       expect(model.spriteW).toBeGreaterThan(0);
       expect(model.spriteH).toBeGreaterThan(0);
@@ -144,7 +148,7 @@ describe("PLAYER_MODELS", () => {
   });
 
   it("gives the short model a two-frame side walk and a four-frame front and back walk", () => {
-    const cycles = PLAYER_MODELS.Short.walkCycles;
+    const cycles = PLAYER_ART.Short.walkCycles;
     expect(cycles.right.length).toBe(2);
     expect(cycles.left.length).toBe(2);
     expect(cycles.down.length).toBe(4);

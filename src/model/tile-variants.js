@@ -43,19 +43,11 @@ function getPitVariant(room, col, row) {
   return (lipTop ? 1 : 0) + (lipBottom ? 2 : 0);
 }
 
-// Where each door piece is on DungeonDoor.png, as [column, row] in 16x16 cells. A door is two
-// tiles. Index 0 is the left tile of a north or south door and the top tile of an east or west
-// door. Index 1 is the other one.
-const DOOR_SPRITES = Object.freeze({
-  N: { closed: [[0, 1], [2, 1]], open: [[4, 1], [6, 1]] },
-  S: { closed: [[3, 0], [1, 0]], open: [[7, 0], [5, 0]] },
-  E: { closed: [[0, 0], [2, 0]], open: [[4, 0], [6, 0]] },
-  W: { closed: [[3, 1], [1, 1]], open: [[7, 1], [5, 1]] }
-});
-
-// The door sprite for a door tile, as { col, row } on DungeonDoor.png, or null if the tile is not
+// Which piece of a door a door tile is: { side: "N", "S", "E" or "W", closed: true or false,
+// index: 0 or 1 }. A door is two tiles. Index 0 is the left tile of a north or south door and the
+// top tile of an east or west door, and index 1 is the other one. Returns null if the tile is not
 // a door that leads somewhere (the view then falls back to a plain color).
-function getDoorSprite(room, col, row) {
+function getDoorPiece(room, col, row) {
   const type = room.getTile(col, row);
   if (type !== TILE.DOOR_OPEN && type !== TILE.DOOR_CLOSED) {
     return null;
@@ -68,6 +60,5 @@ function getDoorSprite(room, col, row) {
   const position = (t) => (stacked ? t.row : t.col);
   const here = exit.tiles.find((t) => t.col === col && t.row === row);
   const index = position(here) === Math.min(...exit.tiles.map(position)) ? 0 : 1;
-  const [spriteCol, spriteRow] = DOOR_SPRITES[exit.side][type === TILE.DOOR_CLOSED ? "closed" : "open"][index];
-  return { col: spriteCol, row: spriteRow };
+  return { side: exit.side, closed: type === TILE.DOOR_CLOSED, index };
 }

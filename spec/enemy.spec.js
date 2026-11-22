@@ -1,30 +1,3 @@
-// Helpers shared by the enemy specs. This file loads first in SpecRunner.html.
-// A small deterministic random source, so wandering specs repeat exactly.
-function makeRng(seed) {
-  let state = seed;
-  return function () {
-    state = (state * 16807) % 2147483647;
-    return state / 2147483647;
-  };
-}
-
-// Puts the player this many pixels to the right of the enemy, center to center.
-function placePlayerRightOf(enemy, player, distance) {
-  const center = enemy.getCenter();
-  player.pos.set(center.x + distance - player.length / 2, center.y - player.width / 2);
-}
-
-// Calls tryAttack and, when the enemy starts its telegraph (windup) instead of firing, lets the
-// windup run out so the shot comes out. For specs about the shot itself, not the telegraph.
-function tryAttackThroughWindup(enemy, player, room) {
-  let shots = enemy.tryAttack(player, room);
-  if (shots.length === 0 && enemy.state === "windup") {
-    enemy.stateTimer = 0;
-    shots = enemy.tryAttack(player, room);
-  }
-  return shots;
-}
-
 describe("Enemy movement", function () {
   let room;
   let enemy;

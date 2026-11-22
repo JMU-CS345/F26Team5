@@ -25,11 +25,9 @@ describe("Appearance", function () {
     }
   });
 
-  it("converts between hex and RGB", function () {
+  it("converts hex to RGB", function () {
     expect(hexToRgb("#f1c299")).toEqual([241, 194, 153]);
     expect(hexToRgb("nope")).toBeNull();
-    expect(rgbToHex([241, 194, 153])).toBe("#f1c299");
-    expect(rgbToHex([-5, 300, 0.4])).toBe("#00ff00");
   });
 
   it("keeps valid colors and fills in anything missing or invalid", function () {
@@ -76,10 +74,10 @@ describe("Appearance", function () {
 
   it("has an eyes, shirt and pants layer image for every player model", function () {
     for (const name of PLAYER_MODEL_NAMES) {
-      const layers = PLAYER_MODELS[name].layerSheets;
+      const layers = PLAYER_ART[name].layerSheets;
       expect(Object.keys(layers).sort()).toEqual(["eyes", "pants", "shirt"]);
       for (const layer of APPEARANCE_LAYER_ORDER) {
-        expect(layers[layer]).toContain(PLAYER_MODELS[name].spriteW + "x" + PLAYER_MODELS[name].spriteH);
+        expect(layers[layer]).toContain(PLAYER_ART[name].spriteW + "x" + PLAYER_ART[name].spriteH);
       }
     }
   });

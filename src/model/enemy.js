@@ -46,19 +46,13 @@ class Enemy {
     this.phaseFlashTimer = 0; // frames left of the phase change flash
     this.state = "idle"; // idle, windup, attack or recover. A move behavior sets it.
     this.stateTimer = 0; // frames left in this state
-    this.hopDir = null; // locked dash direction for the hop moves
+    this.memory = {}; // what the move and attack behaviors remember between frames, emptied by resetMoveState
     this.knockback = new p5.Vector(0, 0); // pixels per frame, shrinks as the shove fades
     this.knockbackTimer = 0;
     this.spawnTimer = 0; // createEnemy can raise this so the enemy fades in harmless
     this.wakeTimer = 0; // frames left of holding still after the player entered the room
     this.walkFrames = 0; // frames spent walking, like the player's, 0 when standing still
     this.fell = false; // true if it died by falling into a pit
-    this.bounceAxis = null; // "x" or "y", the axis a bouncer is closing in along
-    this.sidestepFrames = 0; // frames a bouncer keeps edging around something that blocked it
-    this.sidestepX = 0;
-    this.sidestepY = 0;
-    this.sidestepSide = 1; // 1 or -1, which way it goes when the player is straight behind the block
-    this.stareTimer = 0; // frames the player has stayed in sight, for shooters with attack.stare
     this.facingLeft = false;
     this.facingDir = "down"; // "down", "up", "left" or "right", the side the player is on
     this.facingAngle = Math.PI / 2; // radians toward the player, 0 is right and y grows down
@@ -66,13 +60,10 @@ class Enemy {
     this.alertTimer = 0; // frames left of hunting the last place the player was seen
     this.lastKnown = null; // where the player was when last seen
     this.lastMoveName = null; // lets update() notice a phase swapping the move behavior
-    this.aimDir = null; // shot direction locked in when a telegraphed shot starts
     this.route = null; // tiles still to walk, from findTilePath, or null when none is planned
     this.routeGoal = null; // the goal tile the route was planned for
     this.routeAge = 0; // frames since the route was planned
     this.rng = Math.random; // specs swap this out to control wandering
-    this.wanderDir = null;
-    this.wanderTimer = 0;
   }
 
   isDead() {
@@ -184,40 +175,35 @@ class Enemy {
     this.route = null; // a shove knocks it off its route
   }
 
-  // Cancels a windup (a swing or a telegraphed shot) or a dash. A swing already out is not cut short.
+  // Cancels a windup (a swing or a telegraphed shot) or a dash. A swing already out is not cut
+  // short. What it does to each is up to the attack or move behavior.
   interrupt() {
     if (this.state === "windup") {
       const attack = this.getAttack();
-      if (attack && attack.kind === "melee") {
-        this.setState("recover", attack.recover); // a broken swing leaves it open
+      if (attack) {
+        ENEMY_ATTACKS[attack.kind].interrupt(this, attack);
       } else {
         this.setState("idle", 0);
-        if (attack) {
-          this.attackTimer = Math.max(this.attackTimer, Math.ceil(attack.cooldown / 2));
-        }
       }
-      this.aimDir = null;
-    } else if (this.state === "hop") {
-      this.hopDir = null;
-      this.setState("idle", this.type.hopRest || 0);
+    }
+    const move = ENEMY_MOVES[this.getMoveName()];
+    if (move.interrupt) {
+      move.interrupt(this);
     }
   }
 
-  // Puts the enemy back to idle. Used when a phase swaps the move behavior mid-state.
+  // Puts the enemy back to idle and makes it forget what its behaviors were remembering. Used
+  // when a phase swaps the move behavior mid-state.
   resetMoveState() {
     this.setState("idle", 0);
-    this.hopDir = null;
     this.swingHit = false;
-    this.aimDir = null;
     this.route = null;
-    this.bounceAxis = null;
-    this.sidestepFrames = 0;
-    this.stareTimer = 0;
+    this.memory = {};
   }
 
-  // True for hoppers, which go straight at the player and ignore walls and sight.
+  // True for hoppers and bouncers, which go straight at the player and ignore walls and sight.
   isDirectMover() {
-    return ENEMY_DIRECT_MOVES.includes(this.getMoveName());
+    return ENEMY_MOVES[this.getMoveName()].direct === true;
   }
 
   // True while winding up a shot. Walkers stand still for it, so the shot is telegraphed.
@@ -387,7 +373,7 @@ class Enemy {
       this.knockback.mult(ENEMY_KNOCKBACK_DECAY);
       this.knockbackTimer--;
     } else if (this.recoverTimer === 0 && !this.isPlanted()) {
-      ENEMY_MOVES[moveName](this, player, room);
+      ENEMY_MOVES[moveName].run(this, player, room);
       this.separate(room);
     }
     this.walkFrames = this.pos.dist(before) > 0.01 ? this.walkFrames + 1 : 0;
@@ -416,7 +402,8 @@ class Enemy {
   // Gives way to overlapping neighbors so a group does not collapse into one blob.
   // Turrets stay put, and a dash keeps its line.
   separate(room) {
-    if (!room || !room.enemies || this.state === "hop" || this.getMoveName() === "none") {
+    const move = ENEMY_MOVES[this.getMoveName()];
+    if (!room || !room.enemies || move.stationary || (move.dashState && this.state === move.dashState)) {
       return;
     }
     const mine = this.getCenter();
@@ -558,7 +545,7 @@ class Enemy {
     if (this.isDead() || this.isSpawning() || this.isWaking() || !attack) {
       return [];
     }
-    return ENEMY_ATTACKS[attack.kind](this, player, room);
+    return ENEMY_ATTACKS[attack.kind].run(this, player, room);
   }
 
   // Melee hit: while in the attack state, hurts a player inside a reach box in front of us.
@@ -609,8 +596,8 @@ class Enemy {
     const away = this.directionTo(player); // from this enemy toward the player
     player.takeDamage(this.contactDamage, away);
     this.applyKnockback(away.copy().mult(-1)); // and the enemy recoils the other way
-    if (this.state === "hop") {
-      this.interrupt(); // running into the player ends a dash
+    if (this.state !== "windup") {
+      this.interrupt(); // running into the player ends a dash (a windup carries on)
     }
     this.damageCooldown = ENEMY_DAMAGE_COOLDOWN;
     this.recoverTimer = ENEMY_HIT_PAUSE_FRAMES;

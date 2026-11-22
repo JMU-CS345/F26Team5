@@ -14,8 +14,8 @@ const appearanceLayers = {};
 // Call once in setup(), with await.
 async function loadPlayerSheets() {
   for (const name of PLAYER_MODEL_NAMES) {
-    playerSheets[name] = await loadImageFile(PLAYER_MODELS[name].sheet);
-    const paths = PLAYER_MODELS[name].layerSheets;
+    playerSheets[name] = await loadImageFile(PLAYER_ART[name].sheet);
+    const paths = PLAYER_ART[name].layerSheets;
     appearanceLayers[name] = {};
     for (const layer of APPEARANCE_LAYER_ORDER) {
       appearanceLayers[name][layer] = await loadImageFile(paths[layer]);
@@ -28,7 +28,7 @@ async function loadPlayerSheets() {
 // the same (col, row) cell as the body, so they always line up. alpha fades the whole thing
 // (the death animation). Used in the game and for the preview on the customization screen.
 function drawPlayerSprite(modelName, appearance, col, row, x, y, w, h, alpha = 255) {
-  const model = PLAYER_MODELS[modelName];
+  const model = PLAYER_ART[modelName];
   const sx = col * model.spriteW;
   const sy = row * model.spriteH;
   const layers = [[playerSheets[modelName], getAppearanceColor(appearance, "body")]];
@@ -44,7 +44,7 @@ function drawPlayerSprite(modelName, appearance, col, row, x, y, w, h, alpha = 2
 
 // Which row and column of the player's sheet to draw.
 function getPlayerFrame(player) {
-  const model = PLAYER_MODELS[player.modelName];
+  const model = PLAYER_ART[player.modelName];
   let row = FACING_ROW[player.facing];
   if (player.isArmUp()) {
     row += WEAPON_ROW_OFFSET;
@@ -66,7 +66,7 @@ function drawPlayer(player) {
   }
   const fallT = player.isFalling() ? Math.min(player.fallFrames / PLAYER_FALL_FRAMES, 1) : 0;
   const t = Math.max(deathT, fallT);
-  const model = PLAYER_MODELS[player.modelName];
+  const model = PLAYER_ART[player.modelName];
   const sw = model.spriteW;
   const sh = model.spriteH;
   const f = getPlayerFrame(player);

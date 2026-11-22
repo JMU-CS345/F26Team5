@@ -84,7 +84,7 @@ describe("getPitVariant", () => {
   });
 });
 
-describe("getDoorSprite", () => {
+describe("getDoorPiece and the door art", () => {
   let room;
   const addDoor = (side, tiles, type) => {
     for (const t of tiles) {
@@ -96,41 +96,48 @@ describe("getDoorSprite", () => {
     room = new NormalRoom(0, 0, 160, 160);
   });
 
-  it("gives the left and right pieces of an open north door", () => {
+  it("names the left and right pieces of an open north door", () => {
     addDoor("N", [{ col: 4, row: 0 }, { col: 5, row: 0 }], TILE.DOOR_OPEN);
-    expect(getDoorSprite(room, 4, 0)).toEqual({ col: 4, row: 1 });
-    expect(getDoorSprite(room, 5, 0)).toEqual({ col: 6, row: 1 });
+    expect(getDoorPiece(room, 4, 0)).toEqual({ side: "N", closed: false, index: 0 });
+    expect(getDoorPiece(room, 5, 0)).toEqual({ side: "N", closed: false, index: 1 });
   });
 
-  it("gives the closed pieces once the door is shut", () => {
+  it("says closed once the door is shut", () => {
     addDoor("N", [{ col: 4, row: 0 }, { col: 5, row: 0 }], TILE.DOOR_OPEN);
     room.closeDoors();
-    expect(getDoorSprite(room, 4, 0)).toEqual({ col: 0, row: 1 });
-    expect(getDoorSprite(room, 5, 0)).toEqual({ col: 2, row: 1 });
+    expect(getDoorPiece(room, 4, 0).closed).toBe(true);
+    expect(getDoorPiece(room, 5, 0).closed).toBe(true);
   });
 
-  it("gives the top and bottom pieces of an east door, whatever order the tiles are listed in", () => {
+  it("names the top and bottom pieces of an east door, whatever order the tiles are listed in", () => {
     addDoor("E", [{ col: 9, row: 5 }, { col: 9, row: 4 }], TILE.DOOR_CLOSED);
-    expect(getDoorSprite(room, 9, 4)).toEqual({ col: 0, row: 0 });
-    expect(getDoorSprite(room, 9, 5)).toEqual({ col: 2, row: 0 });
-  });
-
-  it("has a different set of pieces for each of the four sides", () => {
-    const seen = new Set();
-    for (const side of ["N", "S", "E", "W"]) {
-      for (const state of ["closed", "open"]) {
-        for (const piece of DOOR_SPRITES[side][state]) {
-          seen.add(piece.join(","));
-        }
-      }
-    }
-    expect(seen.size).toBe(16); // every cell of the 8x2 sheet is used once
+    expect(getDoorPiece(room, 9, 4)).toEqual({ side: "E", closed: true, index: 0 });
+    expect(getDoorPiece(room, 9, 5)).toEqual({ side: "E", closed: true, index: 1 });
   });
 
   it("gives nothing for walls or for door tiles that lead nowhere", () => {
-    expect(getDoorSprite(room, 0, 0)).toBeNull();
+    expect(getDoorPiece(room, 0, 0)).toBeNull();
     room.setTile(4, 0, TILE.DOOR_OPEN); // no exit recorded for it
-    expect(getDoorSprite(room, 4, 0)).toBeNull();
+    expect(getDoorPiece(room, 4, 0)).toBeNull();
+  });
+
+  it("finds each door piece on the sheet", () => {
+    expect(doorArtCell({ side: "N", closed: false, index: 0 })).toEqual([4, 1]);
+    expect(doorArtCell({ side: "N", closed: false, index: 1 })).toEqual([6, 1]);
+    expect(doorArtCell({ side: "N", closed: true, index: 0 })).toEqual([0, 1]);
+    expect(doorArtCell({ side: "E", closed: true, index: 1 })).toEqual([2, 0]);
+  });
+
+  it("uses every cell of the 8x2 door sheet once", () => {
+    const seen = new Set();
+    for (const side of ["N", "S", "E", "W"]) {
+      for (const closed of [true, false]) {
+        for (const index of [0, 1]) {
+          seen.add(doorArtCell({ side, closed, index }).join(","));
+        }
+      }
+    }
+    expect(seen.size).toBe(16);
   });
 });
 

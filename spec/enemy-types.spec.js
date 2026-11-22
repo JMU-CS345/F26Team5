@@ -3,6 +3,10 @@ describe("Enemy type table", function () {
     expect(validateEnemyTypes()).toEqual([]);
   });
 
+  it("has valid art for every type", function () {
+    expect(validateEnemyArt()).toEqual([]);
+  });
+
   it("lists every type name", function () {
     for (const name of ["Jelly", "Zombie", "Skeleton", "Bat", "Eyeball", "Demon"]) {
       expect(ENEMY_TYPE_NAMES).toContain(name);
@@ -58,7 +62,7 @@ describe("Enemy sprite frames", function () {
 
   for (const name of ENEMY_TYPE_NAMES) {
     it(name + " only uses frames that fit inside a known sheet", function () {
-      const sprite = ENEMY_TYPES[name].sprite;
+      const sprite = (ENEMY_ART[name] || {}).sprite;
       if (!sprite) {
         return;
       }
@@ -110,15 +114,6 @@ describe("validateEnemyTypes", function () {
     expect(validateEnemyTypes(tableWith({ boss: "yes" })).length).toBe(1);
   });
 
-  it("catches a type with no sprite and no color", function () {
-    expect(validateEnemyTypes(tableWith({ sprite: null, color: undefined })).length).toBe(1);
-  });
-
-  it("catches a sprite with no frames", function () {
-    const problems = validateEnemyTypes(tableWith({ sprite: { frameTime: 10, frames: [] } }));
-    expect(problems.length).toBe(1);
-  });
-
   it("catches a bad attack", function () {
     const goodAttack = ENEMY_TYPES.Skeleton.attack;
     expect(validateEnemyTypes(tableWith({ attack: { ...goodAttack, kind: "laser" } })).length)
@@ -165,5 +160,61 @@ describe("createEnemy", function () {
     a.takeDamage(1);
     expect(b.health).toBe(b.maxHealth);
     expect(ENEMY_TYPES.Jelly.maxHealth).toBe(3);
+  });
+});
+
+describe("Enemy art table", function () {
+  const frame = { sheet: "a.png", x: 0, y: 0, w: 16, h: 16 };
+  const types = { Test: { ...ENEMY_TYPES.Jelly } };
+  const artWith = (projectile) => ({
+    Test: { sprite: { frameTime: 5, frames: [frame] }, projectile }
+  });
+
+  it("accepts a projectile picture, with diagonal frames if it rotates", function () {
+    expect(validateEnemyArt(artWith({ frameTime: 4, frames: [frame] }), types)).toEqual([]);
+    const rotating = { frameTime: 4, rotate: true, frames: [frame], diagonalFrames: [frame] };
+    expect(validateEnemyArt(artWith(rotating), types)).toEqual([]);
+  });
+
+  it("rejects a projectile with no frame time, or a rotating one with no diagonal frames", function () {
+    expect(validateEnemyArt(artWith({ frameTime: 0, frames: [frame] }), types)).toEqual([
+      "Test: projectile.frameTime must be a number of at least 1"
+    ]);
+    expect(validateEnemyArt(artWith({ frameTime: 4, rotate: true, frames: [frame] }), types)).toEqual([
+      "Test: projectile.diagonalFrames must be a non-empty list"
+    ]);
+  });
+
+  it("needs a sprite or a color for every type", function () {
+    const noColor = { Test: { ...ENEMY_TYPES.Jelly, color: undefined } };
+    expect(validateEnemyArt({}, noColor)).toEqual(["Test: needs a sprite or a color"]);
+    expect(validateEnemyArt({}, types)).toEqual([]); // a color is enough
+  });
+
+  it("catches a sprite with no frames", function () {
+    const art = { Test: { sprite: { frameTime: 10, frames: [] } } };
+    expect(validateEnemyArt(art, types)).toEqual(["Test: sprite.frames must be a non-empty list"]);
+  });
+
+  it("rejects art for a type that does not exist", function () {
+    expect(validateEnemyArt({ Ghost: { sprite: null } }, types)).toEqual([
+      "Ghost: art for an enemy type that does not exist"
+    ]);
+  });
+
+  it("lists the sheets of a sprite and of its shots", function () {
+    const frames = allArtFrames(ENEMY_ART.SparkBark);
+    expect(frames.length).toBe(
+      allSpriteFrames(ENEMY_ART.SparkBark.sprite).length +
+        ENEMY_ART.SparkBark.projectile.frames.length +
+        ENEMY_ART.SparkBark.projectile.diagonalFrames.length
+    );
+  });
+
+  it("marks a shot with the type that fired it, so the view can pick its art", function () {
+    const skeleton = new Enemy(0, 0, "Skeleton");
+    const shots = fireShots(skeleton, new p5.Vector(1, 0), skeleton.getAttack());
+    expect(shots[0].shooter).toBe("Skeleton");
+    expect(ENEMY_ART.Skeleton.projectile).toBeDefined();
   });
 });

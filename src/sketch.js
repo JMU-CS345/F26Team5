@@ -4,18 +4,11 @@
 const CANVAS_WIDTH = 1280;
 const CANVAS_HEIGHT = 720;
 let game;
-let player;
-let projectiles = [];
-let enemyProjectiles = [];
-let debugOverlay = false; // F3 toggles hitboxes and detection circles for enemies
-let nextSpawnIndex = 0;
+let run; // the dungeon run in progress: run.player, run.room, run.dungeon and the shots (model/run.js)
 let restartButton;
 let classButtons = [];
 let customizeControls = []; // every color picker, hex box and Start, on the customization screen (#23)
 let customizeFields = {}; // part -> { picker, input }: the controls of one customization row
-let dungeon;
-let room; // the room the player is in right now
-let entrySpot = { x: 0, y: 0 }; // where the player stands after coming through the door, or starting. A fall into a pit respawns here
 let roomGraphics = new Map(); // room id -> { graphic, version }, the room's picture and the room.tileVersion it shows
 let restartShown = false;
 let modelButtons = [];
@@ -30,8 +23,6 @@ const ROOM_WIDTH = 640;
 const ROOM_HEIGHT = 400;
 const ROOM_X = (CANVAS_WIDTH - ROOM_WIDTH) / 2;
 const ROOM_Y = (CANVAS_HEIGHT - ROOM_HEIGHT) / 2;
-const NPC_TOP_RIGHT_X = ROOM_X + ROOM_WIDTH - 48;
-const NPC_TOP_RIGHT_Y = ROOM_Y + 32;
 const DUNGEON_ROOM_COUNT = 10;
 let pageScale = 1; // set by fitToWindow(), also used to line up the page background
 let pageLeft = 0;
@@ -52,67 +43,22 @@ function getRoomGraphic(r) {
   return graphic;
 }
 
-// Moves the game into a room. Shots in flight don't follow the player through a door.
-function enterRoom(r) {
-  room = r;
-  projectiles = [];
-  enemyProjectiles = [];
-  room.onEnter();
-  room.startEnemyDelay(); // enemies by the door hold still a moment, so they cannot hit on arrival
-}
-
-// Walks the player through an exit into the next room.
-function useExit(exit) {
-  const next = dungeon.rooms[exit.toId];
-  const spot = dungeon.entryPoint(room, exit);
-  enterRoom(next);
-  entrySpot = spot;
-  player.pos.set(spot.x - player.length / 2, spot.y - player.width / 2);
-}
-
-// TEMPORARY: a few random enemies on the floor, until room files (#13) place enemies.
-function fillRoomTemp(r) {
-  const names = ["Jelly", "Zombie", "Skeleton", "Bat", "Eyeball"];
-  const count = r.role === "boss" ? 5 : 2 + Math.floor(random(3));
-  for (let n = 0; n < count; n++) {
-    for (let tries = 0; tries < 50; tries++) {
-      const enemy = createEnemy(
-        random(names),
-        random(r.x + r.tileSize, r.x + r.width - 2 * r.tileSize),
-        random(r.y + r.tileSize, r.y + r.height - 2 * r.tileSize)
-      );
-      if (!r.collidesWithWall(enemy.getBounds()) && !r.overlapsPit(enemy.getBounds())) {
-        r.enemies.push(enemy);
-        break;
-      }
-    }
-  }
-}
-
-// Makes a fresh player with the class picked on the menu.
+// Starts a new dungeon run with the class, model and look picked on the menus.
 function startRun() {
   for (const cached of roomGraphics.values()) {
     cached.graphic.remove(); // free the old dungeon's pictures
   }
   roomGraphics.clear();
-  dungeon = generateDungeon({
+  const dungeon = generateDungeon({
     roomCount: DUNGEON_ROOM_COUNT,
     screenX: ROOM_X,
     screenY: ROOM_Y
   });
   console.log("Dungeon seed:", dungeon.seed); // pass this as seed to replay a dungeon
-  enterRoom(dungeon.start);
-  const spawn = room.getPlayerSpawn(); // the @ in the start room's drawing
-  player = new Player(
-    spawn.x - PLAYER_LENGTH / 2,
-    spawn.y - PLAYER_WIDTH / 2,
-    game.selectedClass,
-    game.selectedModel,
-    game.appearance
-  );
-  entrySpot = { x: spawn.x, y: spawn.y };
+  run = new Run(dungeon, game.selectedClass, game.selectedModel, game.appearance);
+  const spawn = run.entrySpot;
   // Placeholder pickups until room data supplies item placement.
-  room.items = [
+  run.room.items = [
     new ItemDrop(spawn.x - 48, spawn.y - 48, new ProjectileWeapon({
       id: "training-wand",
       name: "Training Wand",
@@ -135,17 +81,13 @@ function startRun() {
     })),
     new ItemDrop(spawn.x + 48, spawn.y + 48, new Gold(), 25)
   ];
-  nextSpawnIndex = ENEMY_TYPE_NAMES.indexOf("Demon");
-  projectiles = [];
-  enemyProjectiles = [];
+  debugTools.reset();
   clearDyingEnemies();
   inventoryDrag = null;
   inventorySelection = null;
   inventoryInfoLines = [];
   resumeInputBlocked = false;
   activeDialogue.close();
-  room.cleared = false;
-  room.bossDefeated = false;
   restartShown = false;
   restartButton.hide();
   for (const button of classButtons) {
@@ -385,11 +327,11 @@ function draw() {
   }
   if (game.isInventory()) {
     const pointer = canvasPointer();
-    drawRoom(room, getRoomGraphic(room));
-    drawRunScene();
+    drawRoom(run.room, getRoomGraphic(run.room));
+    drawRunScene(run);
     drawInventoryMenu(
-      player.inventory,
-      player,
+      run.player.inventory,
+      run.player,
       inventoryDrag,
       inventorySelection,
       inventoryInfoLines,
@@ -400,78 +342,22 @@ function draw() {
     return;
   }
 
-  // Standing in a door tile means the player is leaving the room. This is checked before
-  // drawing, so the new room is drawn on the same frame the player arrives.
-  if (!player.isDead()) {
-    const center = player.getCenter();
-    const exit = room.getExitAt(center.x, center.y);
-    if (exit) {
-      useExit(exit);
-    }
-  }
-  drawRoom(room, getRoomGraphic(room));
-
   const heldInputBlocked = resumeInputBlocked && isGameplayInputHeld(keyIsDown);
   if (resumeInputBlocked && !heldInputBlocked) {
     resumeInputBlocked = false;
   }
-  if (!activeDialogue.isActive()) {
-    player.move(
-      heldInputBlocked ? new p5.Vector(0, 0) : getMoveDirection(keyIsDown),
-      room
-    );
-  } else {
-    player.walkFrames = 0;
+  const none = new p5.Vector(0, 0);
+  const dead = run.update({
+    move: heldInputBlocked ? none : getMoveDirection(keyIsDown),
+    fire: heldInputBlocked ? none : getFireDirection(keyIsDown),
+    frozen: activeDialogue.isActive()
+  });
+  for (const enemy of dead) {
+    startEnemyDeath(enemy); // the model has already removed it from the room
   }
-  for (const drop of room.items) {
-    drop.update();
-  }
-  pickupItemDrops(player, room);
-
-  if (!player.isDead()) {
-    for (const e of room.enemies) {
-      e.update(player, room);
-      e.damagePlayer(player);
-      e.meleeHit(player);
-      for (const shot of e.tryAttack(player, room)) {
-        enemyProjectiles.push(shot);
-      }
-    }
-  }
-
-  if (!activeDialogue.isActive()) {
-    const proj = player.fire(
-      heldInputBlocked ? new p5.Vector(0, 0) : getFireDirection(keyIsDown)
-    );
-    if (proj) {
-      projectiles.push(proj);
-    }
-  }
-  player.update(room);
-  if (player.hasFinishedFalling() && !player.isDead()) {
-    player.respawnAt(entrySpot.x, entrySpot.y); // back at the door they came in through
-  }
-
-  for (const p of projectiles) {
-    p.update(room);
-    for (const e of room.enemies) {
-      e.damageFromProjectile(p);
-    }
-  }
-  projectiles = projectiles.filter((p) => p.alive);
-
-  for (const p of enemyProjectiles) {
-    p.update(room);
-    projectileHitsPlayer(p, player);
-  }
-  enemyProjectiles = enemyProjectiles.filter((p) => p.alive);
-  handleDeadEnemies(removeDeadEnemies(room));
-
-  drawRunScene();
-  if (!room.cleared && room.enemies.every((e) => e.isDead())) {
-    room.onClear();
-  }
-  if (player.showDeathScreen()) {
+  drawRoom(run.room, getRoomGraphic(run.room));
+  drawRunScene(run);
+  if (run.player.showDeathScreen()) {
     activeDialogue.close();
     game.playerDied();
   }
@@ -484,20 +370,23 @@ function draw() {
   }
 }
 
-function drawRunScene() {
+// Draws everything in the run except the room's tiles: items, shots, the player, enemies, NPCs
+// and the HUD.
+function drawRunScene(run) {
+  const { player, room } = run;
   for (const drop of room.items) {
     drawItemDrop(drop);
   }
-  for (const p of projectiles) {
+  for (const p of run.projectiles) {
     drawProjectile(p);
   }
-  for (const p of enemyProjectiles) {
+  for (const p of run.enemyProjectiles) {
     drawEnemyProjectile(p);
   }
   drawPlayer(player);
   for (const e of room.enemies) {
     drawEnemy(e);
-    if (debugOverlay) {
+    if (debugTools.overlay) {
       drawEnemyDebug(e);
     }
   }
@@ -507,9 +396,9 @@ function drawRunScene() {
   drawDyingEnemies(!game.isInventory());
   drawHealthBar(player);
   drawGoldHud(player.inventory);
-  drawFirstBossBar();
+  drawFirstBossBar(room);
   drawClassLabel(player.mageClass);
-  drawMinimap(dungeon, room);
+  drawMinimap(run.dungeon, room);
   if (game.isPlaying() || game.isInventory()) {
     drawInventoryHudButton(game.isInventory());
   }
@@ -534,71 +423,17 @@ function toggleInventoryMenu() {
   return true;
 }
 
-// Vincent's room code hooks door unlock and exit here, and Nick's loot hooks
-// enemy.type.lootTable here.
-function handleDeadEnemies(dead) {
-  for (const enemy of dead) {
-    startEnemyDeath(enemy);
-  }
-  if (findDeadBosses(dead).length > 0) {
-    room.bossDefeated = true;
-  }
-}
-
 // Only one boss bar shows, even if several bosses are alive.
-function drawFirstBossBar() {
+function drawFirstBossBar(room) {
   const boss = room.enemies.find((e) => e.type.boss && !e.isDead());
   if (boss) {
     drawBossBar(boss);
   }
 }
 
-// Testing aids: press E to spawn enemies, F3 to toggle the enemy debug overlay.
-// Press E: spawns the next enemy type somewhere on the floor, away from the player.
-function spawnNextEnemy() {
-  const typeName = ENEMY_TYPE_NAMES[nextSpawnIndex % ENEMY_TYPE_NAMES.length];
-  nextSpawnIndex++;
-  for (let tries = 0; tries < 50; tries++) {
-    const enemy = createEnemy(
-      typeName,
-      random(room.x, room.x + room.width),
-      random(room.y, room.y + room.height),
-      true
-    );
-    const far = p5.Vector.dist(enemy.getCenter(), player.getCenter()) > 150;
-    if (far && !room.collidesWithWall(enemy.getBounds()) && !room.overlapsPit(enemy.getBounds())) {
-      room.enemies.push(enemy);
-      room.cleared = false;
-      return;
-    }
-  }
-}
-
-// Creates the test Elder NPC in the top right of the room.
-function createTopRightNpc() {
-  return new Npc(NPC_TOP_RIGHT_X, NPC_TOP_RIGHT_Y, "Elder", [
-    "Greetings, traveler! The dungeons ahead are perilous.",
-    "Keep your distance from skeletons and watch for swift bats.",
-    "May your arcane magic guide your journey. Good luck!"
-  ]);
-}
-
-// Toggles spawning/despawning the Elder NPC in the top right.
-function toggleTopRightNpc() {
-  const existingIndex = room.npcs.findIndex((n) => n.name === "Elder");
-  if (existingIndex !== -1) {
-    room.npcs.splice(existingIndex, 1);
-    if (activeDialogue.isActive() && activeDialogue.getSpeakerName() === "Elder") {
-      activeDialogue.close();
-    }
-  } else {
-    room.npcs.push(createTopRightNpc());
-  }
-}
-
 function keyPressed() {
   if (keyCode === 114) {
-    debugOverlay = !debugOverlay;
+    debugTools.overlay = !debugTools.overlay;
     return false;
   }
   if (game.isModelSelect()) {
@@ -636,7 +471,7 @@ function keyPressed() {
   }
   if (game.isPlaying()) {
     if (key.toLowerCase() === "n") {
-      toggleTopRightNpc();
+      toggleTopRightNpc(run, activeDialogue);
       return false;
     }
     // Interaction: Space (32) or F
@@ -645,14 +480,14 @@ function keyPressed() {
         activeDialogue.advance();
         return false;
       }
-      const nearbyNpc = room.npcs.find((n) => n.isPlayerNear(player));
+      const nearbyNpc = run.room.npcs.find((n) => n.isPlayerNear(run.player));
       if (nearbyNpc) {
         activeDialogue.start(nearbyNpc);
         return false;
       }
     }
     if (key.toLowerCase() === "e") {
-      spawnNextEnemy();
+      spawnNextEnemy(run);
     }
   }
   // Temporary damage key for testing the death screen, commented out currently.
@@ -683,16 +518,16 @@ function mousePressed() {
   }
 
   const contextAction = inventoryContextActionAt(
-    player.inventory,
-    player,
+    run.player.inventory,
+    run.player,
     inventorySelection,
     pointer.x,
     pointer.y
   );
   if (contextAction !== null) {
     const result = performInventoryContextAction(
-      player.inventory,
-      player,
+      run.player.inventory,
+      run.player,
       inventorySelection,
       contextAction.id
     );
@@ -704,11 +539,11 @@ function mousePressed() {
     return false;
   }
 
-  if (inventorySelectionAt(player.inventory, pointer.x, pointer.y) === null) {
+  if (inventorySelectionAt(run.player.inventory, pointer.x, pointer.y) === null) {
     inventorySelection = null;
     inventoryInfoLines = [];
   }
-  inventoryDrag = beginInventoryDrag(player.inventory, pointer.x, pointer.y);
+  inventoryDrag = beginInventoryDrag(run.player.inventory, pointer.x, pointer.y);
   return false;
 }
 
@@ -719,12 +554,12 @@ function mouseReleased() {
   }
   const pointer = canvasPointer();
   if (inventoryDragMoved(inventoryDrag, pointer.x, pointer.y)) {
-    finishInventoryDrag(player.inventory, inventoryDrag, pointer.x, pointer.y);
+    finishInventoryDrag(run.player.inventory, inventoryDrag, pointer.x, pointer.y);
     inventorySelection = null;
     inventoryInfoLines = [];
   } else {
     inventorySelection = inventorySelectionAt(
-      player.inventory,
+      run.player.inventory,
       inventoryDrag.startX,
       inventoryDrag.startY
     );

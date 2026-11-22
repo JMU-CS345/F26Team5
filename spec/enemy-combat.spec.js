@@ -14,10 +14,8 @@ function wallDownTheMiddle(room) {
 function meleeType(overrides = {}) {
   return {
     ...ENEMY_TYPES.Jelly,
-    move: "hopSwing",
-    hopRest: 2,
-    hopFrames: 5,
-    hopSpeed: 2,
+    move: "bounce",
+    speed: 1,
     attack: { kind: "melee", cooldown: 100, damage: 1, reach: 26, windup: 2, recover: 2 },
     ...overrides
   };
@@ -274,11 +272,11 @@ describe("Interrupts", function () {
     const enemy = new Enemy(200, 200);
     enemy.type = { ...ENEMY_TYPES.Jelly, move: "hop", hopRest: 40, hopFrames: 14, hopSpeed: 2.2 };
     enemy.setState("hop", 10);
-    enemy.hopDir = new p5.Vector(1, 0);
+    enemy.memory.hopDir = new p5.Vector(1, 0);
     enemy.takeDamage(1);
     expect(enemy.state).toBe("idle");
     expect(enemy.stateTimer).toBe(40);
-    expect(enemy.hopDir).toBe(null);
+    expect(enemy.memory.hopDir).toBe(null);
   });
 
   it("cancels a telegraphed shot and delays the next one", function () {
@@ -291,7 +289,7 @@ describe("Interrupts", function () {
     expect(skeleton.state).toBe("windup");
     skeleton.takeDamage(1);
     expect(skeleton.state).toBe("idle");
-    expect(skeleton.aimDir).toBe(null);
+    expect(skeleton.memory.aimDir).toBe(null);
     expect(skeleton.attackTimer).toBeGreaterThanOrEqual(Math.ceil(ENEMY_TYPES.Skeleton.attack.cooldown / 2));
     expect(skeleton.tryAttack(player, room)).toEqual([]);
     expect(skeleton.state).toBe("idle");

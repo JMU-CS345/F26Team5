@@ -24,7 +24,6 @@ const SIDES = Object.freeze({
   S: { dx: 0, dy: 1, opposite: "N" },
   W: { dx: -1, dy: 0, opposite: "E" }
 });
-const SIDE_NAMES = Object.freeze(Object.keys(SIDES));
 
 // A small seeded random number generator (mulberry32). Same seed, same dungeon, which
 // makes bugs reproducible and tests stable. Returns a function that gives 0 <= n < 1.
