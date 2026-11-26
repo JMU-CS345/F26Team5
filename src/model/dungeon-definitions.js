@@ -19,42 +19,45 @@
 const DUNGEON_DEFINITIONS = Object.freeze([
   {
     name: "Mossy Cellars",
-    roomCount: 8,
+    roomCount: 12,
     healthScale: 1,
     tileTint: null,
     rooms: [
-      "start-hall", "start-cross",
-      "pillars", "gauntlet", "zombie-den", "bat-cave", "skeleton-hall", "island-hop", "split",
-      "pit-moat", "corridor-wide", "corridor-tall",
+      "start-hall", "start-cross", "open-field", "pillars", "pit-moat", "gauntlet", "turret-room", "split",
+      "zombie-den", "bat-cave", "skeleton-hall", "bouncer-court", "bouncer-hall", "spark-grove", "spark-crossfire",
+      "knight-and-bark", "pit-bridge", "pit-checker", "pit-ring", "pit-lanes", "island-hop", "zigzag", "alcoves",
+      "cross-blocks", "choke-point", "ruins", "corridor-wide", "corridor-tall",
       "dead-end-west", "dead-end-east", "dead-end-north", "dead-end-south",
-      "boss-demon"
-    ]
+      "boss-demon", "boss-pits", "boss-court"
+    ] // Enemies: Jelly, Bat, Skulleton, Ghoul, Peeper Jr, Bouncer, Spark Bark
   },
   {
     name: "Sunken Crypt",
-    roomCount: 10,
+    roomCount: 16,
     healthScale: 1.5,
     tileTint: [150, 175, 255],
     rooms: [
-      "start-cross",
-      "open-field", "pit-checker", "pit-bridge", "pit-ring", "zigzag", "cross-blocks", "choke-point",
-      "alcoves", "ruins", "bouncer-court", "bouncer-hall", "turret-room", "spark-crossfire",
-      "shield-patrol", "corridor-wide", "dead-end-west", "dead-end-north",
-      "boss-pits"
-    ]
+      "start-hall", "start-cross", "open-field", "pillars", "pit-moat", "gauntlet", "turret-room", "shield-patrol", "wizard-gang", "split",
+      "zombie-den", "bat-cave", "skeleton-hall", "bouncer-court", "bouncer-hall", "spark-grove", "spark-crossfire",
+      "knight-and-bark", "pit-bridge", "pit-checker", "pit-ring", "pit-lanes", "island-hop", "zigzag", "alcoves",
+      "cross-blocks", "choke-point", "ruins", "corridor-wide", "corridor-tall", "bastion", "turret-gallery", "killing-floor", "shield-maze",
+      "dead-end-west", "dead-end-east", "dead-end-north", "dead-end-south",
+      "boss-demon"
+    ] // Enemies: Jelly, Bat, Skulleton, Ghoul, Peeper Jr, Bouncer, Spark Bark, Blockette, SWMG Members
   },
   {
     name: "Ember Vault",
-    roomCount: 12,
+    roomCount: 24,
     healthScale: 2,
     tileTint: [255, 150, 130],
     rooms: [
-      "start-hall",
-      "turret-room", "spark-grove", "spark-crossfire", "knight-and-bark", "bouncer-court",
-      "bouncer-hall", "pit-lanes", "ruins", "alcoves", "choke-point", "cross-blocks",
-      "bastion", "turret-gallery", "killing-floor", "wizard-gang", "dead-end-south",
-      "boss-court"
-    ]
+      "start-hall", "start-cross", "open-field", "pillars", "pit-moat", "gauntlet", "turret-room", "shield-patrol", "wizard-gang", "split",
+      "zombie-den", "bat-cave", "skeleton-hall", "bouncer-court", "bouncer-hall", "spark-grove", "spark-crossfire",
+      "knight-and-bark", "pit-bridge", "pit-checker", "pit-ring", "pit-lanes", "island-hop", "zigzag", "alcoves",
+      "cross-blocks", "choke-point", "ruins", "corridor-wide", "corridor-tall", "bastion", "turret-gallery", "killing-floor", "shield-maze",
+      "dead-end-west", "dead-end-east", "dead-end-north", "dead-end-south",
+      "boss-demon"
+    ] // Enemies: undecided
   }
 ]);
 
