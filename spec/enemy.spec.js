@@ -342,9 +342,9 @@ describe("Enemy sprite frames", function () {
     "assets/enemy/tiny-creatures.png": { w: 160, h: 288 },
     "assets/enemy/Ghoul.png": { w: 127, h: 256 },
     "assets/enemy/Peeper.png": { w: 194, h: 40 },
-    "assets/enemy/Demon_Knight.png": { w: 418, h: 144 },
+    "assets/enemy/Demon Knight.png": { w: 418, h: 144 },
     "assets/enemy/Blockette.png": { w: 139, h: 64 },
-    "assets/enemy/Shadow_Wizard_Money_Gang.png": { w: 194, h: 560 }
+    "assets/enemy/Shadow Wizard Money Gang.png": { w: 194, h: 560 }
   };
 
   for (const name of ENEMY_TYPE_NAMES) {

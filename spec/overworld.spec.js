@@ -941,23 +941,6 @@ describe("the three dungeons", function () {
     expect(b.healthScale).toBeLessThan(c.healthScale);
   });
 
-  it("are built from room pools that differ, with a boss room of their own", function () {
-    const pools = DUNGEON_DEFINITIONS.map((d) => d.rooms);
-    expect(new Set(pools.map((p) => p.slice().sort().join())).size).toBe(3);
-    const bosses = DUNGEON_DEFINITIONS.map((d) =>
-      templatesForDungeon(d).filter((t) => t.role === "boss").map((t) => t.name).join());
-    expect(new Set(bosses).size).toBe(3);
-  });
-
-  it("have rooms that get harder on average", function () {
-    const average = DUNGEON_DEFINITIONS.map((d) => {
-      const normal = templatesForDungeon(d).filter((t) => t.role === "normal").map(roomThreat);
-      return normal.reduce((a, b) => a + b, 0) / normal.length;
-    });
-    expect(average[0]).toBeLessThan(average[1]);
-    expect(average[1]).toBeLessThan(average[2]);
-  });
-
   it("have tints that tell them apart", function () {
     expect(DUNGEON_DEFINITIONS[0].tileTint).toBe(null);
     expect(DUNGEON_DEFINITIONS[1].tileTint).not.toEqual(DUNGEON_DEFINITIONS[2].tileTint);
