@@ -31,7 +31,7 @@ function pickupItemDrops(player, room) {
   const remaining = [];
   for (const drop of room.items) {
     const overlaps = rectsOverlap(player.getBounds(), drop.getBounds());
-    if (!overlaps || !player.inventory.canAdd(drop.item, drop.quantity)) {
+    if (drop.collectible === false || !overlaps || !player.inventory.canAdd(drop.item, drop.quantity)) {
       remaining.push(drop);
       continue;
     }

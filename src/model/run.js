@@ -263,7 +263,7 @@ class Run {
       player.move(move, room);
     }
     for (const drop of room.items) {
-      drop.update();
+      drop.update(room); // money drops use the room to stop at walls while they fall
     }
     pickupItemDrops(player, room);
 
@@ -312,6 +312,9 @@ class Run {
     this.enemyProjectiles = this.enemyProjectiles.filter((p) => p.alive);
 
     const dead = removeDeadEnemies(room);
+    for (const enemy of dead) {
+      room.items.push(...dropMoneyFor(enemy, room)); // coins, ingots and gems for the kill
+    }
     if (findDeadBosses(dead).length > 0) {
       room.bossDefeated = true;
     }

@@ -74,8 +74,7 @@ function makeDungeon(entrance, fromOverworld) {
       maxStackSize: 5,
       healthRestore: 2,
       description: "A small restorative potion."
-    })),
-    new ItemDrop(spawn.x + 48, spawn.y + 48, new Gold(), 25)
+    }))
   ];
   debugTools.reset();
   clearDyingEnemies();
@@ -139,6 +138,7 @@ async function setup() {
   await loadPlayerSheets();
   await loadTileImages();
   await loadEnemySheets();
+  await loadMoneySprites();
   await loadItemSprites();
   await loadWeaponSprites();
   createCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);

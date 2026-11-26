@@ -64,7 +64,8 @@
 //                  While health / maxHealth is below `below`, the phase's speed, move and
 //                  attack replace the base ones. Every key except below is optional. List
 //                  them from the highest below to the lowest. The lowest matching one wins.
-//   lootTable      optional name of a loot pool, for the loot system to read
+//   lootTable      optional name of a loot pool in LOOT_TABLES (money.js). Every enemy drops gold
+//                  by its power, and a pool scales that: "boss" pays three times as much
 //   color          [r, g, b] square drawn when the type has no sprite in enemy-art.js
 //   wanderSpeed    only for move "wanderChase"
 //   keepRange      only for move "keepDistance"
@@ -546,6 +547,8 @@ function validateEnemyTypes(types = ENEMY_TYPES) {
     if (type.lootTable !== undefined) {
       if (typeof type.lootTable !== "string" || type.lootTable === "") {
         bad("lootTable must be a non-empty string");
+      } else if (typeof LOOT_TABLES === "object" && !(type.lootTable in LOOT_TABLES)) {
+        bad("lootTable " + type.lootTable + " is not in LOOT_TABLES");
       }
     }
   }
