@@ -18,6 +18,9 @@ async function loadItemSprites() {
 }
 
 function itemSpriteImage(item) {
+  if (item instanceof Weapon && item.art !== null && weaponIcons[item.art]) {
+    return weaponIcons[item.art]; // weapons with their own icon (see weapon-art.js)
+  }
   if (item instanceof Weapon) {
     return itemSprites.weapon;
   }

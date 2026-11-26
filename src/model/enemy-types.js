@@ -13,7 +13,16 @@
 //                  straight at the player through anything. The others follow the tiles around
 //                  walls. Every other enemy needs a clear line of sight to shoot or to use
 //                  sightSpeed.
-//   noKnockback    optional, true for an enemy that is never shoved by a hit or by contact
+//   noKnockback    optional, true for an enemy that is never shoved by a hit or by contact. Bosses
+//                  and the Spark Bark have it.
+//   facing         optional. "travel" means the enemy faces the way it walks instead of turning to
+//                  the player, and only turns to the player to attack. Needed by anything whose
+//                  front matters (a shield) or that walks about without chasing.
+//   blocksFront    optional, true for an enemy that shrugs off any hit coming at its front (a hit
+//                  that lands on its back or its sides still hurts). It needs facing "travel".
+//   patrol         only for move "patrol": a list of { dx, dy } tile offsets from where the enemy
+//                  spawned. It walks to each in turn, along the tiles, and loops forever. A leg it
+//                  cannot reach is skipped. An enemy can have its own route (enemy.patrolPath).
 //   flies          optional, true for an enemy that crosses pits and never falls into one.
 //                  Other enemies keep out of pits, and die if a shove carries them over one
 //                  (bosses are too big to fall).
@@ -29,11 +38,27 @@
 //                  snaps to this many evenly spaced directions, 8 for the four cardinals and
 //                  four diagonals) and stare (frames the player must stay in sight before the
 //                  enemy shoots; losing sight starts the count again).
+//                  Every shoot may also have recover (frames standing still after the shot, for
+//                  the art) and volleys: a list of { count, spread } that it fires in turn, over
+//                  and over, instead of count and spread.
 //                  melee needs reach (pixels from the enemy's center), windup and recover
 //                  (frames) and no speed or color.
+//                  zap is a short range lightning bolt in front of the enemy. It needs reach
+//                  (pixels from the enemy's center), windup and recover (frames) and may have
+//                  thickness (pixels, default reach) and active (frames the bolt can hurt, default
+//                  10). It turns to the nearest of the four sides toward the player and hurts
+//                  whoever is in the bolt. The detectionRange is how close the player must be.
+//                  strike calls lightning down on the spot where the player stands once windup
+//                  frames are over. The bolt only marks the spot for delay frames, then hurts
+//                  anyone there for active frames. It may have size (pixels, default 16) and
+//                  recover.
 //                  cooldown is the least time between the starts of two shots or swings.
 //                  Both kinds need a clear line of sight to the player, except for a bouncing
 //                  enemy, which ignores walls.
+//   weakTo         optional list of elements ("Fire", "Ice", "Mind") that hurt it ELEMENT_WEAK_MULTIPLIER
+//                  times as much. resists is the same for elements that hurt it
+//                  ELEMENT_RESIST_MULTIPLIER times as much. Neutral hits (the sword) and other
+//                  elements do normal damage. An element cannot be in both lists.
 //   boss           true shows a health bar at the top of the screen
 //   phases         optional list like [{ below: 0.5, speed: 1.6, move: "chase", attack: {...} }].
 //                  While health / maxHealth is below `below`, the phase's speed, move and
@@ -61,11 +86,13 @@ const ENEMY_TYPES = Object.freeze({
     hopSpeed: 2.2,
     attack: null,
     boss: false,
+    weakTo: ["Ice"],
+    resists: ["Fire"],
     color: [220, 80, 80]
   },
-  Zombie: {
+  Ghoul: {
     length: 16,
-    width: 16,
+    width: 16, // the art is 16x32, but he is tall rather than wide, so the hitbox stays 16x16
     speed: 0.75,
     maxHealth: 6,
     detectionRange: 160,
@@ -76,6 +103,8 @@ const ENEMY_TYPES = Object.freeze({
     vision: "line",
     attack: null,
     boss: false,
+    weakTo: ["Fire"],
+    resists: ["Mind"],
     color: [90, 140, 90]
   },
   Skeleton: {
@@ -90,6 +119,8 @@ const ENEMY_TYPES = Object.freeze({
     attack: { kind: "shoot", cooldown: 110, damage: 1, speed: 2.5, windup: 18, lead: 0.5,
       color: [235, 235, 220] },
     boss: false,
+    weakTo: ["Mind"],
+    resists: ["Ice"],
     color: [235, 235, 220]
   },
   Bat: {
@@ -103,16 +134,17 @@ const ENEMY_TYPES = Object.freeze({
     flies: true,
     attack: null,
     boss: false,
+    weakTo: ["Fire"],
     color: [140, 90, 60]
   },
-  Eyeball: {
+  PeeperJr: {
     length: 16,
     width: 16,
     speed: 0,
     maxHealth: 4,
     detectionRange: 280,
     contactDamage: 1,
-    move: "none",
+    move: "none", // a turret that turns to track the player. It can be knocked back.
     attack: {
       kind: "shoot",
       cooldown: 120,
@@ -121,10 +153,12 @@ const ENEMY_TYPES = Object.freeze({
       count: 3,
       spread: 20,
       windup: 16,
-      color: [240, 90, 120]
+      color: [200, 40, 50]
     },
     boss: false,
-    color: [240, 90, 120]
+    weakTo: ["Ice"],
+    resists: ["Mind"],
+    color: [200, 40, 50]
   },
   Bouncer: {
     length: 32,
@@ -137,6 +171,8 @@ const ENEMY_TYPES = Object.freeze({
     noKnockback: true,
     attack: { kind: "melee", cooldown: 34, damage: 1, reach: 34, windup: 8, recover: 12 },
     boss: false,
+    weakTo: ["Mind"],
+    resists: ["Ice"],
     color: [90, 90, 200]
   },
   SparkBark: {
@@ -147,35 +183,44 @@ const ENEMY_TYPES = Object.freeze({
     detectionRange: 240,
     contactDamage: 1,
     move: "none", // a turret
+    noKnockback: true,
     // Once the player has stayed in sight for `stare` frames it fires one spark along the
     // nearest of the eight directions to the player.
     attack: { kind: "shoot", cooldown: 30, damage: 1, speed: 2.2, windup: 14, aimSteps: 8, stare: 90,
       color: [120, 220, 90] },
     boss: false,
+    weakTo: ["Fire"],
+    resists: ["Ice"],
     color: [120, 220, 90]
   },
-  Demon: {
-    length: 32,
-    width: 32,
+  DemonKnight: {
+    length: 64,
+    width: 64,
     speed: 1,
     maxHealth: 40,
     detectionRange: 400,
     contactDamage: 2,
-    move: "chase",
-    attack: { kind: "shoot", cooldown: 75, damage: 1, speed: 3, windup: 14, lead: 0.5,
+    move: "chase", // stomps after the player
+    noKnockback: true,
+    // Now and then it stops, charges up, and fires one shot at the player.
+    attack: { kind: "shoot", cooldown: 120, damage: 1, speed: 3, windup: 20, recover: 10, lead: 0.5,
       color: [200, 60, 220] },
     phases: [
       {
         below: 0.5,
         speed: 1.6,
+        // Second phase: a spread of three shots, then a spread of two, and round again.
         attack: {
           kind: "shoot",
-          cooldown: 50,
+          cooldown: 75,
           damage: 1,
           speed: 3.5,
-          count: 3,
-          spread: 20,
-          windup: 10,
+          volleys: [
+            { count: 3, spread: 20 },
+            { count: 2, spread: 20 }
+          ],
+          windup: 14,
+          recover: 10,
           lead: 0.5,
           color: [255, 120, 60]
         }
@@ -183,7 +228,86 @@ const ENEMY_TYPES = Object.freeze({
     ],
     lootTable: "boss",
     boss: true,
+    weakTo: ["Ice"],
+    resists: ["Fire"],
     color: [150, 30, 160]
+  },
+
+  Blockette: {
+    length: 16,
+    width: 16,
+    speed: 0.5,
+    maxHealth: 4,
+    detectionRange: 0, // it never notices the player: it just walks its route
+    contactDamage: 1,
+    move: "patrol",
+    // Walks a rectangle: 4 tiles right, 3 down, back left, back up.
+    patrol: [
+      { dx: 4, dy: 0 },
+      { dx: 4, dy: 3 },
+      { dx: 0, dy: 3 },
+      { dx: 0, dy: 0 }
+    ],
+    facing: "travel", // its shield is on the side it walks toward
+    blocksFront: true,
+    attack: null,
+    boss: false,
+    weakTo: ["Mind"],
+    resists: ["Fire"],
+    color: [60, 150, 60]
+  },
+
+  // The Shadow Wizard Money Gang. None of them chase: they amble about and attack a player they see.
+  ShadowWizardPurple: {
+    length: 16,
+    width: 16,
+    speed: 0.4,
+    maxHealth: 3,
+    detectionRange: 200,
+    contactDamage: 1,
+    move: "wander",
+    facing: "travel",
+    // A magic bolt along whichever of the four directions the player is nearest to.
+    attack: { kind: "shoot", cooldown: 110, damage: 1, speed: 2.4, windup: 20, recover: 12, aimSteps: 4,
+      color: [150, 110, 255] },
+    boss: false,
+    weakTo: ["Fire"],
+    resists: ["Mind"],
+    color: [90, 60, 200]
+  },
+  ShadowWizardYellow: {
+    length: 16,
+    width: 16, // the art is 16x32, but the hitbox stays 16x16
+    speed: 0.4,
+    maxHealth: 4,
+    detectionRange: 56, // only close up
+    contactDamage: 1,
+    move: "wander",
+    facing: "travel",
+    // Short range lightning toward the nearest of the four sides. It reaches 40 pixels from the
+    // wizard's middle, which is 32 pixels past its hitbox, the length of the lightning art.
+    attack: { kind: "zap", cooldown: 90, damage: 1, reach: 40, thickness: 16, windup: 24, active: 10, recover: 14 },
+    boss: false,
+    weakTo: ["Ice"],
+    resists: ["Fire"],
+    color: [250, 160, 60]
+  },
+  ShadowWizardGreen: {
+    length: 32,
+    width: 32,
+    speed: 0.3,
+    maxHealth: 6,
+    detectionRange: 220,
+    contactDamage: 1,
+    move: "wander",
+    facing: "travel",
+    // Raises its hands, then lightning lands on the spot the player is standing on. The spot is
+    // marked for `delay` frames first, so the player can step away.
+    attack: { kind: "strike", cooldown: 150, damage: 2, windup: 30, delay: 28, active: 12, size: 24, recover: 12 },
+    boss: false,
+    weakTo: ["Mind"],
+    resists: ["Ice"],
+    color: [0, 160, 0]
   }
 });
 
@@ -210,16 +334,21 @@ function isColor(value) {
   return Array.isArray(value) && value.length === 3 && value.every((c) => isNumberAtLeast(c, 0));
 }
 
+// The numbers each kind of attack must have, all above 0.
+const ENEMY_ATTACK_KEYS = Object.freeze({
+  shoot: ["cooldown", "damage", "speed"],
+  melee: ["cooldown", "damage", "reach", "windup", "recover"],
+  zap: ["cooldown", "damage", "reach", "windup", "recover"],
+  strike: ["cooldown", "damage", "windup", "delay", "active"]
+});
+
 // Checks one attack table, used for the base attack and for each phase attack.
 function checkEnemyAttack(attackTable, bad) {
   const attack = attackTable || {};
   if (!Object.keys(ENEMY_ATTACKS).includes(attack.kind)) {
     bad("attack.kind is not in ENEMY_ATTACKS: " + attack.kind);
   }
-  let attackKeys = ["cooldown", "damage", "speed"];
-  if (attack.kind === "melee") {
-    attackKeys = ["cooldown", "damage", "reach", "windup", "recover"];
-  }
+  const attackKeys = ENEMY_ATTACK_KEYS[attack.kind] || ENEMY_ATTACK_KEYS.shoot;
   for (const key of attackKeys) {
     if (!isNumberAtLeast(attack[key], 0.01)) {
       bad("attack." + key + " must be a number above 0");
@@ -231,9 +360,31 @@ function checkEnemyAttack(attackTable, bad) {
   if (attack.spread !== undefined && !isNumberAtLeast(attack.spread, 0)) {
     bad("attack.spread must be at least 0");
   }
-  if (attack.kind !== "melee") {
+  if (attack.kind === "zap" || attack.kind === "strike") {
+    for (const key of ["thickness", "active", "size"]) {
+      if (attack[key] !== undefined && !isNumberAtLeast(attack[key], 1)) {
+        bad("attack." + key + " must be a number of at least 1");
+      }
+    }
+    if (attack.recover !== undefined && !isNumberAtLeast(attack.recover, 0)) {
+      bad("attack.recover must be at least 0");
+    }
+  }
+  if (attack.kind === "shoot") {
     if (attack.windup !== undefined && !isNumberAtLeast(attack.windup, 0)) {
       bad("attack.windup must be at least 0");
+    }
+    if (attack.recover !== undefined && !isNumberAtLeast(attack.recover, 0)) {
+      bad("attack.recover must be at least 0");
+    }
+    if (attack.volleys !== undefined) {
+      const good =
+        Array.isArray(attack.volleys) &&
+        attack.volleys.length > 0 &&
+        attack.volleys.every((v) => v && isNumberAtLeast(v.count, 1) && isNumberAtLeast(v.spread, 0));
+      if (!good) {
+        bad("attack.volleys must be a non-empty list of { count, spread }");
+      }
     }
     if (attack.lead !== undefined && !(isNumberAtLeast(attack.lead, 0) && attack.lead <= 1)) {
       bad("attack.lead must be between 0 and 1");
@@ -244,9 +395,9 @@ function checkEnemyAttack(attackTable, bad) {
     if (attack.stare !== undefined && !isNumberAtLeast(attack.stare, 1)) {
       bad("attack.stare must be a number of at least 1");
     }
-  }
-  if (attack.kind !== "melee" && !isColor(attack.color)) {
-    bad("attack.color must be [r, g, b]");
+    if (!isColor(attack.color)) {
+      bad("attack.color must be [r, g, b]");
+    }
   }
 }
 
@@ -282,7 +433,34 @@ function checkEnemyPhases(phases, bad) {
   }
 }
 
+// True for a list of at least one { dx, dy } whole-number tile offset where some offset is not 0, 0.
+function isPatrolPath(path) {
+  return (
+    Array.isArray(path) &&
+    path.length > 0 &&
+    path.every((p) => p && Number.isInteger(p.dx) && Number.isInteger(p.dy)) &&
+    path.some((p) => p.dx !== 0 || p.dy !== 0)
+  );
+}
+
 // Returns a list of problems with an enemy table. An empty list means it is valid.
+// How much more or less a hit of this element hurts an enemy type. Null (the sword) is neutral.
+const ELEMENT_WEAK_MULTIPLIER = 2;
+const ELEMENT_RESIST_MULTIPLIER = 0.5;
+
+function getElementMultiplier(type, element) {
+  if (element === null || element === undefined) {
+    return 1;
+  }
+  if (Array.isArray(type.weakTo) && type.weakTo.includes(element)) {
+    return ELEMENT_WEAK_MULTIPLIER;
+  }
+  if (Array.isArray(type.resists) && type.resists.includes(element)) {
+    return ELEMENT_RESIST_MULTIPLIER;
+  }
+  return 1;
+}
+
 function validateEnemyTypes(types = ENEMY_TYPES) {
   const problems = [];
   for (const name of Object.keys(types)) {
@@ -314,6 +492,32 @@ function validateEnemyTypes(types = ENEMY_TYPES) {
     }
     if (type.sightSpeed !== undefined && !isNumberAtLeast(type.sightSpeed, type.speed)) {
       bad("sightSpeed must be at least speed");
+    }
+    if (type.facing !== undefined && type.facing !== "travel") {
+      bad('facing must be "travel" or left out');
+    }
+    for (const key of ["weakTo", "resists"]) {
+      const list = type[key];
+      if (list !== undefined
+          && (!Array.isArray(list) || list.some((e) => !Object.keys(ELEMENT_STAT).includes(e)))) {
+        bad(key + " must be a list of elements (Fire, Ice or Mind) or left out");
+      }
+    }
+    if (Array.isArray(type.weakTo) && Array.isArray(type.resists)
+        && type.weakTo.some((e) => type.resists.includes(e))) {
+      bad("an element cannot be in both weakTo and resists");
+    }
+    if (type.blocksFront !== undefined && typeof type.blocksFront !== "boolean") {
+      bad("blocksFront must be true or false");
+    }
+    if (type.blocksFront && type.facing !== "travel") {
+      bad('blocksFront needs facing "travel", or the shield would turn to the player');
+    }
+    if (type.noKnockback !== undefined && typeof type.noKnockback !== "boolean") {
+      bad("noKnockback must be true or false");
+    }
+    if (type.move === "patrol" && !isPatrolPath(type.patrol)) {
+      bad("patrol needs a patrol list of { dx, dy } tile offsets, not all zero");
     }
     if (type.move === "keepDistance" && !isNumberAtLeast(type.keepRange, 1)) {
       bad("keepDistance needs keepRange above 0");

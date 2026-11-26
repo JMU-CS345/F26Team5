@@ -17,6 +17,10 @@ class Room {
     this.npcs = [];
     this.items = [];
     this.exits = [];
+    this.overworldExit = null; // a start room's permanent way out to the overworld, or null
+    this.onwardDoor = null; // a boss room's door to the next area ({ side, tiles, inside }), or null
+    this.healthScale = 1; // enemies spawn with this many times their normal health
+    this.tileTint = null; // [r, g, b] the view tints the room's tile art with, or null for none
     this.cleared = false;
     this.tileVersion = 0; // goes up whenever a tile changes, so the view knows to redraw the room
 
@@ -75,6 +79,13 @@ class Room {
         this.setTile(col, row, type);
       }
     }
+    // The door to the next area shuts and opens with the others: it stays shut until the room
+    // is cleared, which in a boss room means until the boss is dead.
+    if (this.onwardDoor) {
+      for (const { col, row } of this.onwardDoor.tiles) {
+        this.setTile(col, row, type);
+      }
+    }
   }
 
   // The tile type at a grid position. Outside the room counts as wall.
@@ -103,6 +114,42 @@ class Room {
     const col = Math.floor((px - this.x) / this.tileSize);
     const row = Math.floor((py - this.y) / this.tileSize);
     return this.exits.find((e) => e.tiles.some((t) => t.col === col && t.row === row)) || null;
+  }
+
+  // The room's way out to the overworld ({ side, tiles, inside }), if this pixel is on it, or null.
+  // Unlike a door it is never shut, and it is not one of this.exits.
+  getOverworldExitAt(px, py) {
+    if (!this.overworldExit) {
+      return null;
+    }
+    const col = Math.floor((px - this.x) / this.tileSize);
+    const row = Math.floor((py - this.y) / this.tileSize);
+    return this.overworldExit.tiles.some((t) => t.col === col && t.row === row) ? this.overworldExit : null;
+  }
+
+  // The room's door to the next area ({ side, tiles, inside }), if this pixel is in it, or null.
+  // A shut door is solid, so the player can only be in it once it has opened.
+  getOnwardDoorAt(px, py) {
+    if (!this.onwardDoor) {
+      return null;
+    }
+    const col = Math.floor((px - this.x) / this.tileSize);
+    const row = Math.floor((py - this.y) / this.tileSize);
+    return this.onwardDoor.tiles.some((t) => t.col === col && t.row === row) ? this.onwardDoor : null;
+  }
+
+  // The pixel where the middle of the player stands on coming in from the overworld: on the floor
+  // just inside the way out, centered on it. Null when the room has none.
+  getOverworldExitEntry() {
+    if (!this.overworldExit) {
+      return null;
+    }
+    const inside = this.overworldExit.inside;
+    const mean = (key) => inside.reduce((sum, t) => sum + t[key], 0) / inside.length;
+    return {
+      x: this.x + (mean("col") + 0.5) * this.tileSize,
+      y: this.y + (mean("row") + 0.5) * this.tileSize
+    };
   }
 
   // The tile type at a pixel position.

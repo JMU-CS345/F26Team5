@@ -8,11 +8,20 @@ function projectileHitsPlayer(projectile, player) {
   if (player.isDead() || player.isFalling() || !projectile.alive) {
     return false;
   }
+  if (typeof projectile.canHurt === "function" && !projectile.canHurt()) {
+    return false; // a lightning strike that is only warning yet
+  }
   if (!rectsOverlap(projectile.getBounds(), player.getBounds())) {
     return false;
   }
-  player.takeDamage(projectile.damage, projectile.vel); // the shot shoves the player along its path
-  projectile.alive = false;
+  // The shot shoves the player along its path (a strike shoves them away from its middle).
+  const shove = typeof projectile.hitDirection === "function" ? projectile.hitDirection(player) : projectile.vel;
+  player.takeDamage(projectile.damage, shove);
+  if (typeof projectile.onHit === "function") {
+    projectile.onHit();
+  } else {
+    projectile.alive = false;
+  }
   return true;
 }
 

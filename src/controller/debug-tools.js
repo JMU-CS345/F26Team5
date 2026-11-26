@@ -7,7 +7,7 @@ const debugTools = {
 
   // Called when a run starts. The first spawn is the boss, so it is easy to test.
   reset() {
-    this.nextSpawnIndex = ENEMY_TYPE_NAMES.indexOf("Demon");
+    this.nextSpawnIndex = ENEMY_TYPE_NAMES.indexOf("DemonKnight");
   }
 };
 

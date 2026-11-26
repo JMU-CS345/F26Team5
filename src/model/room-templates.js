@@ -7,8 +7,11 @@
 // Legend
 //   #  wall            .  floor           o  pit        x  interior wall (an obstacle)
 //   +  a door (on the outer wall only, always 2 tiles side by side)
-//   J  Jelly   Z  Zombie   S  Skeleton   B  Bat   E  Eyeball   D  Demon (on floor)
+//   J  Jelly   Z  Ghoul   S  Skeleton   B  Bat   E  Peeper Jr. (an eye turret)
+//   D  Demon Knight (the boss, 64x64, on floor)
 //   K  Bouncer (a knight, 32x32)   T  Spark Bark (a tree, a stationary turret)
+//   L  Blockette (patrols a 4 by 3 tile loop and blocks hits from the front)
+//   P  purple Shadow Wizard   Y  yellow Shadow Wizard   G  green Shadow Wizard (32x32)
 //   @  where the player starts (start rooms only, exactly one)
 //
 // Walls can also stick out of the outer wall into the room, drawn with more #. They have wall
@@ -21,15 +24,24 @@
 // against it with a matching door straight across; any door that isn't used stays a wall.
 // The two tiles just inside a door must be plain floor (.). Doors can't be next to each other.
 //
+// The door to the next area: every boss room has one, drawn as two > side by side on the outer wall
+// (not touching another door). It is shut like a door while the boss is alive and opens when the
+// room is cleared, so the player can only go on once the boss is dead. Only boss rooms can have one.
+//
+// The way out to the overworld: every start room here has one, drawn as two = side by side on
+// the outer wall (not touching a door). It is open from the start, whether or not another room is
+// next to it. Like a door it needs plain floor just inside it. Only start rooms can have one.
+//
 // role: "start" (the first room), "boss" (the last room) or "normal" (everything else).
 // Size: 8 to 40 tiles wide and 8 to 25 tall. Every room needs at least one door.
 // validateRoomTemplates() checks all of this, and the specs run it, so a mistake shows up as
-// a failing spec with the room's name. Keep a 3x3 area around a D or a K clear (the Demon and the Bouncer are big).
+// a failing spec with the room's name. Keep a 5x5 area around a D, a 3x3 area around a K or a G, and the 5x4 loop of a L clear (the Demon Knight, the Bouncer and the green wizard are big, and the Blockette walks a loop).
 const ROOM_TEMPLATES = [
   {
     name: "start-hall",
     role: "start",
-    // Four pillars, a door in the middle of every wall. No enemies.
+    // Four pillars, a door in the middle of every wall, and the way out to the overworld at the
+    // bottom left. No enemies.
     rows: [
       "#############++#############",
       "#..........................#",
@@ -47,13 +59,14 @@ const ROOM_TEMPLATES = [
       "#..........................#",
       "#..........................#",
       "#..........................#",
-      "#############++#############"
+      "####==#######++#############"
     ]
   },
   {
     name: "start-cross",
     role: "start",
-    // A pillar in the middle. The east and west doors are offset.
+    // A pillar in the middle. The east and west doors are offset. The way out to the overworld is
+    // at the bottom left.
     rows: [
       "###########++###########",
       "#......................#",
@@ -69,7 +82,7 @@ const ROOM_TEMPLATES = [
       "#......................#",
       "#......................#",
       "#......................#",
-      "###########++###########"
+      "####==#####++###########"
     ]
   },
   {
@@ -177,7 +190,7 @@ const ROOM_TEMPLATES = [
   {
     name: "turret-room",
     role: "normal",
-    // Eyeball turrets in the corners.
+    // Peeper Jr. turrets in the corners.
     rows: [
       "###########++###########",
       "#......................#",
@@ -194,6 +207,48 @@ const ROOM_TEMPLATES = [
       "#......................#",
       "#......................#",
       "###########++###########"
+    ]
+  },
+  {
+    name: "shield-patrol",
+    role: "normal",
+    // Two Blockettes patrol a loop each (4 tiles across, 3 down). Shoot them from behind or the
+    // side. A Ghoul waits in the middle of the room.
+    rows: [
+      "###########++###########",
+      "#......................#",
+      "#..L...............L...#",
+      "#......................#",
+      "#......................#",
+      "#......................#",
+      "+..........Z...........+",
+      "+......................+",
+      "#......................#",
+      "#......................#",
+      "#......................#",
+      "#......................#",
+      "###########++###########"
+    ]
+  },
+  {
+    name: "wizard-gang",
+    role: "normal",
+    // The Shadow Wizard Money Gang: one of each colour, with Peeper Jr. watching from a corner.
+    rows: [
+      "################++################",
+      "#................................#",
+      "#..P.............................#",
+      "#................................#",
+      "#..............xx..........Y.....#",
+      "#..............xx................#",
+      "+................................+",
+      "+................................+",
+      "#.......G........................#",
+      "#................................#",
+      "#..................xx............#",
+      "#..................xx......E.....#",
+      "#................................#",
+      "################++################"
     ]
   },
   {
@@ -752,9 +807,77 @@ const ROOM_TEMPLATES = [
     ]
   },
   {
+    name: "bastion",
+    role: "normal",
+    // Four pillars with Peeper Jr. turrets in the corners, two Bouncers and two SparkBarks.
+    rows: [
+      "##############++##############",
+      "#............................#",
+      "#............................#",
+      "#..E..........T...........E..#",
+      "#.....xx..............xx.....#",
+      "#.....xx..............xx.....#",
+      "#............................#",
+      "+............................+",
+      "+..........K......K..........+",
+      "#............................#",
+      "#............................#",
+      "#.....xx..............xx.....#",
+      "#.....xx..............xx.....#",
+      "#..E...........T..........E..#",
+      "#............................#",
+      "#............................#",
+      "##############++##############"
+    ]
+  },
+  {
+    name: "turret-gallery",
+    role: "normal",
+    // A row of pillars to hide behind, Peeper Jr. turrets on the north and south walls, SparkBarks between.
+    rows: [
+      "###############++###############",
+      "#..............................#",
+      "#....E.....E........E.....E....#",
+      "#..............................#",
+      "#..............................#",
+      "#.......x...x......x...x.......#",
+      "+..............................+",
+      "+.............T..T.............+",
+      "#..............................#",
+      "#.......x...x......x...x.......#",
+      "#..............................#",
+      "#..............................#",
+      "#....E....................E....#",
+      "#..............................#",
+      "###############++###############"
+    ]
+  },
+  {
+    name: "killing-floor",
+    role: "normal",
+    // Wide open, with a lot of enemies of every kind.
+    rows: [
+      "#############++#############",
+      "#..........................#",
+      "#..........................#",
+      "#....S....B...........S....#",
+      "#..........................#",
+      "#..........................#",
+      "+............xx............+",
+      "+.......Z....xx....Z.......+",
+      "#..........................#",
+      "#..........................#",
+      "#..........................#",
+      "#...T........S.........B...#",
+      "#..........................#",
+      "#..........................#",
+      "#############++#############"
+    ]
+  },
+  {
     name: "boss-demon",
     role: "boss",
-    // The Demon. Keep a 3x3 tile area around D clear: its hitbox is 32x32.
+    // The Demon Knight. Keep a 5x5 tile area around D clear: its hitbox is 64x64.
     rows: [
       "#################++#################",
       "#..................................#",
@@ -765,8 +888,8 @@ const ROOM_TEMPLATES = [
       "#..................................#",
       "#..................................#",
       "#..................................#",
-      "+..................................#",
-      "+.................D................#",
+      "+..................................>",
+      "+.................D................>",
       "#..................................#",
       "#..................................#",
       "#..................................#",
@@ -782,7 +905,7 @@ const ROOM_TEMPLATES = [
   {
     name: "boss-pits",
     role: "boss",
-    // The Demon with bats, and pits in the corners.
+    // The Demon Knight with bats, and pits in the corners.
     rows: [
       "##############++################",
       "#..............................#",
@@ -802,7 +925,36 @@ const ROOM_TEMPLATES = [
       "#..............................#",
       "#..............................#",
       "#..............................#",
-      "################################"
+      "##############>>################"
+    ]
+  },
+  {
+    name: "boss-court",
+    role: "boss",
+    // The Demon Knight with Peeper Jr. turrets in the corners. Keep a 5x5 tile area around D clear.
+    // The door to the next area is in the middle of the south wall.
+    rows: [
+      "#################++#################",
+      "#..................................#",
+      "#..E............................E..#",
+      "#..................................#",
+      "#.......xx................xx.......#",
+      "#.......xx................xx.......#",
+      "#..................................#",
+      "#..................................#",
+      "#..................................#",
+      "+..................................#",
+      "+.................D................#",
+      "#..................................#",
+      "#..................................#",
+      "#..................................#",
+      "#.......xx................xx.......#",
+      "#.......xx................xx.......#",
+      "#..................................#",
+      "#..................................#",
+      "#..E............................E..#",
+      "#..................................#",
+      "#################>>#################"
     ]
   }
 ];

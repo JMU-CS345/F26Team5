@@ -5,6 +5,9 @@
 const FACING_ROW = { down: 0, up: 1, right: 2, left: 3 };
 const WEAPON_ROW_OFFSET = 4;
 const STEP_TIME = 8; // game frames per walk frame
+// The "turning before attack" row, one frame per facing, used for the first part of a sword swing.
+const TURN_ROW = 8;
+const TURN_COLUMN = { down: 0, up: 1, right: 2, left: 3 };
 
 const playerSheets = {}; // model name -> loaded image
 // model name -> { pants, shirt, eyes }: white layers drawn over the body and tinted to the
@@ -45,6 +48,14 @@ function drawPlayerSprite(modelName, appearance, col, row, x, y, w, h, alpha = 2
 // Which row and column of the player's sheet to draw.
 function getPlayerFrame(player) {
   const model = PLAYER_ART[player.modelName];
+  const phase = player.getSlashPhase();
+  if (phase === "windup" || phase === "spin") {
+    // The turning frame: before a swing, and for every quarter turn of a spin.
+    return { row: TURN_ROW, col: TURN_COLUMN[player.facing] };
+  }
+  if (phase !== null) {
+    return { row: FACING_ROW[player.facing] + WEAPON_ROW_OFFSET, col: 0 }; // arm out while swinging
+  }
   let row = FACING_ROW[player.facing];
   if (player.isArmUp()) {
     row += WEAPON_ROW_OFFSET;

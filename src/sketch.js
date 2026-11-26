@@ -4,14 +4,12 @@
 const CANVAS_WIDTH = 1280;
 const CANVAS_HEIGHT = 720;
 let game;
-let run; // the dungeon run in progress: run.player, run.room, run.dungeon and the shots (model/run.js)
+let run; // the run in progress: run.player, run.room, run.dungeon and the shots (model/run.js)
+let overworlds; // the three big outdoor areas of the run, in order (model/overworld.js)
+let camera; // which part of the overworld the screen shows (model/camera.js)
 let restartButton;
-let classButtons = [];
-let customizeControls = []; // every color picker, hex box and Start, on the customization screen (#23)
-let customizeFields = {}; // part -> { picker, input }: the controls of one customization row
-let roomGraphics = new Map(); // room id -> { graphic, version }, the room's picture and the room.tileVersion it shows
+let roomGraphics = new Map(); // room -> { graphic, version }, the room's picture and the room.tileVersion it shows
 let restartShown = false;
-let modelButtons = [];
 let inventoryDrag = null;
 let inventorySelection = null;
 let inventoryInfoLines = [];
@@ -31,7 +29,7 @@ let pageTop = 0;
 // Makes the picture of a room the first time it is needed and reuses it after that. If a tile
 // has changed since (a door opened or closed), the picture is made again.
 function getRoomGraphic(r) {
-  const cached = roomGraphics.get(r.id);
+  const cached = roomGraphics.get(r);
   if (cached && cached.version === r.tileVersion) {
     return cached.graphic;
   }
@@ -39,33 +37,31 @@ function getRoomGraphic(r) {
     cached.graphic.remove();
   }
   const graphic = buildRoomGraphic(r);
-  roomGraphics.set(r.id, { graphic, version: r.tileVersion });
+  roomGraphics.set(r, { graphic, version: r.tileVersion });
   return graphic;
 }
 
-// Starts a new dungeon run with the class, model and look picked on the menus.
-function startRun() {
-  for (const cached of roomGraphics.values()) {
-    cached.graphic.remove(); // free the old dungeon's pictures
+// Frees the pictures of every room except the ones in keepRooms (a list), or all of them if it is
+// null. A freed picture is built again the next time its room is drawn.
+function releaseRoomGraphics(keepRooms) {
+  for (const [room, cached] of roomGraphics) {
+    if (!keepRooms || !keepRooms.includes(room)) {
+      cached.graphic.remove();
+      roomGraphics.delete(room);
+    }
   }
-  roomGraphics.clear();
-  const dungeon = generateDungeon({
-    roomCount: DUNGEON_ROOM_COUNT,
-    screenX: ROOM_X,
-    screenY: ROOM_Y
-  });
-  console.log("Dungeon seed:", dungeon.seed); // pass this as seed to replay a dungeon
-  run = new Run(dungeon, game.selectedClass, game.selectedModel, game.appearance);
-  const spawn = run.entrySpot;
-  // Placeholder pickups until room data supplies item placement.
-  run.room.items = [
-    new ItemDrop(spawn.x - 48, spawn.y - 48, new ProjectileWeapon({
-      id: "training-wand",
-      name: "Training Wand",
-      damage: 2,
-      element: game.selectedClass,
-      description: "A simple wand for apprentice mages."
-    })),
+}
+
+// Makes the dungeon for the overworld the player is entering it from (the first overworld has the
+// first dungeon, and so on), with its starting pickups. The run calls this the first time the
+// player walks onto the dungeon entrance in an overworld.
+function makeDungeon(entrance, fromOverworld) {
+  releaseRoomGraphics(overworlds); // the last dungeon's pictures go, the overworlds' stay
+  const dungeon = generateDungeonFor(fromOverworld.index, { screenX: ROOM_X, screenY: ROOM_Y });
+  console.log(dungeon.name + " seed:", dungeon.seed); // pass this as seed to replay a dungeon
+  const spawn = dungeon.start.getPlayerSpawn();
+  // Placeholder pickups in the first dungeon, until room data supplies item placement.
+  dungeon.start.items = fromOverworld.index > 0 ? [] : [
     new ItemDrop(spawn.x + 48, spawn.y - 48, new ChestArmor({
       id: "apprentice-robe",
       name: "Apprentice Robe",
@@ -83,6 +79,20 @@ function startRun() {
   ];
   debugTools.reset();
   clearDyingEnemies();
+  return dungeon;
+}
+
+// Starts a new run with the class, model and look picked on the menus. It begins in the first
+// overworld; each dungeon is made when the player first walks into it.
+function startRun() {
+  releaseRoomGraphics(null); // free the old run's pictures
+  overworlds = createOverworlds(ROOM_X, ROOM_Y); // houses sit where a dungeon room would
+  const finalRoom = new FinalRoom(ROOM_X, ROOM_Y);
+  finalRoom.tileTint = DUNGEON_DEFINITIONS[DUNGEON_DEFINITIONS.length - 1].tileTint;
+  run = new Run(null, game.selectedClass, game.selectedModel, game.appearance, overworlds, makeDungeon, finalRoom);
+  updateCamera();
+  debugTools.reset();
+  clearDyingEnemies();
   inventoryDrag = null;
   inventorySelection = null;
   inventoryInfoLines = [];
@@ -90,65 +100,27 @@ function startRun() {
   activeDialogue.close();
   restartShown = false;
   restartButton.hide();
-  for (const button of classButtons) {
-    button.hide();
+}
+
+// A key on the playermodel or class screen: A and D move the highlight, Enter or Space picks it.
+// Returns true when the key was one of those, so the page does not scroll on Space.
+function handleMenuKey(key) {
+  const action = getMenuAction(key);
+  if (action === null) {
+    return false;
   }
-}
-
-// Picks a class on the menu and moves on to the customization screen.
-function chooseClass(mageClass) {
-  if (game.selectClass(mageClass)) {
-    for (const button of classButtons) {
-      button.hide();
-    }
-    syncCustomizeControls();
-    for (const control of customizeControls) {
-      control.show();
-    }
+  if (action.type === "move") {
+    game.moveMenuCursor(action.step);
+  } else {
+    game.confirmMenuChoice();
   }
-}
-
-// Sets one part of the look on the customization screen to a hex color. Returns false (and
-// changes nothing) if the color is not valid.
-function changeLook(part, hex) {
-  return game.changeAppearance(part, hex);
-}
-
-// Makes the color pickers and hex boxes show the look the game is holding. Runs when the screen
-// opens, so it starts on the last run's look.
-function syncCustomizeControls() {
-  for (const part of APPEARANCE_PARTS) {
-    showLookInControls(part);
-  }
-}
-
-// Puts one part's current color in its picker and hex box, and clears the "bad hex" outline.
-function showLookInControls(part) {
-  const fields = customizeFields[part];
-  fields.picker.elt.value = game.appearance[part];
-  fields.input.elt.value = game.appearance[part];
-  fields.input.elt.style.outline = "";
+  return true;
 }
 
 // Ends the character creator and starts the run.
 function finishCustomizing() {
   if (game.finishCustomization()) {
-    for (const control of customizeControls) {
-      control.hide();
-    }
     startRun();
-  }
-}
-
-// Picks a playermodel in the character creator and moves on to the class menu.
-function chooseModel(modelName) {
-  if (game.selectModel(modelName)) {
-    for (const button of modelButtons) {
-      button.hide();
-    }
-    for (const button of classButtons) {
-      button.show();
-    }
   }
 }
 
@@ -161,95 +133,6 @@ function showMenu() {
     return;
   }
   restartButton.hide();
-  for (const button of modelButtons) {
-    button.show();
-  }
-}
-
-function makeModelButtons() {
-  PLAYER_MODEL_NAMES.forEach((name, i) => {
-    const button = createButton(i + 1 + ". " + name);
-    button.size(MODEL_BUTTON_W, MENU_BUTTON_H);
-    button.position(modelSlotCenterX(i) - MODEL_BUTTON_W / 2, modelButtonY());
-    button.style("background-color", "rgb(90, 90, 110)");
-    button.style("color", "white");
-    button.style("font-size", "24px");
-    button.mousePressed(() => chooseModel(name));
-    modelButtons.push(button);
-  });
-}
-
-function makeClassButtons() {
-  const buttonWidth = MODEL_BUTTON_W;
-  const gap = MODEL_BUTTON_GAP;
-  const totalWidth = MAGE_CLASSES.length * buttonWidth + (MAGE_CLASSES.length - 1) * gap;
-  const left = CANVAS_WIDTH / 2 - totalWidth / 2;
-  MAGE_CLASSES.forEach((mageClass, i) => {
-    const button = createButton(i + 1 + ". " + mageClass);
-    button.size(buttonWidth, MENU_BUTTON_H);
-    button.position(left + i * (buttonWidth + gap), CANVAS_HEIGHT / 2 - 10);
-    button.style("background-color", "rgb(" + CLASS_COLORS[mageClass].join(",") + ")");
-    button.style("color", "white");
-    button.style("font-size", "24px");
-    button.mousePressed(() => chooseClass(mageClass));
-    classButtons.push(button);
-  });
-}
-
-function makeCustomizeControls() {
-  const style = (control) => {
-    customizeControls.push(control);
-  };
-  APPEARANCE_PARTS.forEach((part, i) => {
-    const picker = createColorPicker(DEFAULT_APPEARANCE[part]);
-    picker.size(CUSTOMIZE_PICKER_W, CUSTOMIZE_PICKER_H);
-    const pickerPosition = customizePickerPosition(i);
-    picker.position(pickerPosition.x, pickerPosition.y);
-
-    const input = createInput(DEFAULT_APPEARANCE[part]);
-    input.size(CUSTOMIZE_HEX_W, CUSTOMIZE_PICKER_H);
-    const hexPosition = customizeHexPosition(i);
-    input.position(hexPosition.x, hexPosition.y);
-    input.style("font-size", "24px");
-    input.style("font-family", "monospace");
-    input.style("box-sizing", "border-box");
-    input.attribute("maxlength", "7");
-    input.attribute("spellcheck", "false");
-    input.attribute("aria-label", part + " color hex code");
-
-    // The picker always gives a valid "#rrggbb".
-    picker.elt.addEventListener("input", () => {
-      if (changeLook(part, picker.elt.value)) {
-        showLookInControls(part);
-      }
-    });
-    // While typing, a valid hex code updates the look right away. An invalid one only gets a red
-    // outline, so a half-typed code never changes the character.
-    input.elt.addEventListener("input", () => {
-      const hex = normalizeHex(input.elt.value);
-      if (hex !== null && changeLook(part, hex)) {
-        picker.elt.value = hex;
-        input.elt.style.outline = "";
-      } else {
-        input.elt.style.outline = "3px solid rgb(220, 50, 50)";
-      }
-    });
-    // When the box loses focus (or Enter is pressed), tidy it up: "FC9" becomes "#ffcc99", and a
-    // code that never became valid goes back to the current color.
-    input.elt.addEventListener("change", () => showLookInControls(part));
-
-    customizeFields[part] = { picker, input };
-    style(picker);
-    style(input);
-  });
-  const startButton = createButton("Start");
-  startButton.size(220, 64);
-  startButton.position(CUSTOMIZE_ROWS_X - 110, customizeRowY(APPEARANCE_PARTS.length) + 10);
-  startButton.mousePressed(finishCustomizing);
-  startButton.style("background-color", "rgb(90, 90, 110)");
-  startButton.style("color", "white");
-  startButton.style("font-size", "28px");
-  customizeControls.push(startButton);
 }
 
 async function setup() {
@@ -257,9 +140,11 @@ async function setup() {
   await loadTileImages();
   await loadEnemySheets();
   await loadItemSprites();
+  await loadWeaponSprites();
   createCanvas(CANVAS_WIDTH, CANVAS_HEIGHT);
   fitToWindow();
   noSmooth();
+  camera = new Camera(CANVAS_WIDTH, CANVAS_HEIGHT);
   buildBackground();
   frameRate(60); // movement is pixels per frame, so keep the frame rate fixed
   game = new Game();
@@ -270,15 +155,6 @@ async function setup() {
   restartButton.position(CANVAS_WIDTH / 2 - 110, CANVAS_HEIGHT / 2 + 30);
   restartButton.mousePressed(showMenu);
   restartButton.hide();
-  makeClassButtons();
-  for (const button of classButtons) {
-    button.hide(); // the class menu comes after the model screen
-  }
-  makeCustomizeControls();
-  for (const control of customizeControls) {
-    control.hide(); // the customization screen comes after the class menu
-  }
-  makeModelButtons();
   setupDone = true;
 }
 
@@ -314,11 +190,11 @@ function draw() {
   updateBackground();
   drawBackground();
   if (game.isModelSelect()) {
-    drawModelMenu();
+    drawModelMenu(game);
     return;
   }
   if (game.isMenu()) {
-    drawClassMenu();
+    drawClassMenu(game);
     return;
   }
   if (game.isCustomizing()) {
@@ -327,7 +203,7 @@ function draw() {
   }
   if (game.isInventory()) {
     const pointer = canvasPointer();
-    drawRoom(run.room, getRoomGraphic(run.room));
+    updateCamera();
     drawRunScene(run);
     drawInventoryMenu(
       run.player.inventory,
@@ -355,7 +231,7 @@ function draw() {
   for (const enemy of dead) {
     startEnemyDeath(enemy); // the model has already removed it from the room
   }
-  drawRoom(run.room, getRoomGraphic(run.room));
+  updateCamera();
   drawRunScene(run);
   if (run.player.showDeathScreen()) {
     activeDialogue.close();
@@ -370,10 +246,30 @@ function draw() {
   }
 }
 
-// Draws everything in the run except the room's tiles: items, shots, the player, enemies, NPCs
-// and the HUD.
+// Points the camera at the player while they are out in the overworld, which is bigger than the
+// screen. A dungeon room always fits on the screen, so there the camera stays put.
+function updateCamera() {
+  if (run.inOverworld()) {
+    const center = run.player.getCenter();
+    camera.follow(center.x, center.y, run.room);
+  } else {
+    camera.reset();
+  }
+}
+
+// Draws the whole run: the world, then the HUD on top of it.
 function drawRunScene(run) {
+  drawRunWorld(run);
+  drawRunHud(run);
+}
+
+// Draws the room and everything standing in it: items, shots, the player, enemies and NPCs.
+// Everything here sits at world positions, so it is drawn shifted by the camera.
+function drawRunWorld(run) {
   const { player, room } = run;
+  push();
+  translate(-camera.x, -camera.y);
+  drawRoom(room, getRoomGraphic(room));
   for (const drop of room.items) {
     drawItemDrop(drop);
   }
@@ -383,7 +279,10 @@ function drawRunScene(run) {
   for (const p of run.enemyProjectiles) {
     drawEnemyProjectile(p);
   }
+  drawHeldWeapon(player, true); // behind the player when facing up
   drawPlayer(player);
+  drawHeldWeapon(player, false);
+  drawChargeBar(player);
   for (const e of room.enemies) {
     drawEnemy(e);
     if (debugTools.overlay) {
@@ -394,15 +293,29 @@ function drawRunScene(run) {
     drawNpc(npc, player, activeDialogue.isActive());
   }
   drawDyingEnemies(!game.isInventory());
+  pop();
+}
+
+// Draws the HUD, which stays fixed on the screen however the camera moves.
+function drawRunHud(run) {
+  const { player, room } = run;
   drawHealthBar(player);
   drawGoldHud(player.inventory);
+  drawWeaponHud(player);
   drawFirstBossBar(room);
   drawClassLabel(player.mageClass);
-  drawMinimap(run.dungeon, room);
+  if (run.dungeon) {
+    drawMinimap(run.dungeon, room); // there is no dungeon map out in the overworld
+  }
   if (game.isPlaying() || game.isInventory()) {
     drawInventoryHudButton(game.isInventory());
   }
-  drawDialogueBox(activeDialogue, room.x, room.y, room.width, room.height);
+  if (run.inOverworld()) {
+    // The overworld is bigger than the screen, so the box goes where a room would sit.
+    drawDialogueBox(activeDialogue, ROOM_X, ROOM_Y, ROOM_WIDTH, ROOM_HEIGHT);
+  } else {
+    drawDialogueBox(activeDialogue, room.x, room.y, room.width, room.height);
+  }
 }
 
 function clearInventoryUiState() {
@@ -436,27 +349,45 @@ function keyPressed() {
     debugTools.overlay = !debugTools.overlay;
     return false;
   }
-  if (game.isModelSelect()) {
-    chooseModel(getModelForKey(key));
-    return;
-  }
-  if (game.isMenu()) {
-    chooseClass(getClassForKey(key));
+  if (game.isModelSelect() || game.isMenu()) {
+    if (handleMenuKey(key)) {
+      return false; // Space would scroll the page
+    }
     return;
   }
   if (game.isCustomizing()) {
-    if (isTypingInCustomizeField(document.activeElement)) {
-      if (keyCode === ENTER) {
-        document.activeElement.blur(); // finish typing; the next Enter starts the run
+    if (game.isEnteringHex()) {
+      // Typing a hex code: the digits, Backspace, Enter and Escape. Space and Backspace would
+      // scroll the page or go back, so those are swallowed; other keys are left alone.
+      const typed = getHexEntryAction(key);
+      if (typed === null) {
+        return key === " " ? false : undefined;
       }
-      return; // typing in a hex box is not a game command
-    }
-    const action = getCustomizeAction(key);
-    if (action !== null) {
-      finishCustomizing();
+      if (typed.type === "digit") {
+        game.typeHexDigit(typed.digit);
+      } else if (typed.type === "backspace") {
+        game.deleteHexDigit();
+      } else if (typed.type === "apply") {
+        game.confirmHexEntry();
+      } else {
+        game.cancelHexEntry();
+      }
       return false;
     }
-    return; // leave every other key alone (Tab, F5, ...)
+    const action = getCustomizeAction(key);
+    if (action === null) {
+      return; // leave every other key alone (Tab, F5, ...)
+    }
+    if (action.type === "row") {
+      game.moveMenuCursor(action.step);
+    } else if (action.type === "color") {
+      game.cycleHighlightedColor(action.step);
+    } else if (action.type === "hex") {
+      game.startHexEntry();
+    } else {
+      finishCustomizing();
+    }
+    return false; // Space would scroll the page
   }
   if ((game.isPlaying() || game.isInventory()) && key.toLowerCase() === "i") {
     toggleInventoryMenu();
@@ -470,6 +401,10 @@ function keyPressed() {
     return false;
   }
   if (game.isPlaying()) {
+    if (isWeaponSwitchKey(key) && !activeDialogue.isActive()) {
+      run.player.switchWeapon();
+      return false;
+    }
     if (key.toLowerCase() === "n") {
       toggleTopRightNpc(run, activeDialogue);
       return false;

@@ -8,7 +8,11 @@ const TILE = Object.freeze({
   PIT: 2,
   DOOR_CLOSED: 3,
   DOOR_OPEN: 4,
-  INTERIOR_WALL: 5
+  INTERIOR_WALL: 5,
+  DUNGEON_ENTRANCE: 6, // overworld only: walking onto it leads into a dungeon
+  HOUSE: 7, // overworld only: the roof and walls of a house
+  HOUSE_DOOR: 8, // a house's door, outside or inside: walking onto it goes through
+  OVERWORLD_EXIT: 9 // a start room's way out to the overworld: always open
 });
 
 // solid: blocks walking, shots and sight.
@@ -22,5 +26,9 @@ const TILE_PROPERTIES = Object.freeze({
   [TILE.PIT]: { solid: false, partOfWall: false, hazard: true },
   [TILE.DOOR_CLOSED]: { solid: true, partOfWall: true },
   [TILE.DOOR_OPEN]: { solid: false, partOfWall: true },
-  [TILE.INTERIOR_WALL]: { solid: true, partOfWall: false }
+  [TILE.INTERIOR_WALL]: { solid: true, partOfWall: false },
+  [TILE.DUNGEON_ENTRANCE]: { solid: false, partOfWall: false },
+  [TILE.HOUSE]: { solid: true, partOfWall: false },
+  [TILE.HOUSE_DOOR]: { solid: false, partOfWall: false },
+  [TILE.OVERWORLD_EXIT]: { solid: false, partOfWall: true } // set in the outer wall, like an open door
 });

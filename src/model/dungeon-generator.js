@@ -128,6 +128,8 @@ class Dungeon {
 //   branchiness  0..1, low = long winding path, high = bushy (default 0.5)
 //   screenX/Y    pixel position of the top-left corner of a screen (default 0, 0)
 //   templates    the room list to use (default ROOM_TEMPLATES)
+//   healthScale  how many times their normal health the enemies spawn with (default 1)
+//   tileTint     [r, g, b] the view tints every room's tile art with, or null for none (default null)
 function generateDungeon(options = {}) {
   const {
     roomCount = 10,
@@ -136,7 +138,9 @@ function generateDungeon(options = {}) {
     branchiness = 0.5,
     screenX = 0,
     screenY = 0,
-    templates = ROOM_TEMPLATES
+    templates = ROOM_TEMPLATES,
+    healthScale = 1,
+    tileTint = null
   } = options;
 
   const problems = validateRoomTemplates(templates);
@@ -259,7 +263,7 @@ function generateDungeon(options = {}) {
     const col = Math.floor((SCREEN_COLS - p.template.cols) / 2);
     const row = Math.floor((SCREEN_ROWS - p.template.rows) / 2);
     const room = new TemplateRoom(screenX + col * TILE_SIZE, screenY + row * TILE_SIZE, p.template);
-    return Object.assign(room, { id: p.id, role: p.role, worldCol: p.wx, worldRow: p.wy });
+    return Object.assign(room, { id: p.id, role: p.role, worldCol: p.wx, worldRow: p.wy, healthScale, tileTint });
   });
   for (const p of layout) {
     for (const link of p.links) {

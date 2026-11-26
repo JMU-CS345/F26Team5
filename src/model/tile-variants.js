@@ -52,7 +52,8 @@ function getDoorPiece(room, col, row) {
   if (type !== TILE.DOOR_OPEN && type !== TILE.DOOR_CLOSED) {
     return null;
   }
-  const exit = room.exits.find((e) => e.tiles.some((t) => t.col === col && t.row === row));
+  const onTile = (e) => e.tiles.some((t) => t.col === col && t.row === row);
+  const exit = room.exits.find(onTile) || (room.onwardDoor && onTile(room.onwardDoor) ? room.onwardDoor : null);
   if (!exit) {
     return null;
   }

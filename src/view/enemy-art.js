@@ -4,19 +4,27 @@
 // Jasmine can load it. validateEnemyArt() and spec/enemy-contract.spec.js check a new entry.
 // Load it after enemy-types.js.
 //
-// An entry is { sprite, projectile }. Both are optional.
+// An entry is { sprite, projectile, zap, strike }. All are optional.
 //   sprite      { frameTime, frames: [{ sheet, x, y }] } in 16x16 cells. Without one the enemy
 //               is a square in the type's color. A frame may add w and h (pixels, default 16)
 //               and ax (the art x that sits at the hitbox center, default w / 2). The sprite may
 //               add scale (screen pixels per art pixel, default hitbox length / 16) and
-//               states: { windup: [frames], attack: [frames] } used while in that state.
+//               states: { windup: [frames], attack: [frames], recover: [frames] } used while in
+//               that state.
 //               directions: { down, up, left, right } each { hop: [frames], attack: [frames] }
 //               picks art by which side the player is on (no flipping). hop plays in the
 //               "hop" and "bounce" states, and hop[0] is shown while resting.
 //               walk: { down, up, left, right } each { still, cycle }, for enemies that walk
 //               like the player does. still is the standing frame. While enemy.walkFrames is
-//               above 0, cycle plays, one frame per frameTime. Facing is the side the
-//               player is on, and the art is never flipped.
+//               above 0, cycle plays, one frame per frameTime. Facing is the side the enemy
+//               looks (the player's side, or the way it walks for type.facing "travel"), and
+//               the art is never flipped. A set may also have run (a cycle played instead of
+//               cycle while the enemy is in the "run" state) and act (one frame shown while it
+//               is winding up, attacking or recovering: the attack pose). The sprite may add
+//               runFrameTime (frames per run frame, default frameTime).
+//               walkCycle: frames for art with only one view (a boss). They play while the
+//               enemy is walking, and frames[0] is shown standing still. states still apply.
+//               noFlip: true keeps a plain sprite from being mirrored when the enemy faces left.
 //               aimFrames: a ring of frames chosen by the angle to the player.
 //               A frame's ay is the art y that sits at the hitbox bottom (default h).
 //   projectile  { frameTime, frames: [{ sheet, x, y, w, h }] }, an animated picture for the
@@ -24,6 +32,14 @@
 //               It may add rotate: true. Then frames face down and are turned to the direction
 //               of flight, and diagonalFrames (also facing down and to the left) are used for
 //               shots that fly diagonally.
+//   zap         { frameTime, frames: [{ sheet, x, y, w, h }] }, for an enemy with a zap attack:
+//               the bolt drawn in front of it while the bolt is out. The frames face down and
+//               are turned to whichever of the four sides the enemy faces. They start at the
+//               enemy's hitbox edge and reach out as far as the frame is tall.
+//   strike      { frameTime, body: [frames], impact: [small, big] }, for an enemy with a strike
+//               attack: the bolt from the sky is body frames stacked up from the spot, and the
+//               impact frames are drawn on the spot (ax and ay, the art pixel that sits on the
+//               spot, default the middle of the frame).
 
 const ENEMY_SPRITE_SIZE = 16; // every sprite cell is 16x16 pixels in its sheet
 
@@ -71,6 +87,77 @@ function bouncerHops(y) {
   ];
 }
 
+// Ghoul art: 16x32 cells, three columns (0 is standing, 1 and 2 are the steps). Rows of 32 pixels:
+// walking down, up, right, left, then running down, up, right, left (red eyes).
+const GHOUL_SHEET = "assets/enemy/Ghoul.png";
+
+function ghoulFrame(col, row) {
+  return { sheet: GHOUL_SHEET, x: col * 16, y: row * 32, w: 16, h: 32 };
+}
+
+// One Ghoul direction: the walk row and the run row of that direction. The cycle is the player's:
+// step, standing, other step, standing.
+function ghoulWalk(walkRow, runRow) {
+  const cycle = [1, 0, 2, 0];
+  return {
+    still: ghoulFrame(0, walkRow),
+    cycle: cycle.map((col) => ghoulFrame(col, walkRow)),
+    run: cycle.map((col) => ghoulFrame(col, runRow))
+  };
+}
+
+// Peeper Jr. art: eight 16x16 eye frames at y = 16, in the same order as the Spark Bark's. The
+// 8x8 shot is at the bottom left, from y = 32.
+const PEEPER_SHEET = "assets/enemy/Peeper.png";
+
+function peeperFrame(index) {
+  return { sheet: PEEPER_SHEET, x: index * 16, y: 16 };
+}
+
+// Demon Knight art: 64x64 cells. Walking is five frames in the top row, shooting is six in the
+// second row (two plain, three charging and one firing). The 16x16 shot is at the bottom left.
+const DEMON_KNIGHT_SHEET = "assets/enemy/Demon Knight.png";
+
+function knightFrame(col, row) {
+  return { sheet: DEMON_KNIGHT_SHEET, x: col * 64, y: row * 64, w: 64, h: 64 };
+}
+
+// Blockette art: 16x16 cells, two frames per row: walking down, up, right, left. The shield is on
+// the side it faces.
+const BLOCKETTE_SHEET = "assets/enemy/Blockette.png";
+
+function blocketteWalk(row) {
+  return {
+    still: { sheet: BLOCKETTE_SHEET, x: 0, y: row * 16 },
+    cycle: [0, 1].map((col) => ({ sheet: BLOCKETTE_SHEET, x: col * 16, y: row * 16 }))
+  };
+}
+
+// Shadow Wizard Money Gang art, one sheet for all three. Each wizard has rows for walking down,
+// up, right and left (two frames each), a row of four attack poses (down, right, up, left), and
+// the art for its attack:
+//   purple  16x16 cells, rows from y = 16, and the magic bolt (16x16) at y = 96
+//   yellow  16x32 cells, rows from y = 128, the lightning (16x32, four frames) at y = 288
+//   green   32x32 cells, rows from y = 336, the lightning body (16x32, two frames) at y = 496 and
+//           the impact (a small one and a big one) at y = 532
+const WIZARD_SHEET = "assets/enemy/Shadow Wizard Money Gang.png";
+const WIZARD_POSE_ORDER = ["down", "right", "up", "left"]; // the order of an attack pose row
+
+// The walk sets of one wizard colour. w and h are the cell size, firstRow the y of the walk row
+// facing down, and poseRow the y of the attack pose row.
+function wizardWalk(w, h, firstRow, poseRow) {
+  const walk = {};
+  ["down", "up", "right", "left"].forEach((dir, row) => {
+    const y = firstRow + row * h;
+    walk[dir] = {
+      still: { sheet: WIZARD_SHEET, x: 0, y: y, w: w, h: h },
+      cycle: [0, 1].map((col) => ({ sheet: WIZARD_SHEET, x: col * w, y: y, w: w, h: h })),
+      act: { sheet: WIZARD_SHEET, x: WIZARD_POSE_ORDER.indexOf(dir) * w, y: poseRow, w: w, h: h }
+    };
+  });
+  return walk;
+}
+
 const ENEMY_ART = Object.freeze({
   Jelly: {
     sprite: {
@@ -81,8 +168,21 @@ const ENEMY_ART = Object.freeze({
       ]
     }
   },
-  Zombie: {
-    sprite: { frameTime: 20, frames: [creatureFrame(0), creatureFrame(99)] }
+  Ghoul: {
+    // 16x32 art on a 16x16 hitbox: his feet stand on the bottom of the hitbox and he rises above it.
+    // He looks the way he walks. Red eyes, and a faster cycle, while he hunts.
+    sprite: {
+      frameTime: 12,
+      runFrameTime: 7,
+      scale: 1,
+      frames: [ghoulFrame(0, 0)],
+      walk: {
+        down: ghoulWalk(0, 4),
+        up: ghoulWalk(1, 5),
+        right: ghoulWalk(2, 6),
+        left: ghoulWalk(3, 7)
+      }
+    }
   },
   Skeleton: {
     sprite: {
@@ -106,8 +206,18 @@ const ENEMY_ART = Object.freeze({
   Bat: {
     sprite: { frameTime: 8, frames: [batFrame(0), batFrame(1)] }
   },
-  Eyeball: {
-    sprite: { frameTime: 20, frames: [creatureFrame(5)] }
+  PeeperJr: {
+    // The eye turns to look at the player, like the Spark Bark's. Frame 0 looks at the viewer,
+    // then the frames turn through left, to the back of the eye, and round through right.
+    sprite: {
+      frameTime: 8,
+      frames: [peeperFrame(0)],
+      aimFrames: [0, 1, 2, 3, 4, 5, 6, 7].map((i) => peeperFrame(i))
+    },
+    projectile: {
+      frameTime: 8,
+      frames: [{ sheet: PEEPER_SHEET, x: 0, y: 32, w: 8, h: 8 }]
+    }
   },
   Bouncer: {
     // Four directions, each with 2 hop frames and a sword frame, drawn at full size. Hop cells
@@ -163,8 +273,81 @@ const ENEMY_ART = Object.freeze({
       ]
     }
   },
-  Demon: {
-    sprite: { frameTime: 20, frames: [creatureFrame(123)] }
+  DemonKnight: {
+    // 64x64 on a 64x64 hitbox, drawn at full size. He stomps (the five walking frames) and only
+    // faces front. While he charges a shot the glowing frames play, and the firing pose follows.
+    sprite: {
+      frameTime: 8,
+      scale: 1,
+      noFlip: true,
+      frames: [knightFrame(0, 0)],
+      walkCycle: [0, 1, 2, 3, 4].map((col) => knightFrame(col, 0)),
+      states: {
+        windup: [knightFrame(2, 1), knightFrame(3, 1), knightFrame(4, 1)],
+        recover: [knightFrame(5, 1)]
+      }
+    },
+    projectile: {
+      frameTime: 8,
+      frames: [{ sheet: DEMON_KNIGHT_SHEET, x: 0, y: 128, w: 16, h: 16 }]
+    }
+  },
+  Blockette: {
+    sprite: {
+      frameTime: 12,
+      frames: [{ sheet: BLOCKETTE_SHEET, x: 0, y: 0 }],
+      walk: {
+        down: blocketteWalk(0),
+        up: blocketteWalk(1),
+        right: blocketteWalk(2),
+        left: blocketteWalk(3)
+      }
+    }
+  },
+  ShadowWizardPurple: {
+    sprite: {
+      frameTime: 14,
+      scale: 1,
+      frames: [{ sheet: WIZARD_SHEET, x: 0, y: 16, w: 16, h: 16 }],
+      walk: wizardWalk(16, 16, 16, 80)
+    },
+    projectile: {
+      frameTime: 6,
+      rotate: true,
+      // The bolt faces down. The shots only fly along the four sides, but a rotating shot needs
+      // diagonal frames, so it gets the same picture.
+      frames: [{ sheet: WIZARD_SHEET, x: 0, y: 96, w: 16, h: 16 }],
+      diagonalFrames: [{ sheet: WIZARD_SHEET, x: 0, y: 96, w: 16, h: 16 }]
+    }
+  },
+  ShadowWizardYellow: {
+    sprite: {
+      frameTime: 14,
+      scale: 1,
+      frames: [{ sheet: WIZARD_SHEET, x: 0, y: 128, w: 16, h: 32 }],
+      walk: wizardWalk(16, 32, 128, 256)
+    },
+    zap: {
+      frameTime: 2,
+      frames: [0, 1, 2, 3].map((i) => ({ sheet: WIZARD_SHEET, x: i * 16, y: 288, w: 16, h: 32 }))
+    }
+  },
+  ShadowWizardGreen: {
+    sprite: {
+      frameTime: 16,
+      scale: 1,
+      frames: [{ sheet: WIZARD_SHEET, x: 0, y: 336, w: 32, h: 32 }],
+      walk: wizardWalk(32, 32, 336, 464)
+    },
+    strike: {
+      frameTime: 3,
+      // The two body frames join end to end, so they stack into a bolt as tall as it needs to be.
+      body: [0, 1].map((i) => ({ sheet: WIZARD_SHEET, x: i * 16, y: 496, w: 16, h: 32 })),
+      impact: [
+        { sheet: WIZARD_SHEET, x: 0, y: 532, w: 32, h: 28, ax: 16, ay: 12 },
+        { sheet: WIZARD_SHEET, x: 32, y: 532, w: 32, h: 28, ax: 16, ay: 14 }
+      ]
+    }
   }
 });
 
@@ -186,9 +369,15 @@ function allSpriteFrames(sprite) {
     list = list.concat(sprite.directions[dirName].hop, sprite.directions[dirName].attack);
   }
   for (const dirName of Object.keys(sprite.walk || {})) {
-    list = list.concat(sprite.walk[dirName].still, sprite.walk[dirName].cycle);
+    const set = sprite.walk[dirName];
+    list = list.concat(set.still, set.cycle, set.run || [], set.act || []);
   }
-  return list.concat(sprite.aimFrames || []);
+  return list.concat(sprite.aimFrames || [], sprite.walkCycle || []);
+}
+
+// True in the states where an enemy is making an attack, so the art shows the attack pose.
+function isAttackingState(state) {
+  return state === "windup" || state === "attack" || state === "recover";
 }
 
 // The frame to draw for this enemy right now. tick is any counter that grows each frame.
@@ -199,8 +388,15 @@ function enemySpriteFrame(enemy, sprite, tick) {
   let frames = sprite.frames;
   if (sprite.walk) {
     const set = sprite.walk[enemy.facingDir];
+    if (set.act && isAttackingState(enemy.state)) {
+      return set.act;
+    }
     if (enemy.walkFrames === 0) {
       return set.still;
+    }
+    if (set.run && enemy.state === "run") {
+      const runTime = sprite.runFrameTime || sprite.frameTime;
+      return set.run[Math.floor(enemy.walkFrames / runTime) % set.run.length];
     }
     return set.cycle[Math.floor(enemy.walkFrames / sprite.frameTime) % set.cycle.length];
   }
@@ -214,6 +410,11 @@ function enemySpriteFrame(enemy, sprite, tick) {
     }
   } else if (sprite.states && sprite.states[enemy.state]) {
     frames = sprite.states[enemy.state];
+  } else if (sprite.walkCycle) {
+    if (enemy.walkFrames === 0) {
+      return sprite.frames[0];
+    }
+    return sprite.walkCycle[Math.floor(enemy.walkFrames / sprite.frameTime) % sprite.walkCycle.length];
   }
   return frames[Math.floor(tick / sprite.frameTime) % frames.length];
 }
@@ -224,6 +425,12 @@ function allArtFrames(art) {
   let list = art.sprite ? allSpriteFrames(art.sprite) : [];
   if (art.projectile) {
     list = list.concat(art.projectile.frames, art.projectile.diagonalFrames || []);
+  }
+  if (art.zap) {
+    list = list.concat(art.zap.frames);
+  }
+  if (art.strike) {
+    list = list.concat(art.strike.body, art.strike.impact);
   }
   return list;
 }
@@ -291,13 +498,38 @@ function validateEnemyArt(art = ENEMY_ART, types = ENEMY_TYPES) {
           const set = sprite.walk[dirName] || {};
           checkSpriteFrames(set.still ? [set.still] : undefined, "sprite.walk." + dirName + ".still", bad);
           checkSpriteFrames(set.cycle, "sprite.walk." + dirName + ".cycle", bad);
+          if (set.run !== undefined) {
+            checkSpriteFrames(set.run, "sprite.walk." + dirName + ".run", bad);
+          }
+          if (set.act !== undefined) {
+            checkSpriteFrames([set.act], "sprite.walk." + dirName + ".act", bad);
+          }
         }
+        if (sprite.runFrameTime !== undefined && !isNumberAtLeast(sprite.runFrameTime, 1)) {
+          bad("sprite.runFrameTime must be a number of at least 1");
+        }
+      }
+      if (sprite.walkCycle !== undefined) {
+        checkSpriteFrames(sprite.walkCycle, "sprite.walkCycle", bad);
       }
       if (sprite.states !== undefined) {
         for (const stateName of Object.keys(sprite.states)) {
           checkSpriteFrames(sprite.states[stateName], "sprite.states." + stateName, bad);
         }
       }
+    }
+    if (entry.zap !== undefined) {
+      if (!isNumberAtLeast(entry.zap.frameTime, 1)) {
+        bad("zap.frameTime must be a number of at least 1");
+      }
+      checkSpriteFrames(entry.zap.frames, "zap.frames", bad);
+    }
+    if (entry.strike !== undefined) {
+      if (!isNumberAtLeast(entry.strike.frameTime, 1)) {
+        bad("strike.frameTime must be a number of at least 1");
+      }
+      checkSpriteFrames(entry.strike.body, "strike.body", bad);
+      checkSpriteFrames(entry.strike.impact, "strike.impact", bad);
     }
     const projectile = entry.projectile;
     if (projectile !== undefined) {

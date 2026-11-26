@@ -16,6 +16,14 @@ const PLAYER_ART = Object.freeze({
     },
     spriteW: 16,
     spriteH: 32,
+    // Where the hand that holds a weapon is, in pixels from the middle of the player's 16x16
+    // hitbox, for each way the player faces. The weapon's grip is drawn here.
+    hand: {
+      down: { x: 4, y: 5 },
+      up: { x: -4, y: -15 },
+      right: { x: 11, y: -8 },
+      left: { x: -11, y: -8 }
+    },
     // Columns of the walk frames in order. Each cycle starts on a step, not the standing frame.
     walkCycles: {
       down: [1, 0, 2, 0],
@@ -33,6 +41,12 @@ const PLAYER_ART = Object.freeze({
     },
     spriteW: 16,
     spriteH: 16,
+    hand: {
+      down: { x: 5, y: 10 },
+      up: { x: -5, y: -10 },
+      right: { x: 11, y: 0 },
+      left: { x: -11, y: 0 }
+    },
     walkCycles: {
       down: [1, 0, 2, 0],
       up: [1, 0, 2, 0],

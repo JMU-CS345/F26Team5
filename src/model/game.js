@@ -11,7 +11,7 @@ const GAME_STATES = Object.freeze({
   DEAD: "dead"
 });
 
-// Order matters: it is the order shown on the menu and the 1/2/3 key mapping.
+// Order matters: it is the order shown on the menu, left to right.
 const MAGE_CLASSES = Object.freeze(["Fire", "Ice", "Mind"]);
 
 class Game {
@@ -19,7 +19,54 @@ class Game {
     this.state = GAME_STATES.MODEL;
     this.selectedModel = null;
     this.selectedClass = null;
+    this.menuIndex = 0; // which choice is highlighted on the playermodel or class screen
+    this.hexBuffer = null; // the hex digits typed so far in the character creator, or null when not typing one
     this.appearance = makeAppearance(); // kept between runs, so it starts as last time's look
+  }
+
+  // The choices on the current menu screen: the playermodels (left to right) on the model screen, the
+  // classes on the class menu, and the parts of the look (top to bottom) in the character creator.
+  // Empty on every other screen.
+  getMenuChoices() {
+    if (this.isModelSelect()) {
+      return PLAYER_MODEL_NAMES;
+    }
+    if (this.isMenu()) {
+      return MAGE_CLASSES;
+    }
+    if (this.isCustomizing()) {
+      return APPEARANCE_PARTS; // the rows of the character creator, top to bottom
+    }
+    return [];
+  }
+
+  // The highlighted choice, or null when the screen has none.
+  getHighlightedChoice() {
+    const choices = this.getMenuChoices();
+    return choices.length === 0 ? null : choices[this.menuIndex];
+  }
+
+  // Moves the highlight by step (-1 for left or up, 1 for right or down). It wraps round at the ends. Returns
+  // false when the screen has no choices.
+  moveMenuCursor(step) {
+    const count = this.getMenuChoices().length;
+    if (count === 0 || this.isEnteringHex()) {
+      return false;
+    }
+    this.menuIndex = (((this.menuIndex + step) % count) + count) % count;
+    return true;
+  }
+
+  // Picks the highlighted choice: the model on the model screen, the class on the class menu.
+  // Returns false when there is nothing to pick.
+  confirmMenuChoice() {
+    if (this.isModelSelect()) {
+      return this.selectModel(this.getHighlightedChoice());
+    }
+    if (this.isMenu()) {
+      return this.selectClass(this.getHighlightedChoice());
+    }
+    return false;
   }
 
   isModelSelect() {
@@ -82,6 +129,7 @@ class Game {
     }
     this.selectedModel = modelName;
     this.state = GAME_STATES.MENU;
+    this.menuIndex = 0;
     return true;
   }
 
@@ -93,6 +141,7 @@ class Game {
     }
     this.selectedClass = mageClass;
     this.state = GAME_STATES.CUSTOMIZE;
+    this.menuIndex = 0;
     return true;
   }
 
@@ -106,11 +155,85 @@ class Game {
     return true;
   }
 
+  isEnteringHex() {
+    return this.hexBuffer !== null;
+  }
+
+  // Starts typing a hex code for the highlighted part, in the character creator. Returns false
+  // anywhere else.
+  startHexEntry() {
+    if (!this.isCustomizing()) {
+      return false;
+    }
+    this.hexBuffer = "";
+    return true;
+  }
+
+  // Adds one hex digit (0-9, a-f, either case) to the code being typed, up to six. Returns whether it
+  // was added.
+  typeHexDigit(digit) {
+    if (!this.isEnteringHex() || this.hexBuffer.length >= 6 || !/^[0-9a-fA-F]$/.test(digit)) {
+      return false;
+    }
+    this.hexBuffer += digit.toLowerCase();
+    return true;
+  }
+
+  // Deletes the last digit typed. Returns whether there was one.
+  deleteHexDigit() {
+    if (!this.isEnteringHex() || this.hexBuffer.length === 0) {
+      return false;
+    }
+    this.hexBuffer = this.hexBuffer.slice(0, -1);
+    return true;
+  }
+
+  // Stops typing and keeps the part's color as it was.
+  cancelHexEntry() {
+    this.hexBuffer = null;
+  }
+
+  // The color the digits typed so far make, like "#ffcc99", or null while they are not three or six
+  // digits. The screen shows it as a preview.
+  getHexEntryColor() {
+    return this.isEnteringHex() ? normalizeHex("#" + this.hexBuffer) : null;
+  }
+
+  // Sets the highlighted part to the typed code and stops typing. A code that is not three or six
+  // digits is not applied and typing carries on (returns false). Enter with nothing typed gives up.
+  confirmHexEntry() {
+    if (!this.isEnteringHex()) {
+      return false;
+    }
+    if (this.hexBuffer === "") {
+      this.hexBuffer = null;
+      return false;
+    }
+    const color = this.getHexEntryColor();
+    if (color === null) {
+      return false;
+    }
+    this.appearance = setAppearanceColor(this.appearance, this.getHighlightedChoice(), color);
+    this.hexBuffer = null;
+    return true;
+  }
+
+  // In the character creator, moves the highlighted part (body, eyes, shirt or pants) to the next
+  // color in its palette (step 1) or the previous one (step -1). Returns false anywhere else.
+  cycleHighlightedColor(step) {
+    if (!this.isCustomizing() || this.isEnteringHex()) {
+      return false;
+    }
+    this.appearance = cyclePaletteColor(this.appearance, this.getHighlightedChoice(), step);
+    return true;
+  }
+
   // Finishes the character creator and starts the run.
   finishCustomization() {
     if (!this.isCustomizing()) {
       return false;
     }
+    this.hexBuffer = null;
     this.state = GAME_STATES.PLAYING;
     return true;
   }
@@ -132,6 +255,8 @@ class Game {
     }
     this.selectedModel = null;
     this.selectedClass = null;
+    this.menuIndex = 0;
+    this.hexBuffer = null;
     this.state = GAME_STATES.MODEL;
     return true;
   }

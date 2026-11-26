@@ -52,9 +52,20 @@ function buildRoomGraphic(room) {
   const g = createGraphics(room.width, room.height);
   g.noSmooth();
   g.noStroke();
+  if (room.tileTint) {
+    g.tint(...room.tileTint); // this dungeon's tiles are the usual art in other colors
+  }
   for (let row = 0; row < room.tileGrid.length; row++) {
     for (let col = 0; col < room.tileGrid[row].length; col++) {
-      drawTile(g, room, col, row);
+      if (room.isOverworld) {
+        drawOverworldTile(g, room, col, row);
+      } else if (room.isHouse) {
+        drawHouseTile(g, room, col, row);
+      } else if (room.getTile(col, row) === TILE.OVERWORLD_EXIT) {
+        drawOverworldExitTile(g, room, col, row);
+      } else {
+        drawTile(g, room, col, row);
+      }
     }
   }
   return g;

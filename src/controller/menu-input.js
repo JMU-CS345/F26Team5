@@ -1,19 +1,16 @@
-// Turns a key on the class menu into a mage class. Keys 1, 2 and 3 pick the
-// classes in MAGE_CLASSES order. Returns null for any other key.
-function getClassForKey(key) {
-  const index = Number(key) - 1;
-  if (!Number.isInteger(index) || index < 0 || index >= MAGE_CLASSES.length) {
-    return null;
+// Keys on the playermodel and class screens. They use the movement keys: A and D move the
+// highlight left and right, and Enter or Space picks the highlighted choice. No mouse and no number
+// keys. Returns { type: "move", step: -1 or 1 }, { type: "confirm" }, or null for any other key.
+function getMenuAction(key) {
+  const k = String(key).toLowerCase();
+  if (k === "a") {
+    return { type: "move", step: -1 };
   }
-  return MAGE_CLASSES[index];
-}
-
-// Turns a key on the model screen into a playermodel name. Keys 1 and 2 pick the
-// models in PLAYER_MODEL_NAMES order. Returns null for any other key.
-function getModelForKey(key) {
-  const index = Number(key) - 1;
-  if (!Number.isInteger(index) || index < 0 || index >= PLAYER_MODEL_NAMES.length) {
-    return null;
+  if (k === "d") {
+    return { type: "move", step: 1 };
   }
-  return PLAYER_MODEL_NAMES[index];
+  if (k === "enter" || k === " ") {
+    return { type: "confirm" };
+  }
+  return null;
 }

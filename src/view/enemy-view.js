@@ -28,11 +28,13 @@ function drawEnemySprite(enemy, sprite, alpha = 255) {
     translate(sin(frameCount * 2) * 1.5, 0); // a small shake telegraphs the swing
   }
   // Plain sprites face right and flip. Art that picks its own direction must not flip.
-  if (enemy.facingLeft && !sprite.directions && !sprite.aimFrames && !sprite.walk) {
+  if (enemy.facingLeft && !sprite.directions && !sprite.aimFrames && !sprite.walk && !sprite.noFlip) {
     scale(-1, 1);
   }
   if (enemy.hurtTimer > 0) {
     tint(255, 110, 110, alpha);
+  } else if (enemy.blockTimer > 0) {
+    tint(170, 210, 255, alpha); // the shield took the hit
   } else if (enemy.state === "windup") {
     tint(255, 200, 120, alpha);
   } else {
@@ -99,6 +101,25 @@ function drawEnemyBody(enemy, alpha = 255) {
   }
 }
 
+// The short range lightning of a zap attack, in front of the enemy while the bolt is out. The art
+// faces down and starts at the edge of the hitbox, and is turned to the side the enemy faces.
+function drawEnemyZap(enemy) {
+  const art = ENEMY_ART[enemy.typeName];
+  if (!art || !art.zap || enemy.state !== "attack") {
+    return;
+  }
+  const frames = art.zap.frames;
+  const frame = frames[Math.floor(frameCount / art.zap.frameTime) % frames.length];
+  const turns = { down: 0, left: HALF_PI, up: PI, right: -HALF_PI };
+  const center = enemy.getCenter();
+  push();
+  translate(center.x, center.y);
+  rotate(turns[enemy.facingDir]);
+  noTint();
+  image(enemySheets[frame.sheet], -frame.w / 2, enemy.width / 2, frame.w, frame.h, frame.x, frame.y, frame.w, frame.h);
+  pop();
+}
+
 function drawEnemy(enemy) {
   if (enemy.isDead()) {
     return;
@@ -108,6 +129,7 @@ function drawEnemy(enemy) {
     return;
   }
   drawEnemyBody(enemy);
+  drawEnemyZap(enemy);
 }
 
 // An animated shot. With sprite.rotate the art faces down (or down and to the left for the
@@ -132,7 +154,57 @@ function drawShotSprite(p, sprite) {
   pop();
 }
 
+// Draws one frame of a strike's art so that its art pixel (ax, ay) is at (x, y).
+function drawStrikeFrame(frame, x, y) {
+  const ax = frame.ax === undefined ? frame.w / 2 : frame.ax;
+  const ay = frame.ay === undefined ? frame.h / 2 : frame.ay;
+  image(enemySheets[frame.sheet], x - ax, y - ay, frame.w, frame.h, frame.x, frame.y, frame.w, frame.h);
+}
+
+// Lightning called down by a Shadow Wizard. While it warns, a pulsing ring and a faint spark mark
+// the spot. While it strikes, the bolt comes down from the top of the screen onto the spot, with
+// a small impact and then a big one.
+function drawLightningStrike(p) {
+  const art = p.shooter && ENEMY_ART[p.shooter] ? ENEMY_ART[p.shooter].strike : null;
+  const x = p.pos.x + p.length / 2;
+  const y = p.pos.y + p.width / 2;
+  const pulse = 0.5 + 0.5 * sin(p.age * 0.6);
+  push();
+  noTint();
+  if (p.age < p.warn) {
+    noFill();
+    stroke(255, 255, 160, 90 + pulse * 130);
+    strokeWeight(1);
+    ellipse(x, y, p.length * 1.4, p.length * 0.8);
+    if (art) {
+      tint(255, 60 + pulse * 90);
+      drawStrikeFrame(art.impact[0], x, y);
+    }
+  } else if (p.isStriking()) {
+    const sinceStrike = p.age - p.warn;
+    if (art) {
+      const body = art.body[Math.floor(p.age / art.frameTime) % art.body.length];
+      const top = typeof camera !== "undefined" ? camera.y : 0;
+      const segments = Math.min(24, Math.ceil((y - top) / body.h) + 1);
+      for (let i = 0; i < segments; i++) {
+        image(enemySheets[body.sheet], x - body.w / 2, y - body.h * (i + 1) + 6, body.w, body.h, body.x, body.y, body.w, body.h);
+      }
+      drawStrikeFrame(sinceStrike < p.active / 3 ? art.impact[0] : art.impact[1], x, y);
+    } else {
+      noStroke();
+      fill(255, 255, 160);
+      rect(x - 3, 0, 6, y);
+      rect(p.pos.x, p.pos.y, p.length, p.width);
+    }
+  }
+  pop();
+}
+
 function drawEnemyProjectile(p) {
+  if (p.isStrike) {
+    drawLightningStrike(p);
+    return;
+  }
   const art = p.shooter ? ENEMY_ART[p.shooter] : null;
   if (art && art.projectile) {
     drawShotSprite(p, art.projectile);
