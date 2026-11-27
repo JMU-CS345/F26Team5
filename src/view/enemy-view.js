@@ -101,8 +101,9 @@ function drawEnemyBody(enemy, alpha = 255) {
   }
 }
 
-// The short range lightning of a zap attack, in front of the enemy while the bolt is out. The art
-// faces down and starts at the edge of the hitbox, and is turned to the side the enemy faces.
+// The short range lightning of a zap attack, while the bolt is out. The art faces down and starts
+// at the edge of the hitbox, and is turned to the side the enemy faces. Facing up, drawEnemy draws
+// it before the body, so the bolt comes out from behind the enemy.
 function drawEnemyZap(enemy) {
   const art = ENEMY_ART[enemy.typeName];
   if (!art || !art.zap || enemy.state !== "attack") {
@@ -114,10 +115,13 @@ function drawEnemyZap(enemy) {
   const center = enemy.getCenter();
   // Pointing left or right, the bolt comes out of the hands, which sit sideRaise pixels above the
   // middle (the same lift the damage box has). Across the turned art, that is sideways.
-  const raise = (enemy.getAttack() && enemy.getAttack().sideRaise) || 0;
+  const attack = enemy.getAttack() || {};
+  const raise = attack.sideRaise || 0;
   const lift = enemy.facingDir === "right" ? raise : enemy.facingDir === "left" ? -raise : 0;
+  // Pointing up or down, verticalRaise moves the whole bolt up the screen, like the damage box.
+  const vertical = enemy.facingDir === "up" || enemy.facingDir === "down" ? attack.verticalRaise || 0 : 0;
   push();
-  translate(center.x, center.y);
+  translate(center.x, center.y - vertical);
   rotate(turns[enemy.facingDir]);
   noTint();
   image(enemySheets[frame.sheet], -frame.w / 2 + lift, enemy.width / 2, frame.w, frame.h, frame.x, frame.y, frame.w, frame.h);
@@ -132,8 +136,14 @@ function drawEnemy(enemy) {
     drawEnemyBody(enemy, map(enemy.spawnTimer, ENEMY_SPAWN_FRAMES, 0, 40, 255));
     return;
   }
-  drawEnemyBody(enemy);
-  drawEnemyZap(enemy);
+  // Facing up we see his back, so the bolt goes under the sprite. Every other side, it is on top.
+  if (enemy.facingDir === "up") {
+    drawEnemyZap(enemy);
+    drawEnemyBody(enemy);
+  } else {
+    drawEnemyBody(enemy);
+    drawEnemyZap(enemy);
+  }
 }
 
 // An animated shot. With sprite.rotate the art faces down (or down and to the left for the
@@ -256,16 +266,31 @@ function drawDyingEnemies(advance = true) {
   }
 }
 
-// Debug overlay (F3): hitbox, detection radius, type name and health.
-function drawEnemyDebug(enemy) {
+// Debug overlay (from the debug menu): hitbox, what the enemy sees, type name and health. Most
+// enemies see in a circle of detection range (yellow). An enemy that only sees along a line (a
+// line vision enemy, or a shooter or zapper that needs the player in its line of fire) gets its strips in
+// blue. A line vision enemy has no circle, because it is never aware of a player outside its strip.
+// room and player are optional: room stops the strips at walls, player gives the strip width.
+function drawEnemyDebug(enemy, room, player) {
   const center = enemy.getCenter();
   push();
   noFill();
   strokeWeight(1);
   stroke(0, 255, 0);
   rect(enemy.pos.x, enemy.pos.y, enemy.length, enemy.width);
-  stroke(255, 255, 0, 120);
-  circle(center.x, center.y, 2 * enemy.detectionRange);
+  if (!enemy.usesLineVision()) {
+    stroke(255, 255, 0, 120);
+    circle(center.x, center.y, 2 * enemy.detectionRange);
+  }
+  fill(0, 170, 255, 45);
+  stroke(0, 170, 255, 160);
+  for (const lane of enemy.getSightLanes(room, player ? player.getBounds().w : undefined)) {
+    beginShape();
+    for (const corner of lane) {
+      vertex(corner.x, corner.y);
+    }
+    endShape(CLOSE);
+  }
   noStroke();
   fill(255);
   textSize(8);

@@ -105,17 +105,18 @@ describe("purple Shadow Wizard only shoots when the player is in the line of fir
   });
 });
 
-describe("yellow Shadow Wizard's bolt from the side is raised to his hands", function () {
+describe("yellow Shadow Wizard's bolt is raised to his hands", function () {
   let wiz;
   beforeEach(function () {
     wiz = createEnemy("ShadowWizardYellow", 300, 200);
   });
 
-  it("has a raise for the side bolt", function () {
+  it("has a raise for the side bolt and one for the up and down bolt", function () {
     expect(ENEMY_TYPES.ShadowWizardYellow.attack.sideRaise).toBeGreaterThan(0);
+    expect(ENEMY_TYPES.ShadowWizardYellow.attack.verticalRaise).toBeGreaterThan(0);
   });
 
-  it("lifts the left and right damage boxes by the raise, and leaves up and down alone", function () {
+  it("lifts the left and right damage boxes by the side raise", function () {
     const attack = ENEMY_TYPES.ShadowWizardYellow.attack;
     const c = wiz.getCenter();
     for (const side of ["left", "right"]) {
@@ -126,12 +127,43 @@ describe("yellow Shadow Wizard's bolt from the side is raised to his hands", fun
       expect(raised.h).toBe(flat.h);
       expect(raised.x).toBe(flat.x);
     }
+    // The side raise does not move an up or down box.
     for (const side of ["up", "down"]) {
       wiz.facingDir = side;
       expect(wiz.getSwingBox(attack.reach, attack.thickness, attack.sideRaise))
         .toEqual(wiz.getSwingBox(attack.reach, attack.thickness));
     }
     expect(c.y).toBe(200 + 8);
+  });
+
+  it("lifts the up and down damage boxes by the vertical raise, and leaves left and right alone", function () {
+    const attack = ENEMY_TYPES.ShadowWizardYellow.attack;
+    for (const side of ["up", "down"]) {
+      wiz.facingDir = side;
+      const flat = wiz.getSwingBox(attack.reach, attack.thickness);
+      const raised = wiz.getSwingBox(attack.reach, attack.thickness, 0, attack.verticalRaise);
+      expect(raised.y).toBe(flat.y - attack.verticalRaise);
+      expect(raised.h).toBe(flat.h);
+      expect(raised.x).toBe(flat.x);
+      expect(raised.w).toBe(flat.w);
+    }
+    for (const side of ["left", "right"]) {
+      wiz.facingDir = side;
+      expect(wiz.getSwingBox(attack.reach, attack.thickness, 0, attack.verticalRaise))
+        .toEqual(wiz.getSwingBox(attack.reach, attack.thickness));
+    }
+  });
+
+  it("hurts a player standing in the raised up bolt, above where the flat box ends", function () {
+    const attack = ENEMY_TYPES.ShadowWizardYellow.attack;
+    const player = new Player(0, 0);
+    wiz.facingDir = "up";
+    wiz.setState("attack", 10);
+    wiz.swingHit = false;
+    const c = wiz.getCenter();
+    player.width = 6;
+    player.pos.set(c.x, c.y - attack.reach - attack.verticalRaise); // top row of the raised box
+    expect(wiz.meleeHit(player)).toBe(true);
   });
 
   it("hurts a player standing at the height of the raised bolt, using the raised box", function () {
@@ -151,6 +183,9 @@ describe("yellow Shadow Wizard's bolt from the side is raised to his hands", fun
   it("validates the raise", function () {
     const yellow = ENEMY_TYPES.ShadowWizardYellow;
     expect(validateEnemyTypes({ T: { ...yellow, attack: { ...yellow.attack, sideRaise: -1 } } }).length).toBeGreaterThan(0);
+    expect(validateEnemyTypes({ T: { ...yellow, attack: { ...yellow.attack, verticalRaise: -1 } } }).length).toBeGreaterThan(0);
+    expect(validateEnemyTypes({ T: { ...ENEMY_TYPES.Jelly, attack: { ...ENEMY_TYPES.ShadowWizardPurple.attack, verticalRaise: 2 } } }).length)
+      .toBeGreaterThan(0);
     expect(validateEnemyTypes({ T: { ...ENEMY_TYPES.Jelly, attack: { ...ENEMY_TYPES.ShadowWizardPurple.attack, sideRaise: 2 } } }).length)
       .toBeGreaterThan(0);
   });

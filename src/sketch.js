@@ -77,7 +77,6 @@ function makeDungeon(entrance, fromOverworld) {
       description: "A small restorative potion."
     }))
   ];
-  debugTools.reset();
   clearDyingEnemies();
   return dungeon;
 }
@@ -91,7 +90,6 @@ function startRun() {
   finalRoom.tileTint = DUNGEON_DEFINITIONS[DUNGEON_DEFINITIONS.length - 1].tileTint;
   run = new Run(null, game.selectedClass, game.selectedModel, game.appearance, overworlds, makeDungeon, finalRoom);
   updateCamera();
-  debugTools.reset();
   debugMenu.close();
   clearDyingEnemies();
   inventoryDrag = null;
@@ -299,7 +297,7 @@ function drawRunWorld(run) {
   for (const e of room.enemies) {
     drawEnemy(e);
     if (debugTools.overlay) {
-      drawEnemyDebug(e);
+      drawEnemyDebug(e, room, player);
     }
   }
   for (const npc of room.npcs) {
@@ -358,10 +356,6 @@ function drawFirstBossBar(room) {
 }
 
 function keyPressed() {
-  if (keyCode === 114) {
-    debugTools.overlay = !debugTools.overlay;
-    return false;
-  }
   if (game.isPlaying() && isDebugMenuToggleKey(key, keyCode)) {
     debugMenu.toggle();
     resumeInputBlocked = !debugMenu.open; // keys still held when it closes do not move the player
@@ -431,10 +425,6 @@ function keyPressed() {
       run.player.switchWeapon();
       return false;
     }
-    if (key.toLowerCase() === "n") {
-      toggleTopRightNpc(run, activeDialogue);
-      return false;
-    }
     // Interaction: Space (32) or F
     if (keyCode === 32 || key.toLowerCase() === "f") {
       if (activeDialogue.isActive()) {
@@ -446,9 +436,6 @@ function keyPressed() {
         activeDialogue.start(nearbyNpc);
         return false;
       }
-    }
-    if (key.toLowerCase() === "e") {
-      spawnNextEnemy(run);
     }
   }
   // Temporary damage key for testing the death screen, commented out currently.

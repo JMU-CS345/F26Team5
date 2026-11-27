@@ -1,40 +1,12 @@
-// Testing aids for the sketch, kept out of the game code: press E to spawn enemies, N to put a
-// test NPC in the room, F3 to toggle the enemy debug overlay. F4 or ` opens the debug menu (see
-// debug-menu.js). Load this after enemy-types.js.
+// Testing aids for the sketch, kept out of the game code. Everything is reached from the debug
+// menu (F4 or `, see debug-menu.js). Load this after enemy-types.js.
 
 const debugTools = {
-  overlay: false, // F3: hitboxes and detection circles for enemies
-  invincible: false, // set from the debug menu: the sketch refills the player's health every frame
-  nextSpawnIndex: 0,
-
-  // Called when a run starts. The first spawn is the boss, so it is easy to test.
-  reset() {
-    this.nextSpawnIndex = ENEMY_TYPE_NAMES.indexOf("DemonKnight");
-  }
+  overlay: false, // hitboxes and detection circles for enemies, toggled from the debug menu
+  invincible: false // the sketch refills the player's health every frame
 };
 
-// Press E: spawns the next enemy type somewhere on the floor, away from the player.
-function spawnNextEnemy(run) {
-  const room = run.room;
-  const typeName = ENEMY_TYPE_NAMES[debugTools.nextSpawnIndex % ENEMY_TYPE_NAMES.length];
-  debugTools.nextSpawnIndex++;
-  for (let tries = 0; tries < 50; tries++) {
-    const enemy = createEnemy(
-      typeName,
-      random(room.x, room.x + room.width),
-      random(room.y, room.y + room.height),
-      true
-    );
-    const far = p5.Vector.dist(enemy.getCenter(), run.player.getCenter()) > 150;
-    if (far && !room.collidesWithWall(enemy.getBounds()) && !room.overlapsPit(enemy.getBounds())) {
-      room.enemies.push(enemy);
-      room.cleared = false;
-      return;
-    }
-  }
-}
-
-// Press N: puts the test Elder NPC in the top right of the room, or takes it away again.
+// Debug menu entry: puts the test Elder NPC in the top right of the room, or takes it away again.
 function toggleTopRightNpc(run, dialogue) {
   const room = run.room;
   const existingIndex = room.npcs.findIndex((n) => n.name === "Elder");

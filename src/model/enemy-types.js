@@ -55,8 +55,11 @@
 //                  thickness (pixels, default reach) and active (frames the bolt can hurt, default
 //                  10). It turns to the nearest of the four sides toward the player and hurts
 //                  whoever is in the bolt. The detectionRange is how close the player must be.
+//                  inLine (true) makes it start only when the player is already inside the bolt
+//                  on the side it would turn to, so it never zaps and misses.
 //                  sideRaise (pixels, default 0) lifts the bolt, its picture and the box that
 //                  hurts, when it points left or right, so it leaves the hands of a tall sprite.
+//                  verticalRaise (pixels, default 0) does the same when it points up or down.
 //                  strike calls lightning down on the spot where the player stands once windup
 //                  frames are over. The bolt only marks the spot for delay frames, then hurts
 //                  anyone there for active frames. It may have size (pixels, default 16) and
@@ -293,9 +296,11 @@ const ENEMY_TYPES = Object.freeze({
     facing: "travel",
     // Short range lightning toward the nearest of the four sides. It reaches 40 pixels from the
     // wizard's middle, which is 32 pixels past its hitbox, the length of the lightning art.
-    // sideRaise lifts it 4 pixels when it points left or right, to come out of his hands.
+    // sideRaise lifts it 4 pixels when it points left or right, and verticalRaise lifts it 4 pixels
+    // when it points up or down, to come out of his hands. The picture and the damage box both move.
+    // inLine: he only zaps a player who is already standing in one of his four bolts.
     attack: { kind: "zap", cooldown: 90, damage: 1, reach: 40, thickness: 16, windup: 24, active: 10, recover: 14,
-      sideRaise: 4 },
+      sideRaise: 4, verticalRaise: 4, inLine: true },
     boss: false,
     weakTo: ["Ice"],
     resists: ["Fire"],
@@ -381,6 +386,15 @@ function checkEnemyAttack(attackTable, bad) {
   }
   if (attack.sideRaise !== undefined && (attack.kind !== "zap" || !isNumberAtLeast(attack.sideRaise, 0))) {
     bad("attack.sideRaise must be a number of at least 0, and only a zap has one");
+  }
+  if (attack.verticalRaise !== undefined && (attack.kind !== "zap" || !isNumberAtLeast(attack.verticalRaise, 0))) {
+    bad("attack.verticalRaise must be a number of at least 0, and only a zap has one");
+  }
+  if (attack.kind === "zap" && attack.inLine !== undefined && typeof attack.inLine !== "boolean") {
+    bad("attack.inLine must be true or false");
+  }
+  if (attack.inLine !== undefined && attack.kind !== "shoot" && attack.kind !== "zap") {
+    bad("attack.inLine is only for a shoot or a zap");
   }
   if (attack.kind === "shoot") {
     if (attack.windup !== undefined && !isNumberAtLeast(attack.windup, 0)) {

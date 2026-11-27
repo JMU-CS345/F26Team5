@@ -593,7 +593,9 @@ const ENEMY_ATTACKS = Object.freeze({
   // detectionRange decides) it turns to the nearest of the four sides toward them, winds up, then
   // for attack.active frames (default ENEMY_SWING_FRAMES) there is a bolt attack.reach long in
   // front of it that hurts a player standing in it (Enemy.meleeHit does that part). It fires
-  // nothing, like melee. The state goes windup, attack, recover, idle.
+  // nothing, like melee. The state goes windup, attack, recover, idle. With attack.inLine it only
+  // starts when the player is already inside the bolt box on the side it would turn to, so it never
+  // zaps at nothing.
   zap: {
     run: function (enemy, player, room) {
       const attack = enemy.getAttack();
@@ -608,6 +610,9 @@ const ENEMY_ATTACKS = Object.freeze({
       }
       if (enemy.attackTimer > 0 || !enemy.canSee(player, room)) {
         return [];
+      }
+      if (attack.inLine && !enemy.playerInZapLine(player, attack)) {
+        return []; // not in any of the four bolts yet: wait, and zap the moment the player steps in
       }
       const toPlayer = enemy.directionTo(player);
       enemy.faceDirection(toPlayer.x, toPlayer.y); // the nearest of the four sides

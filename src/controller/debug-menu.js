@@ -279,7 +279,7 @@ function buildDebugCategories() {
       }
     },
     {
-      label: () => "Enemy hitboxes (F3): " + (debugTools.overlay ? "ON" : "OFF"),
+      label: () => "Enemy hitboxes: " + (debugTools.overlay ? "ON" : "OFF"),
       run: () => {
         debugTools.overlay = !debugTools.overlay;
         return debugTools.overlay ? "Hitboxes on" : "Hitboxes off";

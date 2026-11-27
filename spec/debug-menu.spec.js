@@ -240,7 +240,7 @@ describe("debug menu player and room entries", function () {
     const entry = entryNamed(menu, "Player & Room", "Enemy hitboxes");
     entry.run(ctx);
     expect(debugTools.overlay).toBe(true);
-    expect(debugEntryLabel(entry)).toBe("Enemy hitboxes (F3): ON");
+    expect(debugEntryLabel(entry)).toBe("Enemy hitboxes: ON");
   });
 
   it("kills every enemy in the room, so the next frame removes them and drops their money", function () {

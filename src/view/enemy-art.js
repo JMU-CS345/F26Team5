@@ -33,9 +33,11 @@
 //               of flight, and diagonalFrames (also facing down and to the left) are used for
 //               shots that fly diagonally.
 //   zap         { frameTime, frames: [{ sheet, x, y, w, h }] }, for an enemy with a zap attack:
-//               the bolt drawn in front of it while the bolt is out. The frames face down and
-//               are turned to whichever of the four sides the enemy faces. They start at the
-//               enemy's hitbox edge and reach out as far as the frame is tall.
+//               the bolt drawn while the bolt is out: over the enemy on three sides, and under it
+//               when it faces up. The frames face down and are turned to whichever of the four
+//               sides the enemy faces. They start at the enemy's hitbox edge and reach out as far
+//               as the frame is tall. The type's attack.sideRaise and attack.verticalRaise move
+//               them (and the damage box) up the screen.
 //   strike      { frameTime, body: [frames], impact: [small, big] }, for an enemy with a strike
 //               attack: the bolt from the sky is body frames stacked up from the spot, and the
 //               impact frames are drawn on the spot (ax and ay, the art pixel that sits on the

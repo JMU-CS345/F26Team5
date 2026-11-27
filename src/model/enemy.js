@@ -319,6 +319,78 @@ class Enemy {
       : room.hasLineOfSight(from.x, from.y, from.x, to.y);
   }
 
+  // How far a straight line from `from` toward (dx, dy), a unit direction, runs before it meets a
+  // wall, up to the detection range. Checks the same way Room.hasLineOfSight does.
+  sightRayLength(room, from, dx, dy) {
+    const range = this.detectionRange;
+    if (!room || typeof room.isWallAt !== "function") {
+      return range;
+    }
+    const step = room.tileSize / 4;
+    for (let d = step; d <= range; d += step) {
+      if (room.isWallAt(from.x + dx * d, from.y + dy * d)) {
+        return d - step;
+      }
+    }
+    return range;
+  }
+
+  // The strips this enemy can actually see or shoot along, for the debug overlay. Each strip is a
+  // list of four { x, y } corners. Two kinds of enemy have them:
+  //  - line vision (type.vision "line"): the tile row or column it faces, ahead of it, up to the
+  //    detection range or the first wall (the same test as seesAlongFacing).
+  //  - an inLine shooter (attack.inLine with aimSteps): one strip along each direction it can aim,
+  //    as wide as the player has to be inside for the shot to hit (the same test as
+  //    playerInShotLine). playerWidth is the player's hitbox width.
+  //  - an inLine zap: the four bolt boxes (the same test as playerInZapLine).
+  // Any other enemy has none, and sees in a circle of detection range.
+  getSightLanes(room, playerWidth = TILE_SIZE) {
+    const from = this.getCenter();
+    const lanes = [];
+    if (this.usesLineVision()) {
+      const ts = room ? room.tileSize : TILE_SIZE;
+      const ahead = { left: [-1, 0], right: [1, 0], up: [0, -1], down: [0, 1] }[this.facingDir];
+      const horizontal = ahead[1] === 0;
+      const length = this.sightRayLength(room, from, ahead[0], ahead[1]);
+      const origin = room ? (horizontal ? room.y : room.x) : 0;
+      const across = horizontal ? from.y : from.x;
+      const start = origin + Math.floor((across - origin) / ts) * ts; // edge of the tile row or column
+      const near = horizontal ? from.x : from.y;
+      const far = near + (horizontal ? ahead[0] : ahead[1]) * length;
+      lanes.push(
+        horizontal
+          ? [{ x: near, y: start }, { x: far, y: start }, { x: far, y: start + ts }, { x: near, y: start + ts }]
+          : [{ x: start, y: near }, { x: start + ts, y: near }, { x: start + ts, y: far }, { x: start, y: far }]
+      );
+    }
+    const attack = this.getAttack();
+    if (attack && attack.kind === "zap" && attack.inLine) {
+      const boxes = this.getZapBoxes(attack);
+      for (const side of ["right", "down", "left", "up"]) {
+        const b = boxes[side];
+        lanes.push([{ x: b.x, y: b.y }, { x: b.x + b.w, y: b.y }, { x: b.x + b.w, y: b.y + b.h }, { x: b.x, y: b.y + b.h }]);
+      }
+    }
+    if (attack && attack.kind === "shoot" && attack.inLine && attack.aimSteps) {
+      const half = (playerWidth + PROJECTILE_WIDTH) / 2 - ENEMY_LINE_MARGIN;
+      for (let k = 0; k < attack.aimSteps; k++) {
+        const angle = (k * 2 * Math.PI) / attack.aimSteps;
+        const dx = Math.cos(angle);
+        const dy = Math.sin(angle);
+        const length = this.sightRayLength(room, from, dx, dy);
+        const nx = -dy * half; // sideways, across the strip
+        const ny = dx * half;
+        lanes.push([
+          { x: from.x + nx, y: from.y + ny },
+          { x: from.x + dx * length + nx, y: from.y + dy * length + ny },
+          { x: from.x + dx * length - nx, y: from.y + dy * length - ny },
+          { x: from.x - nx, y: from.y - ny }
+        ]);
+      }
+    }
+    return lanes;
+  }
+
   // True when the player is inside detection range, walls or not. An enemy hears the player
   // through a wall and walks around it. Shooting and sight speed still need canSee. Line vision
   // enemies are only ever aware of a player they can see along their facing.
@@ -481,13 +553,16 @@ class Enemy {
   faceDirection(dx, dy) {
     this.facingLeft = dx < 0;
     this.facingAngle = Math.atan2(dy, dx);
+    this.facingDir = this.sideToward(dx, dy);
+  }
+
+  // Which of the four sides ("up", "down", "left" or "right") the way (dx, dy) points toward most.
+  // Changes nothing: faceDirection turns the enemy to it, and a zap checks it before turning.
+  sideToward(dx, dy) {
     if (Math.abs(dy) > Math.abs(dx)) {
-      this.facingDir = dy > 0 ? "down" : "up";
-    } else if (dx < 0) {
-      this.facingDir = "left";
-    } else {
-      this.facingDir = "right";
+      return dy > 0 ? "down" : "up";
     }
+    return dx < 0 ? "left" : "right";
   }
 
   // A label for the tile a pixel point is on, to tell whether a route's goal has moved.
@@ -602,7 +677,7 @@ class Enemy {
     if (this.state !== "attack" || this.swingHit || this.damageCooldown > 0) {
       return false;
     }
-    if (!rectsOverlap(this.getSwingBox(attack.reach, attack.thickness, attack.sideRaise), player.getBounds())) {
+    if (!rectsOverlap(this.getSwingBox(attack.reach, attack.thickness, attack.sideRaise, attack.verticalRaise), player.getBounds())) {
       return false;
     }
     player.takeDamage(attack.damage, this.directionTo(player));
@@ -615,21 +690,41 @@ class Enemy {
   // The box the sword (or bolt) covers, on the side the enemy faces. It reaches `reach` pixels
   // from the enemy's center and is `thickness` wide, which is `reach` for a sword, so a sword
   // covers a square. Matches the four way swing art. `raise` lifts a box that points left or right
-  // that many pixels, for an enemy whose hands are above its middle.
-  getSwingBox(reach, thickness = reach, raise = 0) {
+  // that many pixels, for an enemy whose hands are above its middle. `verticalRaise` does the same
+  // for a box that points up or down: the whole box moves up that many pixels. `facing` is the side
+  // to take the box for, the side the enemy faces unless another is given.
+  getSwingBox(reach, thickness = reach, raise = 0, verticalRaise = 0, facing = this.facingDir) {
     const c = this.getCenter();
-    if (this.facingDir === "left") {
+    if (facing === "left") {
       return { x: c.x - reach, y: c.y - thickness / 2 - raise, w: reach, h: thickness };
     }
-    if (this.facingDir === "right") {
+    if (facing === "right") {
       return { x: c.x, y: c.y - thickness / 2 - raise, w: reach, h: thickness };
     }
-    if (this.facingDir === "up") {
-      return { x: c.x - thickness / 2, y: c.y - reach, w: thickness, h: reach };
+    if (facing === "up") {
+      return { x: c.x - thickness / 2, y: c.y - reach - verticalRaise, w: thickness, h: reach };
     }
-    return { x: c.x - thickness / 2, y: c.y, w: thickness, h: reach };
+    return { x: c.x - thickness / 2, y: c.y - verticalRaise, w: thickness, h: reach };
   }
 
+  // The four sides' bolt boxes of a zap attack, keyed by side. They are the boxes meleeHit hurts
+  // the player in, with the raises, so they are where a zap can land.
+  getZapBoxes(attack) {
+    const boxes = {};
+    for (const side of ["right", "down", "left", "up"]) {
+      boxes[side] = this.getSwingBox(attack.reach, attack.thickness, attack.sideRaise, attack.verticalRaise, side);
+    }
+    return boxes;
+  }
+
+  // True when a zap toward the side the player is nearest to would land on them: the player is
+  // inside that side's bolt box. For attack.inLine, so the zap never starts when it would miss.
+  playerInZapLine(player, attack) {
+    const toPlayer = this.directionTo(player);
+    const side = this.sideToward(toPlayer.x, toPlayer.y);
+    const box = this.getSwingBox(attack.reach, attack.thickness, attack.sideRaise, attack.verticalRaise, side);
+    return rectsOverlap(box, player.getBounds());
+  }
   isTouching(player) {
     return rectsOverlap(this.getBounds(), player.getBounds());
   }
