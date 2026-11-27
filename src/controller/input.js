@@ -34,6 +34,11 @@ function getFireDirection(isDown) {
   return new p5.Vector(0, 0);
 }
 
+// Q swaps between the melee weapon and the projectile weapon. It is a key press, not a held key.
+function isWeaponSwitchKey(key) {
+  return typeof key === "string" && key.toLowerCase() === "q";
+}
+
 function isGameplayInputHeld(isDown) {
   return [37, 38, 39, 40, 65, 68, 83, 87].some((code) => isDown(code));
 }

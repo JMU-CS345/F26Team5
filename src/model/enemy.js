@@ -16,6 +16,14 @@ const ENEMY_SEPARATION_SPEED = 0.6; // most pixels per frame an enemy gives way 
 const ENEMY_REPLAN_FRAMES = 20; // how often a walking enemy rebuilds its tile route
 const ENEMY_WAKE_FRAMES = 60; // after the player walks in, enemies hold still and harmless this long
 const ENEMY_LINE_ALERT_FRAMES = 360; // a line-of-sight hunter keeps running to the spot this long
+const ENEMY_BLOCK_FRAMES = 8; // how long the shield flash lasts after a blocked hit
+const ENEMY_FRONT_COSINE = Math.SQRT1_2; // a hit counts as head-on inside 45 degrees of the facing
+const ENEMY_FACING_VECTORS = Object.freeze({
+  down: [0, 1],
+  up: [0, -1],
+  left: [-1, 0],
+  right: [1, 0]
+});
 
 class Enemy {
   // typeName is a key of ENEMY_TYPES. With no name it is a Jelly.
@@ -36,6 +44,7 @@ class Enemy {
     this.contactDamage = type.contactDamage;
     // Starts at zero so the enemy can damage the player on its first contact.
     this.damageCooldown = 0; // frames before this enemy may hurt the player again
+    this.ramCooldown = 0; // frames before the player's outstretched sword can ram this enemy again
     this.recoverTimer = 0; // frames this enemy stays put after hurting the player
     this.attackTimer = 0; // frames until the next shot or swing
     if (type.attack) {
@@ -43,28 +52,31 @@ class Enemy {
     }
     this.age = 0; // frames alive, for behaviors that wobble
     this.hurtTimer = 0; // frames left of the hit flash
+    this.blockTimer = 0; // frames left of the shield flash after a hit was blocked
     this.phaseFlashTimer = 0; // frames left of the phase change flash
     this.state = "idle"; // idle, windup, attack or recover. A move behavior sets it.
     this.stateTimer = 0; // frames left in this state
-    this.hopDir = null; // locked dash direction for the hop moves
+    this.memory = {}; // what the move and attack behaviors remember between frames, emptied by resetMoveState
     this.knockback = new p5.Vector(0, 0); // pixels per frame, shrinks as the shove fades
     this.knockbackTimer = 0;
     this.spawnTimer = 0; // createEnemy can raise this so the enemy fades in harmless
     this.wakeTimer = 0; // frames left of holding still after the player entered the room
+    this.walkFrames = 0; // frames spent walking, like the player's, 0 when standing still
+    this.fell = false; // true if it died by falling into a pit
     this.facingLeft = false;
     this.facingDir = "down"; // "down", "up", "left" or "right", the side the player is on
     this.facingAngle = Math.PI / 2; // radians toward the player, 0 is right and y grows down
     this.swingHit = false; // true once the current swing has hurt the player
     this.alertTimer = 0; // frames left of hunting the last place the player was seen
+    this.home = this.pos.copy(); // where it spawned, which a patrol route is measured from
+    this.patrolPath = null; // this enemy's own patrol route, or null to use the type's
+    this.patrolIndex = 0; // which stop of the route it is walking to
     this.lastKnown = null; // where the player was when last seen
     this.lastMoveName = null; // lets update() notice a phase swapping the move behavior
-    this.aimDir = null; // shot direction locked in when a telegraphed shot starts
     this.route = null; // tiles still to walk, from findTilePath, or null when none is planned
     this.routeGoal = null; // the goal tile the route was planned for
     this.routeAge = 0; // frames since the route was planned
     this.rng = Math.random; // specs swap this out to control wandering
-    this.wanderDir = null;
-    this.wanderTimer = 0;
   }
 
   isDead() {
@@ -143,8 +155,30 @@ class Enemy {
     this.resetMoveState();
   }
 
+  // True when a hit travelling along fromDir lands on the front of a shielded enemy (blocksFront).
+  // A hit with no direction, or one that lands on a side or the back, is never blocked.
+  blocksHit(fromDir) {
+    if (!this.type.blocksFront || !fromDir || fromDir.magSq() === 0) {
+      return false;
+    }
+    const front = ENEMY_FACING_VECTORS[this.facingDir];
+    // The hit comes from the side it is travelling away from, so the front is hit when the hit
+    // travels against the way the enemy faces.
+    const headOn = -(fromDir.x * front[0] + fromDir.y * front[1]) / fromDir.mag();
+    return headOn > ENEMY_FRONT_COSINE + 0.000001;
+  }
+
   // fromDir is the direction the hit travels. Leave it out for damage with no shove.
-  takeDamage(amount, fromDir) {
+  // element is "Fire", "Ice" or "Mind" for an elemental hit: the damage is doubled if this enemy is
+  // weak to it and halved if it resists (see weakTo and resists in enemy-types.js). Leave it out
+  // for a neutral hit.
+  // Returns false when a shield blocked the hit, so it did nothing, and true otherwise.
+  takeDamage(amount, fromDir, element = null) {
+    if (amount > 0 && this.blocksHit(fromDir)) {
+      this.blockTimer = ENEMY_BLOCK_FRAMES;
+      return false;
+    }
+    amount *= getElementMultiplier(this.type, element);
     if (amount > 0) {
       this.hurtTimer = ENEMY_HURT_FRAMES;
     }
@@ -164,11 +198,12 @@ class Enemy {
         this.attackTimer = Math.min(this.attackTimer, attack.cooldown);
       }
     }
+    return true;
   }
 
   // Shoves the enemy along dir (any length). Bosses are heavy and move half as far.
   applyKnockback(dir, speed = ENEMY_KNOCKBACK_SPEED) {
-    if (!dir || dir.magSq() === 0) {
+    if (!dir || dir.magSq() === 0 || this.type.noKnockback) {
       return;
     }
     this.knockback = dir.copy().setMag(this.type.boss ? speed / 2 : speed);
@@ -176,42 +211,46 @@ class Enemy {
     this.route = null; // a shove knocks it off its route
   }
 
-  // Cancels a windup (a swing or a telegraphed shot) or a dash. A swing already out is not cut short.
+  // Cancels a windup (a swing or a telegraphed shot) or a dash. A swing already out is not cut
+  // short. What it does to each is up to the attack or move behavior.
   interrupt() {
     if (this.state === "windup") {
       const attack = this.getAttack();
-      if (attack && attack.kind === "melee") {
-        this.setState("recover", attack.recover); // a broken swing leaves it open
+      if (attack) {
+        ENEMY_ATTACKS[attack.kind].interrupt(this, attack);
       } else {
         this.setState("idle", 0);
-        if (attack) {
-          this.attackTimer = Math.max(this.attackTimer, Math.ceil(attack.cooldown / 2));
-        }
       }
-      this.aimDir = null;
-    } else if (this.state === "hop") {
-      this.hopDir = null;
-      this.setState("idle", this.type.hopRest || 0);
+    }
+    const move = ENEMY_MOVES[this.getMoveName()];
+    if (move.interrupt) {
+      move.interrupt(this);
     }
   }
 
-  // Puts the enemy back to idle. Used when a phase swaps the move behavior mid-state.
+  // Puts the enemy back to idle and makes it forget what its behaviors were remembering. Used
+  // when a phase swaps the move behavior mid-state.
   resetMoveState() {
     this.setState("idle", 0);
-    this.hopDir = null;
     this.swingHit = false;
-    this.aimDir = null;
     this.route = null;
+    this.memory = {};
   }
 
-  // True for hoppers, which go straight at the player and ignore walls and sight.
+  // True for hoppers and bouncers, which go straight at the player and ignore walls and sight.
   isDirectMover() {
-    return ENEMY_DIRECT_MOVES.includes(this.getMoveName());
+    return ENEMY_MOVES[this.getMoveName()].direct === true;
   }
 
-  // True while winding up a shot. Walkers stand still for it, so the shot is telegraphed.
+  // True while winding up an attack, or while its swing or aftermath plays out. Walkers stand
+  // still for it, so the attack is telegraphed.
   isPlanted() {
-    return this.state === "windup" && !this.isDirectMover();
+    return (this.state === "windup" || this.state === "attack" || this.state === "recover") && !this.isDirectMover();
+  }
+
+  // True for enemies that face the way they walk (type.facing) instead of turning to the player.
+  facesTravel() {
+    return this.type.facing === "travel";
   }
 
   // The speed while the player is in sight: type.sightSpeed when it has one, else the normal speed.
@@ -278,6 +317,78 @@ class Enemy {
     return horizontal
       ? room.hasLineOfSight(from.x, from.y, to.x, from.y)
       : room.hasLineOfSight(from.x, from.y, from.x, to.y);
+  }
+
+  // How far a straight line from `from` toward (dx, dy), a unit direction, runs before it meets a
+  // wall, up to the detection range. Checks the same way Room.hasLineOfSight does.
+  sightRayLength(room, from, dx, dy) {
+    const range = this.detectionRange;
+    if (!room || typeof room.isWallAt !== "function") {
+      return range;
+    }
+    const step = room.tileSize / 4;
+    for (let d = step; d <= range; d += step) {
+      if (room.isWallAt(from.x + dx * d, from.y + dy * d)) {
+        return d - step;
+      }
+    }
+    return range;
+  }
+
+  // The strips this enemy can actually see or shoot along, for the debug overlay. Each strip is a
+  // list of four { x, y } corners. Two kinds of enemy have them:
+  //  - line vision (type.vision "line"): the tile row or column it faces, ahead of it, up to the
+  //    detection range or the first wall (the same test as seesAlongFacing).
+  //  - an inLine shooter (attack.inLine with aimSteps): one strip along each direction it can aim,
+  //    as wide as the player has to be inside for the shot to hit (the same test as
+  //    playerInShotLine). playerWidth is the player's hitbox width.
+  //  - an inLine zap: the four bolt boxes (the same test as playerInZapLine).
+  // Any other enemy has none, and sees in a circle of detection range.
+  getSightLanes(room, playerWidth = TILE_SIZE) {
+    const from = this.getCenter();
+    const lanes = [];
+    if (this.usesLineVision()) {
+      const ts = room ? room.tileSize : TILE_SIZE;
+      const ahead = { left: [-1, 0], right: [1, 0], up: [0, -1], down: [0, 1] }[this.facingDir];
+      const horizontal = ahead[1] === 0;
+      const length = this.sightRayLength(room, from, ahead[0], ahead[1]);
+      const origin = room ? (horizontal ? room.y : room.x) : 0;
+      const across = horizontal ? from.y : from.x;
+      const start = origin + Math.floor((across - origin) / ts) * ts; // edge of the tile row or column
+      const near = horizontal ? from.x : from.y;
+      const far = near + (horizontal ? ahead[0] : ahead[1]) * length;
+      lanes.push(
+        horizontal
+          ? [{ x: near, y: start }, { x: far, y: start }, { x: far, y: start + ts }, { x: near, y: start + ts }]
+          : [{ x: start, y: near }, { x: start + ts, y: near }, { x: start + ts, y: far }, { x: start, y: far }]
+      );
+    }
+    const attack = this.getAttack();
+    if (attack && attack.kind === "zap" && attack.inLine) {
+      const boxes = this.getZapBoxes(attack);
+      for (const side of ["right", "down", "left", "up"]) {
+        const b = boxes[side];
+        lanes.push([{ x: b.x, y: b.y }, { x: b.x + b.w, y: b.y }, { x: b.x + b.w, y: b.y + b.h }, { x: b.x, y: b.y + b.h }]);
+      }
+    }
+    if (attack && attack.kind === "shoot" && attack.inLine && attack.aimSteps) {
+      const half = (playerWidth + PROJECTILE_WIDTH) / 2 - ENEMY_LINE_MARGIN;
+      for (let k = 0; k < attack.aimSteps; k++) {
+        const angle = (k * 2 * Math.PI) / attack.aimSteps;
+        const dx = Math.cos(angle);
+        const dy = Math.sin(angle);
+        const length = this.sightRayLength(room, from, dx, dy);
+        const nx = -dy * half; // sideways, across the strip
+        const ny = dx * half;
+        lanes.push([
+          { x: from.x + nx, y: from.y + ny },
+          { x: from.x + dx * length + nx, y: from.y + dy * length + ny },
+          { x: from.x + dx * length - nx, y: from.y + dy * length - ny },
+          { x: from.x - nx, y: from.y - ny }
+        ]);
+      }
+    }
+    return lanes;
   }
 
   // True when the player is inside detection range, walls or not. An enemy hears the player
@@ -347,15 +458,19 @@ class Enemy {
     this.age++;
     if (this.isSpawning()) {
       this.spawnTimer--;
+      this.walkFrames = 0;
       return;
     }
     if (this.isWaking()) {
       this.wakeTimer--;
+      this.walkFrames = 0;
       return;
     }
     this.damageCooldown = Math.max(0, this.damageCooldown - 1);
+    this.ramCooldown = Math.max(0, this.ramCooldown - 1);
     this.attackTimer = Math.max(0, this.attackTimer - 1);
     this.hurtTimer = Math.max(0, this.hurtTimer - 1);
+    this.blockTimer = Math.max(0, this.blockTimer - 1);
     this.phaseFlashTimer = Math.max(0, this.phaseFlashTimer - 1);
     this.recoverTimer = Math.max(0, this.recoverTimer - 1);
     this.stateTimer = Math.max(0, this.stateTimer - 1);
@@ -364,8 +479,9 @@ class Enemy {
       this.resetMoveState(); // a phase swapped the move, so the old state means nothing now
     }
     this.lastMoveName = moveName;
+    const before = this.pos.copy();
     const aware = this.senseTarget(player, room);
-    if (aware && this.state !== "attack" && !this.usesLineVision()) {
+    if (aware && this.state !== "attack" && !this.usesLineVision() && !this.facesTravel()) {
       this.faceToward(player); // the facing is locked while a swing is out
     }
     if (this.knockbackTimer > 0) {
@@ -373,15 +489,37 @@ class Enemy {
       this.knockback.mult(ENEMY_KNOCKBACK_DECAY);
       this.knockbackTimer--;
     } else if (this.recoverTimer === 0 && !this.isPlanted()) {
-      ENEMY_MOVES[moveName](this, player, room);
+      ENEMY_MOVES[moveName].run(this, player, room);
       this.separate(room);
     }
+    this.walkFrames = this.pos.dist(before) > 0.01 ? this.walkFrames + 1 : 0;
+    // A shove can carry it over a pit. Fliers and bosses stay up.
+    if (!this.type.flies && !this.type.boss && room && typeof room.isPitAt === "function") {
+      const center = this.getCenter();
+      if (room.isPitAt(center.x, center.y)) {
+        this.fall();
+      }
+    }
+  }
+
+  // True while the enemy keeps out of pits. A flier crosses them, and a shoved enemy goes wherever
+  // the shove takes it. moveWithCollision reads this.
+  get avoidsPits() {
+    return !this.type.flies && this.knockbackTimer <= 0;
+  }
+
+  // Drops into a pit and dies there. The room treats it like any other kill.
+  fall() {
+    this.health = 0;
+    this.fell = true;
+    this.knockbackTimer = 0;
   }
 
   // Gives way to overlapping neighbors so a group does not collapse into one blob.
   // Turrets stay put, and a dash keeps its line.
   separate(room) {
-    if (!room || !room.enemies || this.state === "hop" || this.getMoveName() === "none") {
+    const move = ENEMY_MOVES[this.getMoveName()];
+    if (!room || !room.enemies || move.stationary || (move.dashState && this.state === move.dashState)) {
       return;
     }
     const mine = this.getCenter();
@@ -415,13 +553,16 @@ class Enemy {
   faceDirection(dx, dy) {
     this.facingLeft = dx < 0;
     this.facingAngle = Math.atan2(dy, dx);
+    this.facingDir = this.sideToward(dx, dy);
+  }
+
+  // Which of the four sides ("up", "down", "left" or "right") the way (dx, dy) points toward most.
+  // Changes nothing: faceDirection turns the enemy to it, and a zap checks it before turning.
+  sideToward(dx, dy) {
     if (Math.abs(dy) > Math.abs(dx)) {
-      this.facingDir = dy > 0 ? "down" : "up";
-    } else if (dx < 0) {
-      this.facingDir = "left";
-    } else {
-      this.facingDir = "right";
+      return dy > 0 ? "down" : "up";
     }
+    return dx < 0 ? "left" : "right";
   }
 
   // A label for the tile a pixel point is on, to tell whether a route's goal has moved.
@@ -493,7 +634,7 @@ class Enemy {
         return;
       }
       remaining -= moved;
-      if (this.usesLineVision()) {
+      if (this.usesLineVision() || this.facesTravel()) {
         this.faceDirection(alongX ? move : 0, alongX ? 0 : move); // look where it is going
       }
     }
@@ -523,19 +664,20 @@ class Enemy {
     if (this.isDead() || this.isSpawning() || this.isWaking() || !attack) {
       return [];
     }
-    return ENEMY_ATTACKS[attack.kind](this, player, room);
+    return ENEMY_ATTACKS[attack.kind].run(this, player, room);
   }
 
   // Melee hit: while in the attack state, hurts a player inside a reach box in front of us.
+  // A zap (short range lightning) is hit the same way, with a thinner box.
   meleeHit(player) {
     const attack = this.getAttack();
-    if (this.isDead() || !attack || attack.kind !== "melee") {
+    if (this.isDead() || player.isFalling() || !attack || (attack.kind !== "melee" && attack.kind !== "zap")) {
       return false;
     }
     if (this.state !== "attack" || this.swingHit || this.damageCooldown > 0) {
       return false;
     }
-    if (!rectsOverlap(this.getSwingBox(attack.reach), player.getBounds())) {
+    if (!rectsOverlap(this.getSwingBox(attack.reach, attack.thickness, attack.sideRaise, attack.verticalRaise), player.getBounds())) {
       return false;
     }
     player.takeDamage(attack.damage, this.directionTo(player));
@@ -545,27 +687,50 @@ class Enemy {
     return true;
   }
 
-  // The square the sword covers, on the side the enemy faces. Matches the four way swing art.
-  getSwingBox(reach) {
+  // The box the sword (or bolt) covers, on the side the enemy faces. It reaches `reach` pixels
+  // from the enemy's center and is `thickness` wide, which is `reach` for a sword, so a sword
+  // covers a square. Matches the four way swing art. `raise` lifts a box that points left or right
+  // that many pixels, for an enemy whose hands are above its middle. `verticalRaise` does the same
+  // for a box that points up or down: the whole box moves up that many pixels. `facing` is the side
+  // to take the box for, the side the enemy faces unless another is given.
+  getSwingBox(reach, thickness = reach, raise = 0, verticalRaise = 0, facing = this.facingDir) {
     const c = this.getCenter();
-    if (this.facingDir === "left") {
-      return { x: c.x - reach, y: c.y - reach / 2, w: reach, h: reach };
+    if (facing === "left") {
+      return { x: c.x - reach, y: c.y - thickness / 2 - raise, w: reach, h: thickness };
     }
-    if (this.facingDir === "right") {
-      return { x: c.x, y: c.y - reach / 2, w: reach, h: reach };
+    if (facing === "right") {
+      return { x: c.x, y: c.y - thickness / 2 - raise, w: reach, h: thickness };
     }
-    if (this.facingDir === "up") {
-      return { x: c.x - reach / 2, y: c.y - reach, w: reach, h: reach };
+    if (facing === "up") {
+      return { x: c.x - thickness / 2, y: c.y - reach - verticalRaise, w: thickness, h: reach };
     }
-    return { x: c.x - reach / 2, y: c.y, w: reach, h: reach };
+    return { x: c.x - thickness / 2, y: c.y - verticalRaise, w: thickness, h: reach };
   }
 
+  // The four sides' bolt boxes of a zap attack, keyed by side. They are the boxes meleeHit hurts
+  // the player in, with the raises, so they are where a zap can land.
+  getZapBoxes(attack) {
+    const boxes = {};
+    for (const side of ["right", "down", "left", "up"]) {
+      boxes[side] = this.getSwingBox(attack.reach, attack.thickness, attack.sideRaise, attack.verticalRaise, side);
+    }
+    return boxes;
+  }
+
+  // True when a zap toward the side the player is nearest to would land on them: the player is
+  // inside that side's bolt box. For attack.inLine, so the zap never starts when it would miss.
+  playerInZapLine(player, attack) {
+    const toPlayer = this.directionTo(player);
+    const side = this.sideToward(toPlayer.x, toPlayer.y);
+    const box = this.getSwingBox(attack.reach, attack.thickness, attack.sideRaise, attack.verticalRaise, side);
+    return rectsOverlap(box, player.getBounds());
+  }
   isTouching(player) {
     return rectsOverlap(this.getBounds(), player.getBounds());
   }
 
   damagePlayer(player) {
-    if (this.isDead() || this.isSpawning() || this.isWaking() || this.damageCooldown > 0) {
+    if (this.isDead() || player.isFalling() || this.isSpawning() || this.isWaking() || this.damageCooldown > 0) {
       return false;
     }
     if (!this.isTouching(player)) {
@@ -574,8 +739,8 @@ class Enemy {
     const away = this.directionTo(player); // from this enemy toward the player
     player.takeDamage(this.contactDamage, away);
     this.applyKnockback(away.copy().mult(-1)); // and the enemy recoils the other way
-    if (this.state === "hop") {
-      this.interrupt(); // running into the player ends a dash
+    if (this.state !== "windup") {
+      this.interrupt(); // running into the player ends a dash (a windup carries on)
     }
     this.damageCooldown = ENEMY_DAMAGE_COOLDOWN;
     this.recoverTimer = ENEMY_HIT_PAUSE_FRAMES;
@@ -591,11 +756,40 @@ class Enemy {
     if (this.isDead() || this.isSpawning() || !projectile.alive) {
       return false;
     }
-    if (!this.isTouchingProjectile(projectile)) {
+    if (projectile.hitEnemies.includes(this) || !this.isTouchingProjectile(projectile)) {
       return false;
     }
-    this.takeDamage(projectile.damage, projectile.vel);
-    projectile.alive = false;
+    const hurt = this.takeDamage(projectile.damage, projectile.vel, projectile.element);
+    if (hurt && projectile.pierce > 0) {
+      projectile.pierce--; // passes through, and will not hurt this enemy again
+      projectile.hitEnemies.push(this);
+    } else {
+      projectile.alive = false;
+    }
+    return true;
+  }
+
+  // The player walks into the enemy with the sword out. If it overlaps the ram area ({ x, y, w, h })
+  // it is hurt and shoved along dir, once per cooldown frames. Returns whether it was touched,
+  // even when a shield blocked the damage, so the player can be shoved back either way.
+  damageFromRam(hitbox, amount, dir, element, cooldown) {
+    if (this.isDead() || this.isSpawning() || this.ramCooldown > 0
+        || !rectsOverlap(this.getBounds(), hitbox)) {
+      return false;
+    }
+    this.takeDamage(amount, dir, element);
+    this.ramCooldown = cooldown;
+    return true;
+  }
+
+  // Hurts the enemy if it overlaps a sword's hitbox ({ x, y, w, h }). dir is the way the swing
+  // goes, which shoves the enemy. Returns whether it was touched, so the caller can count one hit
+  // per swing.
+  damageFromSlash(hitbox, amount, dir, element = null) {
+    if (this.isDead() || this.isSpawning() || !rectsOverlap(this.getBounds(), hitbox)) {
+      return false;
+    }
+    this.takeDamage(amount, dir, element);
     return true;
   }
 }

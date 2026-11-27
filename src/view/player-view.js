@@ -5,6 +5,9 @@
 const FACING_ROW = { down: 0, up: 1, right: 2, left: 3 };
 const WEAPON_ROW_OFFSET = 4;
 const STEP_TIME = 8; // game frames per walk frame
+// The "turning before attack" row, one frame per facing, used for the first part of a sword swing.
+const TURN_ROW = 8;
+const TURN_COLUMN = { down: 0, up: 1, right: 2, left: 3 };
 
 const playerSheets = {}; // model name -> loaded image
 // model name -> { pants, shirt, eyes }: white layers drawn over the body and tinted to the
@@ -14,8 +17,8 @@ const appearanceLayers = {};
 // Call once in setup(), with await.
 async function loadPlayerSheets() {
   for (const name of PLAYER_MODEL_NAMES) {
-    playerSheets[name] = await loadImageFile(PLAYER_MODELS[name].sheet);
-    const paths = PLAYER_MODELS[name].layerSheets;
+    playerSheets[name] = await loadImageFile(PLAYER_ART[name].sheet);
+    const paths = PLAYER_ART[name].layerSheets;
     appearanceLayers[name] = {};
     for (const layer of APPEARANCE_LAYER_ORDER) {
       appearanceLayers[name][layer] = await loadImageFile(paths[layer]);
@@ -28,7 +31,7 @@ async function loadPlayerSheets() {
 // the same (col, row) cell as the body, so they always line up. alpha fades the whole thing
 // (the death animation). Used in the game and for the preview on the customization screen.
 function drawPlayerSprite(modelName, appearance, col, row, x, y, w, h, alpha = 255) {
-  const model = PLAYER_MODELS[modelName];
+  const model = PLAYER_ART[modelName];
   const sx = col * model.spriteW;
   const sy = row * model.spriteH;
   const layers = [[playerSheets[modelName], getAppearanceColor(appearance, "body")]];
@@ -44,7 +47,15 @@ function drawPlayerSprite(modelName, appearance, col, row, x, y, w, h, alpha = 2
 
 // Which row and column of the player's sheet to draw.
 function getPlayerFrame(player) {
-  const model = PLAYER_MODELS[player.modelName];
+  const model = PLAYER_ART[player.modelName];
+  const phase = player.getSlashPhase();
+  if (phase === "windup" || phase === "spin") {
+    // The turning frame: before a swing, and for every quarter turn of a spin.
+    return { row: TURN_ROW, col: TURN_COLUMN[player.facing] };
+  }
+  if (phase !== null) {
+    return { row: FACING_ROW[player.facing] + WEAPON_ROW_OFFSET, col: 0 }; // arm out while swinging
+  }
   let row = FACING_ROW[player.facing];
   if (player.isArmUp()) {
     row += WEAPON_ROW_OFFSET;
@@ -58,12 +69,15 @@ function getPlayerFrame(player) {
 }
 
 function drawPlayer(player) {
-  // Alive: t is 0, so full size and fully opaque. Dying: fade out and shrink.
-  const t = player.deathFrames / DEATH_FRAMES;
-  if (t >= 1) {
+  // Alive: t is 0, so full size and fully opaque. Dying: fade out and shrink. Falling into a
+  // pit: shrink only, then the respawn brings the player back at full size.
+  const deathT = player.deathFrames / DEATH_FRAMES;
+  if (deathT >= 1) {
     return;
   }
-  const model = PLAYER_MODELS[player.modelName];
+  const fallT = player.isFalling() ? Math.min(player.fallFrames / PLAYER_FALL_FRAMES, 1) : 0;
+  const t = Math.max(deathT, fallT);
+  const model = PLAYER_ART[player.modelName];
   const sw = model.spriteW;
   const sh = model.spriteH;
   const f = getPlayerFrame(player);
@@ -76,7 +90,7 @@ function drawPlayer(player) {
   const top = player.pos.y - (sh - player.width) + (sh - h) / 2;
 
   drawPlayerSprite(player.modelName, player.appearance, f.col, f.row, left, top, w, h,
-    lerp(255, 0, t));
+    lerp(255, 0, deathT));
 }
 
 function drawHealthBar(player) {

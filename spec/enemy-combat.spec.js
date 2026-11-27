@@ -1,27 +1,5 @@
-// Line of sight, hunting memory, knockback on contact, hit pause, interrupts, melee cooldown,
-// separation and telegraphed shots. Uses placePlayerRightOf and tryAttackThroughWindup from
-// enemy.spec.js, which loads first in SpecRunner.html.
-
-// A solid wall from the top border to the bottom border, one tile thick, down the middle.
-function wallDownTheMiddle(room) {
-  const col = room.cols / 2;
-  for (let row = 1; row < room.rows - 1; row++) {
-    room.setTile(col, row, TILE.INTERIOR_WALL);
-  }
-}
-
-// A Jelly-based type that swings, with short frame counts so specs stay small.
-function meleeType(overrides = {}) {
-  return {
-    ...ENEMY_TYPES.Jelly,
-    move: "hopSwing",
-    hopRest: 2,
-    hopFrames: 5,
-    hopSpeed: 2,
-    attack: { kind: "melee", cooldown: 100, damage: 1, reach: 26, windup: 2, recover: 2 },
-    ...overrides
-  };
-}
+// Enemy combat: line of sight, knockback, interrupts, separation, telegraphed shots and spawn-in.
+// Shared helpers (placePlayerRightOf, makeRng, tryAttackThroughWindup, wallWithGap...) live in helpers.js.
 
 describe("Line of sight", function () {
   let room;
@@ -206,7 +184,8 @@ describe("Knockback on contact", function () {
   });
 
   it("recoils a boss half as far", function () {
-    const demon = createEnemy("Demon", 200, 200);
+    const demon = createEnemy("DemonKnight", 200, 200);
+    demon.type = { ...demon.type, noKnockback: false }; // the Demon Knight itself is never shoved
     demon.spawnTimer = 0;
     player.pos.set(210, 200);
     expect(demon.damagePlayer(player)).toBe(true);
@@ -274,11 +253,11 @@ describe("Interrupts", function () {
     const enemy = new Enemy(200, 200);
     enemy.type = { ...ENEMY_TYPES.Jelly, move: "hop", hopRest: 40, hopFrames: 14, hopSpeed: 2.2 };
     enemy.setState("hop", 10);
-    enemy.hopDir = new p5.Vector(1, 0);
+    enemy.memory.hopDir = new p5.Vector(1, 0);
     enemy.takeDamage(1);
     expect(enemy.state).toBe("idle");
     expect(enemy.stateTimer).toBe(40);
-    expect(enemy.hopDir).toBe(null);
+    expect(enemy.memory.hopDir).toBe(null);
   });
 
   it("cancels a telegraphed shot and delays the next one", function () {
@@ -291,14 +270,14 @@ describe("Interrupts", function () {
     expect(skeleton.state).toBe("windup");
     skeleton.takeDamage(1);
     expect(skeleton.state).toBe("idle");
-    expect(skeleton.aimDir).toBe(null);
+    expect(skeleton.memory.aimDir).toBe(null);
     expect(skeleton.attackTimer).toBeGreaterThanOrEqual(Math.ceil(ENEMY_TYPES.Skeleton.attack.cooldown / 2));
     expect(skeleton.tryAttack(player, room)).toEqual([]);
     expect(skeleton.state).toBe("idle");
   });
 
   it("leaves bosses alone, since they are heavy", function () {
-    const demon = createEnemy("Demon", 100, 100);
+    const demon = createEnemy("DemonKnight", 100, 100);
     demon.setState("windup", 5);
     demon.takeDamage(1);
     expect(demon.state).toBe("windup");
@@ -401,7 +380,7 @@ describe("Separation", function () {
   });
 
   it("never pushes a turret", function () {
-    const eye = createEnemy("Eyeball", 200, 200);
+    const eye = createEnemy("PeeperJr", 200, 200);
     eye.spawnTimer = 0;
     const walker = chaser(202, 200);
     room.enemies = [eye, walker];
@@ -475,11 +454,11 @@ describe("Telegraphed shots", function () {
   });
 
   it("does not get stuck winding up when a phase drops the windup", function () {
-    const demon = createEnemy("Demon", 100, 200);
+    const demon = createEnemy("DemonKnight", 100, 200);
     demon.type = {
-      ...ENEMY_TYPES.Demon,
-      attack: { ...ENEMY_TYPES.Demon.attack, windup: 5 },
-      phases: [{ below: 0.5, attack: { ...ENEMY_TYPES.Demon.attack, windup: 0 } }]
+      ...ENEMY_TYPES.DemonKnight,
+      attack: { ...ENEMY_TYPES.DemonKnight.attack, windup: 5, recover: 0 },
+      phases: [{ below: 0.5, attack: { ...ENEMY_TYPES.DemonKnight.attack, windup: 0, recover: 0 } }]
     };
     placePlayerRightOf(demon, player, 100);
     demon.attackTimer = 0;
@@ -582,5 +561,157 @@ describe("Delay after the player walks in", function () {
     expect(a.isWaking()).toBe(false);
     room.startEnemyDelay(20); // the player leaves and comes back
     expect(a.wakeTimer).toBe(20);
+  });
+});
+
+
+// Knockback and spawn-in. Uses makeRng and placePlayerRightOf from enemy.spec.js.
+describe("Enemy knockback", function () {
+  let room;
+  let enemy;
+  const right = new p5.Vector(1, 0);
+
+  beforeEach(function () {
+    room = new NormalRoom(0, 0, 320, 160); // floor spans 16 to 304 by 16 to 144
+    enemy = new Enemy(100, 60);
+    enemy.speed = 0; // so only the knockback moves it
+    enemy.type = { ...enemy.type, move: "none" }; // Jelly hops now, so stand it still
+  });
+
+  it("pushes the enemy along the hit direction over several updates", function () {
+    const player = new Player(200, 60);
+    enemy.takeDamage(1, right);
+    enemy.update(player, room);
+    const afterOne = enemy.pos.x;
+    expect(afterOne).toBeGreaterThan(100);
+    for (let i = 0; i < ENEMY_KNOCKBACK_FRAMES; i++) {
+      enemy.update(player, room);
+    }
+    expect(enemy.pos.x).toBeGreaterThan(afterOne);
+    expect(enemy.pos.y).toBeCloseTo(60, 5);
+  });
+
+  it("stops after the knockback frames are used up", function () {
+    const player = new Player(200, 60);
+    enemy.takeDamage(1, right);
+    for (let i = 0; i < ENEMY_KNOCKBACK_FRAMES; i++) {
+      enemy.update(player, room);
+    }
+    const settled = enemy.pos.x;
+    enemy.update(player, room);
+    expect(enemy.pos.x).toBe(settled);
+  });
+
+  it("stops at a wall", function () {
+    const player = new Player(200, 60);
+    enemy.pos.set(room.x + room.width - 16 - enemy.length - 1, 60);
+    enemy.takeDamage(1, right);
+    for (let i = 0; i < ENEMY_KNOCKBACK_FRAMES; i++) {
+      enemy.update(player, room);
+    }
+    // The wall check looks at the last pixel, so the edge may sit up to 1 px past the tile line.
+    const wallEdge = room.x + room.width - 16;
+    expect(enemy.getBounds().x + enemy.length).toBeLessThanOrEqual(wallEdge + 1);
+    expect(enemy.pos.x).toBeGreaterThan(271);
+  });
+
+  it("does not move the enemy when no direction is given", function () {
+    const player = new Player(200, 60);
+    enemy.takeDamage(1);
+    enemy.update(player, room);
+    expect(enemy.pos.x).toBe(100);
+    expect(enemy.pos.y).toBe(60);
+  });
+
+  it("does not move the enemy when the damage is 0", function () {
+    const player = new Player(200, 60);
+    enemy.takeDamage(0, right);
+    enemy.update(player, room);
+    expect(enemy.pos.x).toBe(100);
+  });
+
+  it("moves a boss half as far", function () {
+    const player = new Player(200, 60);
+    const boss = new Enemy(100, 60, "DemonKnight");
+    boss.type = { ...boss.type, noKnockback: false }; // the Demon Knight itself is never shoved
+    boss.speed = 0;
+    enemy.takeDamage(1, right);
+    boss.takeDamage(1, right);
+    for (let i = 0; i < ENEMY_KNOCKBACK_FRAMES; i++) {
+      enemy.update(player, room);
+      boss.update(player, room);
+    }
+    expect(boss.pos.x - 100).toBeCloseTo((enemy.pos.x - 100) / 2, 5);
+  });
+
+  it("is applied when a projectile hits, along the projectile's direction", function () {
+    const player = new Player(200, 60);
+    const center = enemy.getCenter();
+    const shot = new Projectile(center.x, center.y, right);
+    expect(enemy.damageFromProjectile(shot)).toBe(true);
+    enemy.update(player, room);
+    expect(enemy.pos.x).toBeGreaterThan(100);
+  });
+});
+
+describe("Enemy spawn-in", function () {
+  let room;
+  let player;
+
+  beforeEach(function () {
+    room = new NormalRoom(0, 0, 320, 160);
+    player = new Player(100, 60);
+  });
+
+  it("starts at zero for an enemy made with new", function () {
+    expect(new Enemy(0, 0).spawnTimer).toBe(0);
+    expect(new Enemy(0, 0).isSpawning()).toBe(false);
+  });
+
+  it("starts at zero from createEnemy unless asked", function () {
+    expect(createEnemy("Jelly", 0, 0).spawnTimer).toBe(0);
+    expect(createEnemy("Jelly", 0, 0, true).spawnTimer).toBe(ENEMY_SPAWN_FRAMES);
+  });
+
+  it("cannot hurt the player while spawning", function () {
+    const jelly = createEnemy("Jelly", 100, 60, true);
+    expect(jelly.damagePlayer(player)).toBe(false);
+  });
+
+  it("does not shoot while spawning", function () {
+    const skeleton = createEnemy("Skeleton", 160, 60, true);
+    skeleton.attackTimer = 0;
+    expect(skeleton.tryAttack(player)).toEqual([]);
+  });
+
+  it("lets shots pass through while spawning", function () {
+    const jelly = createEnemy("Jelly", 100, 60, true);
+    const center = jelly.getCenter();
+    const shot = new Projectile(center.x, center.y, new p5.Vector(1, 0));
+    expect(jelly.damageFromProjectile(shot)).toBe(false);
+    expect(shot.alive).toBe(true);
+    expect(jelly.health).toBe(jelly.maxHealth);
+  });
+
+  it("does not move while spawning", function () {
+    const zombie = createEnemy("Ghoul", 160, 60, true);
+    placePlayerRightOf(zombie, player, 40);
+    zombie.update(player, room);
+    expect(zombie.pos.x).toBe(160);
+    expect(zombie.spawnTimer).toBe(ENEMY_SPAWN_FRAMES - 1);
+  });
+
+  it("acts normally once the spawn frames are over", function () {
+    const zombie = createEnemy("Ghoul", 160, 64, true); // on the tile grid
+    zombie.faceDirection(1, 0); // a Ghoul only sees straight ahead, and the player is on its right
+    placePlayerRightOf(zombie, player, 40);
+    for (let i = 0; i < ENEMY_SPAWN_FRAMES; i++) {
+      zombie.update(player, room);
+    }
+    expect(zombie.isSpawning()).toBe(false);
+    zombie.update(player, room);
+    expect(zombie.pos.x).toBeGreaterThan(160);
+    player.pos.set(zombie.pos.x, zombie.pos.y);
+    expect(zombie.damagePlayer(player)).toBe(true);
   });
 });

@@ -83,18 +83,48 @@ class Weapon extends Item {
     this.element = this.elementalType;
     this.attackType = options.attackType === undefined ? "Weapon" : options.attackType;
     requireNonEmptyString(this.attackType, "attackType");
+    // Key into WEAPON_ART (view/weapon-art.js) for the icon, the shot or the slash effect.
+    this.art = options.art === undefined ? null : options.art;
+    if (this.art !== null) {
+      requireNonEmptyString(this.art, "art");
+    }
   }
 }
 
 class MeleeWeapon extends Weapon {
+  // swing is { windup, reaches, recover, thickness }, frame counts and pixels. See SWORD_SWING in
+  // weapons.js. Left out, the weapon cannot be swung.
   constructor(options = {}) {
     super({ ...options, attackType: options.attackType || "Melee" });
+    this.swing = options.swing === undefined ? null : options.swing;
+    // The spin attack: hold the attack key after a swing until the charge is full, let go to spin.
+    // See SWORD_SPIN in weapons.js. Left out, the weapon cannot spin.
+    this.spin = options.spin === undefined ? null : options.spin;
+    // Walking into an enemy with the sword held out hurts and shoves both. See SWORD_RAM in
+    // weapons.js. Left out, the weapon cannot ram.
+    this.ram = options.ram === undefined ? null : options.ram;
   }
 }
 
 class ProjectileWeapon extends Weapon {
   constructor(options = {}) {
     super({ ...options, attackType: options.attackType || "Projectile" });
+    const speed = options.projectileSpeed === undefined ? 5 : options.projectileSpeed;
+    const cooldown = options.cooldown === undefined ? 15 : options.cooldown;
+    requireNonNegativeNumber(speed, "projectileSpeed");
+    requireNonNegativeNumber(cooldown, "cooldown");
+    this.projectileSpeed = speed; // pixels per frame
+    this.cooldown = cooldown; // frames after a shot before the next one can be charged
+    // { frames, delay, effect }: a press shoots a normal shot at once. Holding the key on for more
+    // than `delay` frames charges for up to `frames`, and letting go at a full charge shoots a
+    // second shot with the `effect` (see CHARGE_EFFECTS in weapons.js). Null means no charging.
+    this.charge = options.charge === undefined ? null : options.charge;
+    if (this.charge !== null) {
+      requireNonNegativeNumber(this.charge.frames, "charge.frames");
+      this.charge = { delay: 0, ...this.charge };
+      requireNonNegativeNumber(this.charge.delay, "charge.delay");
+      requireNonEmptyString(this.charge.effect, "charge.effect");
+    }
   }
 }
 

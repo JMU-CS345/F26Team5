@@ -1,9 +1,6 @@
 // Player stats model. No p5 drawing calls, so Jasmine can test it without a canvas.
 // Load this before player.js in index.html.
 
-// Stat keys.
-const STAT_KEYS = Object.freeze(["health", "speed", "resolve", "constitution", "intelligence"]);
-
 // Which stat scales damage for each element.
 const ELEMENT_STAT = Object.freeze({
   Fire: "resolve",

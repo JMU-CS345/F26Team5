@@ -11,13 +11,15 @@ const ITEM_SPRITE_COLORS = {
 const itemSprites = {};
 
 async function loadItemSprites() {
-  itemSprites.gold = await loadImageFile("assets/item/gold-coin.png");
   itemSprites.consumable = await loadImageFile("assets/item/potion.png");
   itemSprites.weapon = await loadImageFile("assets/item/weapon.png");
   itemSprites.armor = await loadImageFile("assets/item/armor.png");
 }
 
 function itemSpriteImage(item) {
+  if (item instanceof Weapon && item.art !== null && weaponIcons[item.art]) {
+    return weaponIcons[item.art]; // weapons with their own icon (see weapon-art.js)
+  }
   if (item instanceof Weapon) {
     return itemSprites.weapon;
   }
@@ -25,7 +27,7 @@ function itemSpriteImage(item) {
     return itemSprites.armor;
   }
   if (item instanceof Gold) {
-    return itemSprites.gold;
+    return goldIconImage(); // the coin from the money sheet (money-art.js)
   }
   if (item instanceof Consumable) {
     return itemSprites.consumable;

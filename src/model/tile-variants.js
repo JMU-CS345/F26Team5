@@ -33,3 +33,33 @@ function getWallVariant(room, col, row) {
   if (isOpenAt(room, col, row, -1, -1)) return "diag-nw";
   return "solid";
 }
+
+// Which pit sprite a pit tile needs, from whether there is pit above and below it. Pit art has
+// a lip on the top edge and on the bottom edge. Returns a column on DungeonPit.png:
+//   0 pit above and below (all void)   1 lip on top   2 lip on the bottom   3 lip on both
+function getPitVariant(room, col, row) {
+  const lipTop = room.getTile(col, row - 1) !== TILE.PIT;
+  const lipBottom = room.getTile(col, row + 1) !== TILE.PIT;
+  return (lipTop ? 1 : 0) + (lipBottom ? 2 : 0);
+}
+
+// Which piece of a door a door tile is: { side: "N", "S", "E" or "W", closed: true or false,
+// index: 0 or 1 }. A door is two tiles. Index 0 is the left tile of a north or south door and the
+// top tile of an east or west door, and index 1 is the other one. Returns null if the tile is not
+// a door that leads somewhere (the view then falls back to a plain color).
+function getDoorPiece(room, col, row) {
+  const type = room.getTile(col, row);
+  if (type !== TILE.DOOR_OPEN && type !== TILE.DOOR_CLOSED) {
+    return null;
+  }
+  const onTile = (e) => e.tiles.some((t) => t.col === col && t.row === row);
+  const exit = room.exits.find(onTile) || (room.onwardDoor && onTile(room.onwardDoor) ? room.onwardDoor : null);
+  if (!exit) {
+    return null;
+  }
+  const stacked = exit.side === "E" || exit.side === "W"; // these doors run up and down
+  const position = (t) => (stacked ? t.row : t.col);
+  const here = exit.tiles.find((t) => t.col === col && t.row === row);
+  const index = position(here) === Math.min(...exit.tiles.map(position)) ? 0 : 1;
+  return { side: exit.side, closed: type === TILE.DOOR_CLOSED, index };
+}

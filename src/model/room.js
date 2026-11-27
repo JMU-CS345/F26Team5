@@ -17,7 +17,12 @@ class Room {
     this.npcs = [];
     this.items = [];
     this.exits = [];
+    this.overworldExit = null; // a start room's permanent way out to the overworld, or null
+    this.onwardDoor = null; // a boss room's door to the next area ({ side, tiles, inside }), or null
+    this.healthScale = 1; // enemies spawn with this many times their normal health
+    this.tileTint = null; // [r, g, b] the view tints the room's tile art with, or null for none
     this.cleared = false;
+    this.tileVersion = 0; // goes up whenever a tile changes, so the view knows to redraw the room
 
     // Filled in by the dungeon generator.
     this.id = null;
@@ -52,9 +57,35 @@ class Room {
     }
   }
 
-  // marks the room as cleared
+  // marks the room as cleared and opens the doors
   onClear() {
     this.cleared = true;
+    this.openDoors();
+  }
+
+  // Shuts every door that leads somewhere. A closed door is solid, so nothing gets through it.
+  closeDoors() {
+    this.setDoorTiles(TILE.DOOR_CLOSED);
+  }
+
+  // Opens every door that leads somewhere.
+  openDoors() {
+    this.setDoorTiles(TILE.DOOR_OPEN);
+  }
+
+  setDoorTiles(type) {
+    for (const exit of this.exits) {
+      for (const { col, row } of exit.tiles) {
+        this.setTile(col, row, type);
+      }
+    }
+    // The door to the next area shuts and opens with the others: it stays shut until the room
+    // is cleared, which in a boss room means until the boss is dead.
+    if (this.onwardDoor) {
+      for (const { col, row } of this.onwardDoor.tiles) {
+        this.setTile(col, row, type);
+      }
+    }
   }
 
   // The tile type at a grid position. Outside the room counts as wall.
@@ -70,7 +101,10 @@ class Room {
     if (row < 0 || col < 0 || row >= this.tileGrid.length || col >= this.tileGrid[0].length) {
       return false;
     }
-    this.tileGrid[row][col] = type;
+    if (this.tileGrid[row][col] !== type) {
+      this.tileGrid[row][col] = type;
+      this.tileVersion++;
+    }
     return true;
   }
 
@@ -80,6 +114,42 @@ class Room {
     const col = Math.floor((px - this.x) / this.tileSize);
     const row = Math.floor((py - this.y) / this.tileSize);
     return this.exits.find((e) => e.tiles.some((t) => t.col === col && t.row === row)) || null;
+  }
+
+  // The room's way out to the overworld ({ side, tiles, inside }), if this pixel is on it, or null.
+  // Unlike a door it is never shut, and it is not one of this.exits.
+  getOverworldExitAt(px, py) {
+    if (!this.overworldExit) {
+      return null;
+    }
+    const col = Math.floor((px - this.x) / this.tileSize);
+    const row = Math.floor((py - this.y) / this.tileSize);
+    return this.overworldExit.tiles.some((t) => t.col === col && t.row === row) ? this.overworldExit : null;
+  }
+
+  // The room's door to the next area ({ side, tiles, inside }), if this pixel is in it, or null.
+  // A shut door is solid, so the player can only be in it once it has opened.
+  getOnwardDoorAt(px, py) {
+    if (!this.onwardDoor) {
+      return null;
+    }
+    const col = Math.floor((px - this.x) / this.tileSize);
+    const row = Math.floor((py - this.y) / this.tileSize);
+    return this.onwardDoor.tiles.some((t) => t.col === col && t.row === row) ? this.onwardDoor : null;
+  }
+
+  // The pixel where the middle of the player stands on coming in from the overworld: on the floor
+  // just inside the way out, centered on it. Null when the room has none.
+  getOverworldExitEntry() {
+    if (!this.overworldExit) {
+      return null;
+    }
+    const inside = this.overworldExit.inside;
+    const mean = (key) => inside.reduce((sum, t) => sum + t[key], 0) / inside.length;
+    return {
+      x: this.x + (mean("col") + 0.5) * this.tileSize,
+      y: this.y + (mean("row") + 0.5) * this.tileSize
+    };
   }
 
   // The tile type at a pixel position.
@@ -103,16 +173,46 @@ class Room {
     return true;
   }
 
-  // True when the pixel is on a solid tile (wall, pit, closed door, interior wall).
+  // True when the pixel is on a solid tile (wall, closed door, interior wall). Pits are not solid.
   isWallAt(px, py) {
     return TILE_PROPERTIES[this.tileAtPixel(px, py)].solid;
   }
 
+  // True when the pixel is over a pit.
+  isPitAt(px, py) {
+    return this.tileAtPixel(px, py) === TILE.PIT;
+  }
+
+  // The pit tiles a box covers, as "col,row" strings. Empty when it covers none.
+  pitTilesUnder(b) {
+    const ts = this.tileSize;
+    const firstCol = Math.floor((b.x - this.x) / ts);
+    const lastCol = Math.floor((b.x + b.w - 1 - this.x) / ts);
+    const firstRow = Math.floor((b.y - this.y) / ts);
+    const lastRow = Math.floor((b.y + b.h - 1 - this.y) / ts);
+    const found = [];
+    for (let r = firstRow; r <= lastRow; r++) {
+      for (let c = firstCol; c <= lastCol; c++) {
+        if (this.getTile(c, r) === TILE.PIT) {
+          found.push(c + "," + r);
+        }
+      }
+    }
+    return found;
+  }
+
+  // True when any part of the box is over a pit.
+  overlapsPit(b) {
+    return this.pitTilesUnder(b).length > 0;
+  }
+
   // True when a thing fw by fh tiles big can stand with its top-left tile at (col, row).
+  // Nothing can stand on a wall or over a pit.
   canStandAt(col, row, fw = 1, fh = 1) {
     for (let r = row; r < row + fh; r++) {
       for (let c = col; c < col + fw; c++) {
-        if (TILE_PROPERTIES[this.getTile(c, r)].solid) {
+        const properties = TILE_PROPERTIES[this.getTile(c, r)];
+        if (properties.solid || properties.hazard) {
           return false;
         }
       }

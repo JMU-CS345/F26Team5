@@ -5,14 +5,23 @@ function rectsOverlap(a, b) {
 
 // Applies an enemy projectile to the player. Returns true on a hit.
 function projectileHitsPlayer(projectile, player) {
-  if (player.isDead() || !projectile.alive) {
+  if (player.isDead() || player.isFalling() || !projectile.alive) {
     return false;
+  }
+  if (typeof projectile.canHurt === "function" && !projectile.canHurt()) {
+    return false; // a lightning strike that is only warning yet
   }
   if (!rectsOverlap(projectile.getBounds(), player.getBounds())) {
     return false;
   }
-  player.takeDamage(projectile.damage, projectile.vel); // the shot shoves the player along its path
-  projectile.alive = false;
+  // The shot shoves the player along its path (a strike shoves them away from its middle).
+  const shove = typeof projectile.hitDirection === "function" ? projectile.hitDirection(player) : projectile.vel;
+  player.takeDamage(projectile.damage, shove);
+  if (typeof projectile.onHit === "function") {
+    projectile.onHit();
+  } else {
+    projectile.alive = false;
+  }
   return true;
 }
 
@@ -22,7 +31,7 @@ function pickupItemDrops(player, room) {
   const remaining = [];
   for (const drop of room.items) {
     const overlaps = rectsOverlap(player.getBounds(), drop.getBounds());
-    if (!overlaps || !player.inventory.canAdd(drop.item, drop.quantity)) {
+    if (drop.collectible === false || !overlaps || !player.inventory.canAdd(drop.item, drop.quantity)) {
       remaining.push(drop);
       continue;
     }

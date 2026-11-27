@@ -6,13 +6,8 @@ const dyingEnemies = []; // { enemy, age } ghosts that keep fading after the mod
 
 // Call once in setup(), with await.
 async function loadEnemySheets() {
-  for (const name of ENEMY_TYPE_NAMES) {
-    const sprite = ENEMY_TYPES[name].sprite;
-    if (!sprite) {
-      continue;
-    }
-    const allFrames = allSpriteFrames(sprite);
-    for (const frame of allFrames) {
+  for (const name of Object.keys(ENEMY_ART)) {
+    for (const frame of allArtFrames(ENEMY_ART[name])) {
       if (!enemySheets[frame.sheet]) {
         enemySheets[frame.sheet] = await loadImageFile(frame.sheet);
       }
@@ -33,11 +28,13 @@ function drawEnemySprite(enemy, sprite, alpha = 255) {
     translate(sin(frameCount * 2) * 1.5, 0); // a small shake telegraphs the swing
   }
   // Plain sprites face right and flip. Art that picks its own direction must not flip.
-  if (enemy.facingLeft && !sprite.directions && !sprite.aimFrames) {
+  if (enemy.facingLeft && !sprite.directions && !sprite.aimFrames && !sprite.walk && !sprite.noFlip) {
     scale(-1, 1);
   }
   if (enemy.hurtTimer > 0) {
     tint(255, 110, 110, alpha);
+  } else if (enemy.blockTimer > 0) {
+    tint(170, 210, 255, alpha); // the shield took the hit
   } else if (enemy.state === "windup") {
     tint(255, 200, 120, alpha);
   } else {
@@ -96,11 +93,39 @@ function drawBossBar(enemy) {
 
 // Sprite or colored square, whichever the type has.
 function drawEnemyBody(enemy, alpha = 255) {
-  if (enemy.type.sprite) {
-    drawEnemySprite(enemy, enemy.type.sprite, alpha);
+  const art = ENEMY_ART[enemy.typeName];
+  if (art && art.sprite) {
+    drawEnemySprite(enemy, art.sprite, alpha);
   } else {
     drawEnemySquare(enemy, alpha);
   }
+}
+
+// The short range lightning of a zap attack, while the bolt is out. The art faces down and starts
+// at the edge of the hitbox, and is turned to the side the enemy faces. Facing up, drawEnemy draws
+// it before the body, so the bolt comes out from behind the enemy.
+function drawEnemyZap(enemy) {
+  const art = ENEMY_ART[enemy.typeName];
+  if (!art || !art.zap || enemy.state !== "attack") {
+    return;
+  }
+  const frames = art.zap.frames;
+  const frame = frames[Math.floor(frameCount / art.zap.frameTime) % frames.length];
+  const turns = { down: 0, left: HALF_PI, up: PI, right: -HALF_PI };
+  const center = enemy.getCenter();
+  // Pointing left or right, the bolt comes out of the hands, which sit sideRaise pixels above the
+  // middle (the same lift the damage box has). Across the turned art, that is sideways.
+  const attack = enemy.getAttack() || {};
+  const raise = attack.sideRaise || 0;
+  const lift = enemy.facingDir === "right" ? raise : enemy.facingDir === "left" ? -raise : 0;
+  // Pointing up or down, verticalRaise moves the whole bolt up the screen, like the damage box.
+  const vertical = enemy.facingDir === "up" || enemy.facingDir === "down" ? attack.verticalRaise || 0 : 0;
+  push();
+  translate(center.x, center.y - vertical);
+  rotate(turns[enemy.facingDir]);
+  noTint();
+  image(enemySheets[frame.sheet], -frame.w / 2 + lift, enemy.width / 2, frame.w, frame.h, frame.x, frame.y, frame.w, frame.h);
+  pop();
 }
 
 function drawEnemy(enemy) {
@@ -111,10 +136,94 @@ function drawEnemy(enemy) {
     drawEnemyBody(enemy, map(enemy.spawnTimer, ENEMY_SPAWN_FRAMES, 0, 40, 255));
     return;
   }
-  drawEnemyBody(enemy);
+  // Facing up we see his back, so the bolt goes under the sprite. Every other side, it is on top.
+  if (enemy.facingDir === "up") {
+    drawEnemyZap(enemy);
+    drawEnemyBody(enemy);
+  } else {
+    drawEnemyBody(enemy);
+    drawEnemyZap(enemy);
+  }
+}
+
+// An animated shot. With sprite.rotate the art faces down (or down and to the left for the
+// diagonal frames) and is turned to the way the shot is flying, around the center of the hitbox.
+function drawShotSprite(p, sprite) {
+  let frames = sprite.frames;
+  let turn = 0;
+  if (sprite.rotate) {
+    const eighths = Math.round(Math.atan2(p.vel.y, p.vel.x) / (Math.PI / 4));
+    const diagonal = Math.abs(eighths) % 2 === 1;
+    frames = diagonal ? sprite.diagonalFrames : sprite.frames;
+    turn = eighths * (Math.PI / 4) - (diagonal ? (3 * Math.PI) / 4 : Math.PI / 2);
+  }
+  const frame = frames[Math.floor(p.age / sprite.frameTime) % frames.length];
+  const w = frame.w || ENEMY_SPRITE_SIZE;
+  const h = frame.h || ENEMY_SPRITE_SIZE;
+  push();
+  translate(p.pos.x + p.length / 2, p.pos.y + p.width / 2);
+  rotate(turn);
+  noTint();
+  image(enemySheets[frame.sheet], -w / 2, -h / 2, w, h, frame.x, frame.y, w, h);
+  pop();
+}
+
+// Draws one frame of a strike's art so that its art pixel (ax, ay) is at (x, y).
+function drawStrikeFrame(frame, x, y) {
+  const ax = frame.ax === undefined ? frame.w / 2 : frame.ax;
+  const ay = frame.ay === undefined ? frame.h / 2 : frame.ay;
+  image(enemySheets[frame.sheet], x - ax, y - ay, frame.w, frame.h, frame.x, frame.y, frame.w, frame.h);
+}
+
+// Lightning called down by a Shadow Wizard. While it warns, a pulsing ring and a faint spark mark
+// the spot. While it strikes, the bolt comes down from the top of the screen onto the spot, with
+// a small impact and then a big one.
+function drawLightningStrike(p) {
+  const art = p.shooter && ENEMY_ART[p.shooter] ? ENEMY_ART[p.shooter].strike : null;
+  const x = p.pos.x + p.length / 2;
+  const y = p.pos.y + p.width / 2;
+  const pulse = 0.5 + 0.5 * sin(p.age * 0.6);
+  push();
+  noTint();
+  if (p.age < p.warn) {
+    noFill();
+    stroke(255, 255, 160, 90 + pulse * 130);
+    strokeWeight(1);
+    ellipse(x, y, p.length * 1.4, p.length * 0.8);
+    if (art) {
+      tint(255, 60 + pulse * 90);
+      drawStrikeFrame(art.impact[0], x, y);
+    }
+  } else if (p.isStriking()) {
+    const sinceStrike = p.age - p.warn;
+    if (art) {
+      const body = art.body[Math.floor(p.age / art.frameTime) % art.body.length];
+      const top = typeof camera !== "undefined" ? camera.y : 0;
+      const segments = Math.min(24, Math.ceil((y - top) / body.h) + 1);
+      for (let i = 0; i < segments; i++) {
+        image(enemySheets[body.sheet], x - body.w / 2, y - body.h * (i + 1) + 6, body.w, body.h, body.x, body.y, body.w, body.h);
+      }
+      drawStrikeFrame(sinceStrike < p.active / 3 ? art.impact[0] : art.impact[1], x, y);
+    } else {
+      noStroke();
+      fill(255, 255, 160);
+      rect(x - 3, 0, 6, y);
+      rect(p.pos.x, p.pos.y, p.length, p.width);
+    }
+  }
+  pop();
 }
 
 function drawEnemyProjectile(p) {
+  if (p.isStrike) {
+    drawLightningStrike(p);
+    return;
+  }
+  const art = p.shooter ? ENEMY_ART[p.shooter] : null;
+  if (art && art.projectile) {
+    drawShotSprite(p, art.projectile);
+    return;
+  }
   const c = p.color;
   noStroke();
   fill(c[0], c[1], c[2]);
@@ -135,7 +244,7 @@ function drawDyingEnemies(advance = true) {
     const enemy = ghost.enemy;
     const center = enemy.getCenter();
     const alpha = map(ghost.age, 0, ENEMY_DEATH_FRAMES, 255, 0);
-    const size = map(ghost.age, 0, ENEMY_DEATH_FRAMES, 1, 0.3);
+    const size = map(ghost.age, 0, ENEMY_DEATH_FRAMES, 1, enemy.fell ? 0 : 0.3); // a fall shrinks to nothing
     push();
     translate(center.x, center.y);
     scale(size);
@@ -157,16 +266,31 @@ function drawDyingEnemies(advance = true) {
   }
 }
 
-// Debug overlay (F3): hitbox, detection radius, type name and health.
-function drawEnemyDebug(enemy) {
+// Debug overlay (from the debug menu): hitbox, what the enemy sees, type name and health. Most
+// enemies see in a circle of detection range (yellow). An enemy that only sees along a line (a
+// line vision enemy, or a shooter or zapper that needs the player in its line of fire) gets its strips in
+// blue. A line vision enemy has no circle, because it is never aware of a player outside its strip.
+// room and player are optional: room stops the strips at walls, player gives the strip width.
+function drawEnemyDebug(enemy, room, player) {
   const center = enemy.getCenter();
   push();
   noFill();
   strokeWeight(1);
   stroke(0, 255, 0);
   rect(enemy.pos.x, enemy.pos.y, enemy.length, enemy.width);
-  stroke(255, 255, 0, 120);
-  circle(center.x, center.y, 2 * enemy.detectionRange);
+  if (!enemy.usesLineVision()) {
+    stroke(255, 255, 0, 120);
+    circle(center.x, center.y, 2 * enemy.detectionRange);
+  }
+  fill(0, 170, 255, 45);
+  stroke(0, 170, 255, 160);
+  for (const lane of enemy.getSightLanes(room, player ? player.getBounds().w : undefined)) {
+    beginShape();
+    for (const corner of lane) {
+      vertex(corner.x, corner.y);
+    }
+    endShape(CLOSE);
+  }
   noStroke();
   fill(255);
   textSize(8);

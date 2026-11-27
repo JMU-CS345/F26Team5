@@ -7,22 +7,48 @@
 // Legend
 //   #  wall            .  floor           o  pit        x  interior wall (an obstacle)
 //   +  a door (on the outer wall only, always 2 tiles side by side)
-//   J  Jelly   Z  Zombie   S  Skeleton   B  Bat   E  Eyeball   D  Demon (on floor)
+//   J  Jelly   Z  Ghoul   S  Skeleton   B  Bat   E  Peeper Jr. (an eye turret)
+//   D  Demon Knight (the boss, 64x64, on floor)
+//   K  Bouncer (a knight, 32x32)   T  Spark Bark (a tree, a stationary turret)
+//   L  Blockette (patrols and blocks hits from the front; see patrols below)
+//   P  purple Shadow Wizard   Y  yellow Shadow Wizard   G  green Shadow Wizard (32x32)
 //   @  where the player starts (start rooms only, exactly one)
+//
+// Walls can also stick out of the outer wall into the room, drawn with more #. They have wall
+// art with sloped corners, so each one must be at least 2 tiles thick. Use x for anything thinner.
+// Pits (o) are a drop: the player falls in and respawns at the door they came in through, and an
+// enemy that is knocked over one dies. Leave a way round or across them, since the floor has to
+// stay in one piece.
 //
 // Doors: draw as many as you like, on any wall. A door only opens when another room is placed
 // against it with a matching door straight across; any door that isn't used stays a wall.
 // The two tiles just inside a door must be plain floor (.). Doors can't be next to each other.
 //
+// The door to the next area: every boss room has one, drawn as two > side by side on the outer wall
+// (not touching another door). It is shut like a door while the boss is alive and opens when the
+// room is cleared, so the player can only go on once the boss is dead. Only boss rooms can have one.
+//
+// The way out to the overworld: every start room here has one, drawn as two = side by side on
+// the outer wall (not touching a door). It is open from the start, whether or not another room is
+// next to it. Like a door it needs plain floor just inside it. Only start rooms can have one.
+//
 // role: "start" (the first room), "boss" (the last room) or "normal" (everything else).
 // Size: 8 to 40 tiles wide and 8 to 25 tall. Every room needs at least one door.
+// Patrols: a room can give its Blockettes a route. Add  patrols: [ [ { col, row }, ... ], ... ]  after
+// rows. Each route is a list of stops (the column and row of a floor tile, counting from 0 at the
+// top left corner of the drawing), starts on the tile of the L that walks it, and goes through the
+// stops in order, then back to the start, forever. It finds its own way between stops, round any
+// walls and obstacles. A Blockette with no route walks with a wall, pit or obstacle on its right hand
+// instead: round the edge of the room and round whatever stands in it.
+//
 // validateRoomTemplates() checks all of this, and the specs run it, so a mistake shows up as
-// a failing spec with the room's name. Keep a 3x3 area around a D clear (the Demon is big).
+// a failing spec with the room's name. Keep a 5x5 area around a D and a 3x3 area around a K or a G clear (the Demon Knight, the Bouncer and the green wizard are big).
 const ROOM_TEMPLATES = [
   {
     name: "start-hall",
     role: "start",
-    // Four pillars, a door in the middle of every wall. No enemies.
+    // Four pillars, a door in the middle of every wall, and the way out to the overworld at the
+    // bottom left. No enemies.
     rows: [
       "#############++#############",
       "#..........................#",
@@ -40,13 +66,14 @@ const ROOM_TEMPLATES = [
       "#..........................#",
       "#..........................#",
       "#..........................#",
-      "#############++#############"
+      "####==#######++#############"
     ]
   },
   {
     name: "start-cross",
     role: "start",
-    // A pillar in the middle. The east and west doors are offset.
+    // A pillar in the middle. The east and west doors are offset. The way out to the overworld is
+    // at the bottom left.
     rows: [
       "###########++###########",
       "#......................#",
@@ -62,7 +89,7 @@ const ROOM_TEMPLATES = [
       "#......................#",
       "#......................#",
       "#......................#",
-      "###########++###########"
+      "####==#####++###########"
     ]
   },
   {
@@ -170,7 +197,7 @@ const ROOM_TEMPLATES = [
   {
     name: "turret-room",
     role: "normal",
-    // Eyeball turrets in the corners.
+    // Peeper Jr. turrets in the corners.
     rows: [
       "###########++###########",
       "#......................#",
@@ -187,6 +214,53 @@ const ROOM_TEMPLATES = [
       "#......................#",
       "#......................#",
       "###########++###########"
+    ]
+  },
+  {
+    name: "shield-patrol",
+    role: "normal",
+    // Two Blockettes patrol down the room, one on each side of the middle: the left one goes across
+    // the top, down and back, and the right one the other way. Shoot them from behind or the side.
+    // A Ghoul waits in the middle of the room.
+    rows: [
+      "###########++###########",
+      "#......................#",
+      "#..L...............L...#",
+      "#......................#",
+      "#......................#",
+      "#......................#",
+      "+..........Z...........+",
+      "+......................+",
+      "#......................#",
+      "#......................#",
+      "#......................#",
+      "#......................#",
+      "###########++###########"
+    ],
+    patrols: [
+      [{ col: 3, row: 2 }, { col: 9, row: 2 }, { col: 9, row: 10 }, { col: 3, row: 10 }],
+      [{ col: 19, row: 2 }, { col: 13, row: 2 }, { col: 13, row: 10 }, { col: 19, row: 10 }]
+    ]
+  },
+  {
+    name: "wizard-gang",
+    role: "normal",
+    // The Shadow Wizard Money Gang: one of each colour, with Peeper Jr. watching from a corner.
+    rows: [
+      "################++################",
+      "#................................#",
+      "#..P.............................#",
+      "#................................#",
+      "#..............xx..........Y.....#",
+      "#..............xx................#",
+      "+................................+",
+      "+................................+",
+      "#.......G........................#",
+      "#................................#",
+      "#..................xx............#",
+      "#..................xx......E.....#",
+      "#................................#",
+      "################++################"
     ]
   },
   {
@@ -285,6 +359,343 @@ const ROOM_TEMPLATES = [
       "#..................................#",
       "#..................................#",
       "#################++#################"
+    ]
+  },
+  {
+    name: "bouncer-court",
+    role: "normal",
+    // Two Bouncers in an open court. Pillars give the player something to dodge around.
+    rows: [
+      "###########++############",
+      "#.......................#",
+      "#.......................#",
+      "#...K...................#",
+      "#.....xx.........xx.....#",
+      "#.....xx.........xx.....#",
+      "+.......................+",
+      "+.......................+",
+      "#.......................#",
+      "#.....xx.........xx.....#",
+      "#.....xx.........xx.....#",
+      "#...................K...#",
+      "#.......................#",
+      "#.......................#",
+      "###########++############"
+    ]
+  },
+  {
+    name: "bouncer-hall",
+    role: "normal",
+    // A long hall with three Bouncers in a row. The gaps between the pillars are the only way through.
+    rows: [
+      "##############++###############",
+      "#.............................#",
+      "#..........xx......xx.........#",
+      "#..........xx......xx.........#",
+      "+.............................+",
+      "+......K.......K.......K......+",
+      "#.............................#",
+      "#..........xx......xx.........#",
+      "#..........xx......xx.........#",
+      "#.............................#",
+      "##############++###############"
+    ]
+  },
+  {
+    name: "spark-grove",
+    role: "normal",
+    // Spark Bark turrets among scattered tree trunks. The trunks block their sight.
+    rows: [
+      "############++#############",
+      "#.........................#",
+      "#.........................#",
+      "#....x.......T.......x....#",
+      "#.........................#",
+      "#...........x.x...........#",
+      "#.........................#",
+      "+.........................+",
+      "+.......x.........x.......+",
+      "#.........................#",
+      "#....T...............T....#",
+      "#...........x.x...........#",
+      "#.........................#",
+      "#....x...............x....#",
+      "#.........................#",
+      "#.........................#",
+      "############++#############"
+    ]
+  },
+  {
+    name: "spark-crossfire",
+    role: "normal",
+    // Spark Bark turrets either side of a pit band. Pits do not block sight or shots, so they can
+    // see across it, and anything that falls in is gone.
+    rows: [
+      "###########++############",
+      "#.......................#",
+      "#...........T...........#",
+      "#.......................#",
+      "#.......................#",
+      "+....ooooooooooooooo....+",
+      "+....ooooooooooooooo....+",
+      "#....ooooooooooooooo....#",
+      "#.......................#",
+      "#.......................#",
+      "#...........T...........#",
+      "#.......................#",
+      "###########++############"
+    ]
+  },
+  {
+    name: "knight-and-bark",
+    role: "normal",
+    // A Bouncer and two Spark Barks. Hide behind a pillar from the Barks and the Bouncer bounces after you.
+    rows: [
+      "#############++##############",
+      "#...........................#",
+      "#...........................#",
+      "#............T..............#",
+      "#.......xx.........xx.......#",
+      "#.......xx.........xx.......#",
+      "+...........................+",
+      "+.............K.............+",
+      "#...........................#",
+      "#.......xx.........xx.......#",
+      "#.......xx.........xx.......#",
+      "#..............T............#",
+      "#...........................#",
+      "#...........................#",
+      "#############++##############"
+    ]
+  },
+  {
+    name: "pit-bridge",
+    role: "normal",
+    // A chasm across the middle with one three-wide bridge. Two Spark Barks watch the bridge from either end.
+    rows: [
+      "#####++################++#####",
+      "#..........oooooooo..........#",
+      "#..........oooooooo..........#",
+      "#...J......oooooooo..........#",
+      "#..........oooooooo..........#",
+      "#..........oooooooo..........#",
+      "+............................+",
+      "+........T..........T........+",
+      "#............................#",
+      "#..........oooooooo..........#",
+      "#..........oooooooo..........#",
+      "#...Z......oooooooo......J...#",
+      "#..........oooooooo..........#",
+      "#..........oooooooo..........#",
+      "#####++################++#####"
+    ]
+  },
+  {
+    name: "pit-checker",
+    role: "normal",
+    // Pits scattered across the floor, three Bats that fly over them, and ground enemies that must be pushed in.
+    rows: [
+      "#############++##############",
+      "#...........................#",
+      "#.............B.............#",
+      "#...oo....oo....oo....oo....#",
+      "#...oo....oo....oo....oo....#",
+      "#...........................#",
+      "#.........B...........J.....#",
+      "#...........................#",
+      "+......oo....oo....oo....oo.+",
+      "+......oo....oo....oo....oo.+",
+      "#...........................#",
+      "#.................B.........#",
+      "#.....Z.....................#",
+      "#...oo....oo....oo....oo....#",
+      "#...oo....oo....oo....oo....#",
+      "#.................J.........#",
+      "#############++##############"
+    ]
+  },
+  {
+    name: "pit-ring",
+    role: "normal",
+    // A ring of pit around an island with a Bouncer, crossed by four bridges.
+    rows: [
+      "############++#############",
+      "#.........................#",
+      "#.........................#",
+      "#..J...................J..#",
+      "#....ooooooo...ooooooo....#",
+      "#....ooooooo...ooooooo....#",
+      "#....ooooooo...ooooooo....#",
+      "#....ooo...........ooo....#",
+      "+.........................+",
+      "+............K............+",
+      "#.........................#",
+      "#....ooo...........ooo....#",
+      "#....ooooooo...ooooooo....#",
+      "#....ooooooo...ooooooo....#",
+      "#....ooooooo...ooooooo....#",
+      "#..Z...................Z..#",
+      "#.........................#",
+      "#.........................#",
+      "############++#############"
+    ]
+  },
+  {
+    name: "pit-lanes",
+    role: "normal",
+    // Three lanes of floor split by pit, joined by a gap in the middle.
+    rows: [
+      "###############++################",
+      "#........T......................#",
+      "#...............................#",
+      "#oooooooooooooo...oooooooooooooo#",
+      "#oooooooooooooo...oooooooooooooo#",
+      "+...............................+",
+      "+......Z.................S......+",
+      "#...............................#",
+      "#oooooooooooooo...oooooooooooooo#",
+      "#oooooooooooooo...oooooooooooooo#",
+      "#...............................#",
+      "#........J.............T........#",
+      "###############++################"
+    ]
+  },
+  {
+    name: "island-hop",
+    role: "normal",
+    // Three islands joined by narrow bridges.
+    rows: [
+      "#############++#############",
+      "#ooooooooo........ooooooooo#",
+      "#ooooooooo........ooooooooo#",
+      "#......ooo..J.....ooo......#",
+      "#...Z..ooo........ooo......#",
+      "+.............B............+",
+      "+..........................+",
+      "#............B.............#",
+      "#......ooo........ooo...Z..#",
+      "#......ooo.....J..ooo......#",
+      "#ooooooooo........ooooooooo#",
+      "#ooooooooo........ooooooooo#",
+      "#############++#############"
+    ]
+  },
+  {
+    name: "zigzag",
+    role: "normal",
+    // Walls reach in from the top and bottom in turn, so the way through snakes from side to side.
+    rows: [
+      "#############++#####################",
+      "#........##................##......#",
+      "#........##................##......#",
+      "#........##............J...##......#",
+      "#...S....##................##......#",
+      "#........##................##......#",
+      "+........##.......##.......##......+",
+      "+........##.......##.......##......+",
+      "#........##.......##.......##......#",
+      "#.................##...............#",
+      "#.................##...K...........#",
+      "#............Z....##...........S...#",
+      "#.................##...............#",
+      "#.................##...............#",
+      "######################++############"
+    ]
+  },
+  {
+    name: "alcoves",
+    role: "normal",
+    // Small blocks of wall stick out of every side, making alcoves with Spark Barks in two of them.
+    rows: [
+      "###############++###############",
+      "#...##.T.##..........##...##...#",
+      "#...##...##..........##...##...#",
+      "###..........................###",
+      "###..........................###",
+      "#..............................#",
+      "#..............................#",
+      "+..............................+",
+      "+.......Z.......J.......Z......+",
+      "#..............................#",
+      "#..............................#",
+      "#..............................#",
+      "###..........................###",
+      "###..........................###",
+      "#...##...##..........##...##...#",
+      "#...##...##..........##.T.##...#",
+      "###############++###############"
+    ]
+  },
+  {
+    name: "cross-blocks",
+    role: "normal",
+    // Big blocks of wall fill the four corners and leave a cross-shaped hall.
+    rows: [
+      "##############++##############",
+      "#########............#########",
+      "#########............#########",
+      "#########......S.....#########",
+      "#########............#########",
+      "#########............#########",
+      "#............................#",
+      "#............................#",
+      "+............................+",
+      "+....Z.........K........Z....+",
+      "#............................#",
+      "#............................#",
+      "#............................#",
+      "#########............#########",
+      "#########............#########",
+      "#########......S.....#########",
+      "#########............#########",
+      "#########............#########",
+      "##############++##############"
+    ]
+  },
+  {
+    name: "choke-point",
+    role: "normal",
+    // A thick wall from the top and one from the bottom leave a three-tile gap in the middle.
+    rows: [
+      "#####++##############++#####",
+      "#...........####...........#",
+      "#...........####...........#",
+      "#...........####...........#",
+      "#...Z.......####.......S...#",
+      "#...........####...........#",
+      "+..........................+",
+      "+........K.................+",
+      "#..........................#",
+      "#...........####...........#",
+      "#....J......####......S....#",
+      "#...........####...........#",
+      "#...........####...........#",
+      "#...........####...........#",
+      "#####++##############++#####"
+    ]
+  },
+  {
+    name: "ruins",
+    role: "normal",
+    // Walls from the top and bottom, and four pools of pit in the corners.
+    rows: [
+      "#######++#############++#######",
+      "#............#####............#",
+      "#............#####............#",
+      "#............#####............#",
+      "#...ooooo......T......ooooo...#",
+      "#...ooooo.............ooooo...#",
+      "#...ooooo.............ooooo...#",
+      "+.............................+",
+      "+.........J....S....Z.........+",
+      "#.............................#",
+      "#...ooooo.............ooooo...#",
+      "#...ooooo.............ooooo...#",
+      "#...ooooo......T......ooooo...#",
+      "#............#####............#",
+      "#............#####............#",
+      "#............#####............#",
+      "#######++#############++#######"
     ]
   },
   {
@@ -408,9 +819,106 @@ const ROOM_TEMPLATES = [
     ]
   },
   {
+    name: "bastion",
+    role: "normal",
+    // Four pillars with Peeper Jr. turrets in the corners, two Bouncers and two SparkBarks.
+    rows: [
+      "##############++##############",
+      "#............................#",
+      "#............................#",
+      "#..E..........T...........E..#",
+      "#.....xx..............xx.....#",
+      "#.....xx..............xx.....#",
+      "#............................#",
+      "+............................+",
+      "+..........K......K..........+",
+      "#............................#",
+      "#............................#",
+      "#.....xx..............xx.....#",
+      "#.....xx..............xx.....#",
+      "#..E...........T..........E..#",
+      "#............................#",
+      "#............................#",
+      "##############++##############"
+    ]
+  },
+  {
+    name: "turret-gallery",
+    role: "normal",
+    // A row of pillars to hide behind, Peeper Jr. turrets on the north and south walls, SparkBarks between.
+    rows: [
+      "###############++###############",
+      "#..............................#",
+      "#....E.....E........E.....E....#",
+      "#..............................#",
+      "#..............................#",
+      "#.......x...x......x...x.......#",
+      "+..............................+",
+      "+.............T..T.............+",
+      "#..............................#",
+      "#.......x...x......x...x.......#",
+      "#..............................#",
+      "#..............................#",
+      "#....E....................E....#",
+      "#..............................#",
+      "###############++###############"
+    ]
+  },
+  {
+    name: "killing-floor",
+    role: "normal",
+    // Wide open, with a lot of enemies of every kind.
+    rows: [
+      "#############++#############",
+      "#..........................#",
+      "#..........................#",
+      "#....S....B...........S....#",
+      "#..........................#",
+      "#..........................#",
+      "+............xx............+",
+      "+.......Z....xx....Z.......+",
+      "#..........................#",
+      "#..........................#",
+      "#..........................#",
+      "#...T........S.........B...#",
+      "#..........................#",
+      "#..........................#",
+      "#############++#############"
+    ]
+  },
+  {
+    name: "shield-maze",
+    role: "normal",
+    // Maze room with Blockettes. Each has its own route: the top middle chamber, the chamber on the
+    // right, and one each along the left and right of the bottom.
+    patrols: [
+      [{ col: 10, row: 3 }, { col: 16, row: 3 }, { col: 16, row: 7 }, { col: 4, row: 7 }, { col: 4, row: 4 }, { col: 10, row: 4 }],
+      [{ col: 25, row: 8 }, { col: 25, row: 2 }, { col: 21, row: 2 }, { col: 21, row: 4 }, { col: 25, row: 4 }],
+      [{ col: 4, row: 11 }, { col: 4, row: 13 }, { col: 12, row: 13 }, { col: 12, row: 10 }],
+      [{ col: 23, row: 11 }, { col: 23, row: 13 }, { col: 17, row: 13 }, { col: 17, row: 11 }]
+    ],
+    rows: [
+      "#############++#############",
+      "######...........###.......#",
+      "######...........###.......#",
+      "######....L......###.......#",
+      "###..............###.......#",
+      "###...................##...#",
+      "+.....................##...#",
+      "+.....................##...#",
+      "#########.............##.L.#",
+      "#########........###########",
+      "#......##........###########",
+      "#...L..##..............L...#",
+      "#..........................#",
+      "#..........................#",
+      "#############++#############"
+    ]
+  },
+  {
     name: "boss-demon",
     role: "boss",
-    // The Demon. Keep a 3x3 tile area around D clear: its hitbox is 32x32.
+    // The Demon Knight. Keep a 5x5 tile area around D clear: its hitbox is 64x64.
     rows: [
       "#################++#################",
       "#..................................#",
@@ -421,8 +929,8 @@ const ROOM_TEMPLATES = [
       "#..................................#",
       "#..................................#",
       "#..................................#",
-      "+..................................#",
-      "+.................D................#",
+      "+..................................>",
+      "+.................D................>",
       "#..................................#",
       "#..................................#",
       "#..................................#",
@@ -438,7 +946,7 @@ const ROOM_TEMPLATES = [
   {
     name: "boss-pits",
     role: "boss",
-    // The Demon with bats, and pits in the corners.
+    // The Demon Knight with bats, and pits in the corners.
     rows: [
       "##############++################",
       "#..............................#",
@@ -458,7 +966,36 @@ const ROOM_TEMPLATES = [
       "#..............................#",
       "#..............................#",
       "#..............................#",
-      "################################"
+      "##############>>################"
+    ]
+  },
+  {
+    name: "boss-court",
+    role: "boss",
+    // The Demon Knight with Peeper Jr. turrets in the corners. Keep a 5x5 tile area around D clear.
+    // The door to the next area is in the middle of the south wall.
+    rows: [
+      "#################++#################",
+      "#..................................#",
+      "#..E............................E..#",
+      "#..................................#",
+      "#.......xx................xx.......#",
+      "#.......xx................xx.......#",
+      "#..................................#",
+      "#..................................#",
+      "#..................................#",
+      "+..................................#",
+      "+.................D................#",
+      "#..................................#",
+      "#..................................#",
+      "#..................................#",
+      "#.......xx................xx.......#",
+      "#.......xx................xx.......#",
+      "#..................................#",
+      "#..................................#",
+      "#..E............................E..#",
+      "#..................................#",
+      "#################>>#################"
     ]
   }
 ];

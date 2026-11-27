@@ -3,44 +3,58 @@
 // Load after room.js and enemy-types.js.
 
 // What each character in a template means. Enemy letters stand on floor. A + is a door:
-// it is a wall until the generator opens it.
+// it is a wall until the generator opens it. A = is the way out to the overworld (start rooms
+// only): it is open from the start, and never needs another room next to it. A > is the door to
+// the next area (boss rooms only): it is shut until the room is cleared, and no other room is
+// ever placed against it.
 const ROOM_CHARS = Object.freeze({
   "#": TILE.WALL,
   ".": TILE.FLOOR,
   o: TILE.PIT,
   x: TILE.INTERIOR_WALL,
-  "+": TILE.WALL
+  "+": TILE.WALL,
+  "=": TILE.OVERWORLD_EXIT,
+  ">": TILE.DOOR_CLOSED
 });
 const ENEMY_CHARS = Object.freeze({
   J: "Jelly",
-  Z: "Zombie",
+  Z: "Ghoul",
   S: "Skeleton",
   B: "Bat",
-  E: "Eyeball",
-  D: "Demon"
+  E: "PeeperJr",
+  K: "Bouncer",
+  T: "SparkBark",
+  D: "DemonKnight",
+  L: "Blockette",
+  P: "ShadowWizardPurple",
+  Y: "ShadowWizardYellow",
+  G: "ShadowWizardGreen"
 });
 const DOOR_CHAR = "+";
+const OVERWORLD_EXIT_CHAR = "=";
+const ONWARD_DOOR_CHAR = ">";
 const PLAYER_START_CHAR = "@";
 const ROOM_ROLES = Object.freeze(["start", "normal", "boss"]);
 const SIDE_LABELS = Object.freeze({ N: "north", E: "east", S: "south", W: "west" });
 const DOOR_WIDTH = 2; // tiles. Every door is this wide so any two doors can meet.
 
 function isWalkableChar(ch) {
-  return ch === "." || ch === PLAYER_START_CHAR || ENEMY_CHARS[ch] !== undefined;
+  return ch === "." || ch === PLAYER_START_CHAR || ch === OVERWORLD_EXIT_CHAR || ENEMY_CHARS[ch] !== undefined;
 }
 
-// Finds every run of + along the four outer walls. Returns a list of
+// Finds every run of + (or of another character, such as the = of the overworld exit) along the
+// four outer walls. Returns a list of
 //   { side, start, length }
 // where start is the tile number along the wall (the column for N and S, the row for E and W)
-// where the run begins. A + anywhere else is ignored here; the validator reports it.
-function findDoorRuns(text) {
+// where the run begins. The character anywhere else is ignored here; the validator reports it.
+function findDoorRuns(text, doorChar = DOOR_CHAR) {
   const rows = text.length;
   const cols = text[0].length;
   const runs = [];
   const scan = (side, length, charAt) => {
     let start = null;
     for (let i = 0; i <= length; i++) {
-      const isDoor = i < length && charAt(i) === DOOR_CHAR;
+      const isDoor = i < length && charAt(i) === doorChar;
       if (isDoor && start === null) {
         start = i;
       } else if (!isDoor && start !== null) {
@@ -80,11 +94,15 @@ function doorTiles(cols, rows, side, start) {
 }
 
 // Reads one template into the shape the generator and TemplateRoom use:
-//   { name, role, text, cols, rows, grid, spawns, player, doors }
+//   { name, role, text, cols, rows, grid, spawns, player, doors, overworldExit }
 //   grid    tile types, row by row (doors are walls until opened)
-//   spawns  [{ type, col, row }] one per enemy letter
+//   spawns  [{ type, col, row }] one per enemy letter. An enemy the template gives a route (see
+//           template.patrols) also has patrol: a list of { dx, dy } tile offsets from its own tile
 //   player  { col, row } where @ is, or null
 //   doors   [{ index, side, start, tiles: [{col, row}, ...] }] one per drawn door
+//   overworldExit  { side, start, tiles, inside } for the = way out (tiles in the wall, inside the two
+//           floor tiles next to them), or null
+//   onwardDoor     the same for the > door to the next area, or null
 // Assumes the template already passed validateRoomTemplates.
 function parseRoomTemplate(template) {
   const text = template.rows;
@@ -97,7 +115,9 @@ function parseRoomTemplate(template) {
     grid: [],
     spawns: [],
     player: null,
-    doors: []
+    doors: [],
+    overworldExit: null,
+    onwardDoor: null
   };
   for (let row = 0; row < parsed.rows; row++) {
     const tiles = [];
@@ -115,6 +135,13 @@ function parseRoomTemplate(template) {
     }
     parsed.grid.push(tiles);
   }
+  // A route starts on the tile of the enemy that walks it. Its stops become offsets from that tile.
+  for (const route of template.patrols || []) {
+    const spawn = parsed.spawns.find((s) => s.col === route[0].col && s.row === route[0].row);
+    if (spawn) {
+      spawn.patrol = route.map((stop) => ({ dx: stop.col - route[0].col, dy: stop.row - route[0].row }));
+    }
+  }
   findDoorRuns(text).forEach((run, index) => {
     parsed.doors.push({
       index,
@@ -123,6 +150,16 @@ function parseRoomTemplate(template) {
       tiles: doorTiles(parsed.cols, parsed.rows, run.side, run.start).wall
     });
   });
+  const exitRun = findDoorRuns(text, OVERWORLD_EXIT_CHAR)[0];
+  if (exitRun) {
+    const { wall, inside } = doorTiles(parsed.cols, parsed.rows, exitRun.side, exitRun.start);
+    parsed.overworldExit = { side: exitRun.side, start: exitRun.start, tiles: wall, inside };
+  }
+  const onwardRun = findDoorRuns(text, ONWARD_DOOR_CHAR)[0];
+  if (onwardRun) {
+    const { wall, inside } = doorTiles(parsed.cols, parsed.rows, onwardRun.side, onwardRun.start);
+    parsed.onwardDoor = { side: onwardRun.side, start: onwardRun.start, tiles: wall, inside };
+  }
   return parsed;
 }
 
@@ -192,6 +229,45 @@ function validateRoomTemplates(templates = ROOM_TEMPLATES) {
       return;
     }
 
+    // Patrol routes: each is a list of { col, row } stops that starts on the tile of a patrolling
+    // enemy (a Blockette, L) and stays on floor. The enemy walks them in turn, then back to the start.
+    if (t.patrols !== undefined) {
+      if (!Array.isArray(t.patrols)) {
+        bad("patrols must be a list of routes");
+      } else {
+        const startTiles = new Set();
+        t.patrols.forEach((route, n) => {
+          const where = "patrol route #" + (n + 1);
+          const goodStops = Array.isArray(route) && route.length >= 2
+            && route.every((p) => p && Number.isInteger(p.col) && Number.isInteger(p.row));
+          if (!goodStops) {
+            bad(where + " must be a list of at least 2 { col, row } stops");
+            return;
+          }
+          for (const p of route) {
+            const onMap = p.col >= 0 && p.row >= 0 && p.col < cols && p.row < rows;
+            if (!onMap || !isWalkableChar(t.rows[p.row][p.col])) {
+              bad(where + " has a stop at column " + p.col + ", row " + p.row + " that is not on floor");
+            }
+          }
+          if (route.some((p, i) => i > 0 && p.col === route[i - 1].col && p.row === route[i - 1].row)) {
+            bad(where + " has two stops in a row on the same tile");
+          }
+          const first = route[0];
+          const startChar = first.row >= 0 && first.row < rows ? t.rows[first.row][first.col] : undefined;
+          const startType = ENEMY_TYPES[ENEMY_CHARS[startChar]];
+          if (!startType || startType.move !== "patrol") {
+            bad(where + " must start on the tile of a patrolling enemy (a Blockette, L)");
+          }
+          const key = first.col + "," + first.row;
+          if (startTiles.has(key)) {
+            bad("two patrol routes start on the same tile, column " + first.col + ", row " + first.row);
+          }
+          startTiles.add(key);
+        });
+      }
+    }
+
     if (role === "start" && starts !== 1) {
       bad("a start room needs exactly one @ (it has " + starts + ")");
     }
@@ -202,21 +278,26 @@ function validateRoomTemplates(templates = ROOM_TEMPLATES) {
     // The outer ring is wall or door. Corners are always wall. Doors only go on the ring.
     let ringOk = true;
     let looseDoor = false;
+    let looseExit = false;
     for (let r = 0; r < rows; r++) {
       for (let c = 0; c < cols; c++) {
         const ch = t.rows[r][c];
         const onRing = r === 0 || c === 0 || r === rows - 1 || c === cols - 1;
         const onCorner = (r === 0 || r === rows - 1) && (c === 0 || c === cols - 1);
-        if (onRing && ch !== "#" && ch !== DOOR_CHAR) ringOk = false;
+        if (onRing && ch !== "#" && ch !== DOOR_CHAR && ch !== OVERWORLD_EXIT_CHAR && ch !== ONWARD_DOOR_CHAR) ringOk = false;
         if (onCorner && ch !== "#") ringOk = false;
         if (!onRing && ch === DOOR_CHAR) looseDoor = true;
+        if (!onRing && (ch === OVERWORLD_EXIT_CHAR || ch === ONWARD_DOOR_CHAR)) looseExit = true;
       }
     }
     if (!ringOk) {
-      bad("the outer ring must be all # or + (corners must be #)");
+      bad("the outer ring must be all #, +, = or > (corners must be #)");
     }
     if (looseDoor) {
       bad("a + door can only go on the outer wall");
+    }
+    if (looseExit) {
+      bad("the = way out and the > door can only go on the outer wall");
     }
 
     // Doors: each is exactly DOOR_WIDTH tiles, with plain floor just inside, and every room
@@ -235,6 +316,78 @@ function validateRoomTemplates(templates = ROOM_TEMPLATES) {
       if (inside.some((p) => t.rows[p.row][p.col] !== ".")) {
         bad("the door on the " + where + " needs plain floor (.) just inside it");
       }
+    }
+
+    // The way out to the overworld: a start room can have one (the ones in room-templates.js all
+    // do, and a spec checks that), DOOR_WIDTH tiles wide, with plain floor just inside it and a
+    // wall tile between it and any door. No other room can have one.
+    const exits = findDoorRuns(t.rows, OVERWORLD_EXIT_CHAR);
+    if (role !== "start" && exits.length > 0) {
+      bad("only a start room can have a = way out to the overworld");
+    }
+    if (role === "start" && exits.length > 1) {
+      bad("a start room can have only one way out to the overworld; it has " + exits.length);
+    }
+    for (const run of role === "start" ? exits : []) {
+      const where = SIDE_LABELS[run.side] + " wall, tile " + run.start;
+      if (run.length !== DOOR_WIDTH) {
+        bad("the way out on the " + where + " is " + run.length + " tiles wide; it must be " + DOOR_WIDTH);
+        continue;
+      }
+      const { inside } = doorTiles(cols, rows, run.side, run.start);
+      if (inside.some((p) => t.rows[p.row][p.col] !== ".")) {
+        bad("the way out on the " + where + " needs plain floor (.) just inside it");
+      }
+      const touching = runs.some((d) => d.side === run.side &&
+        d.start < run.start + run.length + 1 && run.start < d.start + d.length + 1);
+      if (touching) {
+        bad("the way out on the " + where + " is touching a door; leave a wall tile between them");
+      }
+    }
+
+    // The door to the next area: a boss room can have one, built like a door, with plain floor
+    // just inside it and a wall tile between it and any other door or way out. No other room can.
+    const onward = findDoorRuns(t.rows, ONWARD_DOOR_CHAR);
+    if (role !== "boss" && onward.length > 0) {
+      bad("only a boss room can have a > door to the next area");
+    }
+    if (role === "boss" && onward.length > 1) {
+      bad("a boss room can have only one > door to the next area; it has " + onward.length);
+    }
+    for (const run of role === "boss" ? onward : []) {
+      const where = SIDE_LABELS[run.side] + " wall, tile " + run.start;
+      if (run.length !== DOOR_WIDTH) {
+        bad("the > door on the " + where + " is " + run.length + " tiles wide; it must be " + DOOR_WIDTH);
+        continue;
+      }
+      const { inside } = doorTiles(cols, rows, run.side, run.start);
+      if (inside.some((p) => t.rows[p.row][p.col] !== ".")) {
+        bad("the > door on the " + where + " needs plain floor (.) just inside it");
+      }
+      const touching = runs.concat(exits).some((d) => d.side === run.side &&
+        d.start < run.start + run.length + 1 && run.start < d.start + d.length + 1);
+      if (touching) {
+        bad("the > door on the " + where + " is touching another door; leave a wall tile between them");
+      }
+    }
+
+    // A # inside the room is wall sticking out of the outer wall. Its art has sloped corners,
+    // so it must be at least 2 tiles thick: floor on both sides of one tile cannot be drawn.
+    const isFloorSide = (r, c) => t.rows[r][c] !== "#" && t.rows[r][c] !== DOOR_CHAR && t.rows[r][c] !== OVERWORLD_EXIT_CHAR && t.rows[r][c] !== ONWARD_DOOR_CHAR;
+    let thinWall = null;
+    for (let r = 1; r < rows - 1 && !thinWall; r++) {
+      for (let c = 1; c < cols - 1; c++) {
+        if (t.rows[r][c] !== "#") continue;
+        const acrossRow = isFloorSide(r, c - 1) && isFloorSide(r, c + 1);
+        const acrossColumn = isFloorSide(r - 1, c) && isFloorSide(r + 1, c);
+        if (acrossRow || acrossColumn) {
+          thinWall = { c, r };
+          break;
+        }
+      }
+    }
+    if (thinWall) {
+      bad("the # at column " + thinWall.c + ", row " + thinWall.r + " is a wall only 1 tile thick; walls inside the room must be at least 2 tiles thick (use x for a 1 tile obstacle)");
     }
 
     // Every walkable tile must be reachable from every other one.
@@ -283,6 +436,8 @@ class TemplateRoom extends Room {
     super(x, y, template.cols * TILE_SIZE, template.rows * TILE_SIZE);
     this.template = template;
     this.doors = template.doors;
+    this.overworldExit = template.overworldExit; // null unless this is a start room
+    this.onwardDoor = template.onwardDoor; // null unless this is a boss room with a > door
     this.spawned = false;
     this.tileGrid = [];
     this.generateLayout();
@@ -311,7 +466,14 @@ class TemplateRoom extends Room {
       const type = ENEMY_TYPES[spawn.type];
       const centerX = this.x + (spawn.col + 0.5) * this.tileSize;
       const centerY = this.y + (spawn.row + 0.5) * this.tileSize;
-      this.enemies.push(createEnemy(spawn.type, centerX - type.length / 2, centerY - type.width / 2));
+      const enemy = createEnemy(spawn.type, centerX - type.length / 2, centerY - type.width / 2);
+      // Later dungeons are tougher: their enemies start with more health.
+      if (spawn.patrol) {
+        enemy.patrolPath = spawn.patrol.map((stop) => ({ ...stop })); // its own route, from the drawing
+      }
+      enemy.maxHealth = Math.max(1, Math.round(type.maxHealth * this.healthScale));
+      enemy.health = enemy.maxHealth;
+      this.enemies.push(enemy);
     }
   }
 
@@ -327,7 +489,12 @@ class TemplateRoom extends Room {
     };
   }
 
+  // Spawns the enemies the first time. The doors shut while any enemy is alive, and onClear
+  // opens them again. A room that is already cleared, or has no enemies, keeps its doors open.
   onEnter() {
     this.spawnEnemies();
+    if (!this.cleared && this.enemies.some((enemy) => !enemy.isDead())) {
+      this.closeDoors();
+    }
   }
 }
