@@ -176,14 +176,20 @@ function dropMoneyFor(enemy, room, rng = Math.random) {
   }
   const pieces = makeChange(rollGoldDrop(enemy, rng));
   const center = enemy.getCenter();
-  return pieces.map((id, i) => {
+  return tossMoney(pieces, center.x, center.y, rng);
+}
+
+// Makes drops for the given money ids (a list from makeChange), all starting in the air on the point
+// (cx, cy) and tossed out in different directions. One piece goes straight up and lands in place.
+function tossMoney(ids, cx, cy, rng = Math.random) {
+  return ids.map((id, i) => {
     const money = MONEY_TYPES[id];
     let toss = { vx: 0, vy: 0 };
-    if (pieces.length > 1) {
-      const angle = (i / pieces.length) * Math.PI * 2 - Math.PI / 2;
+    if (ids.length > 1) {
+      const angle = (i / ids.length) * Math.PI * 2 - Math.PI / 2;
       const speed = MONEY_TOSS_SPEED_MIN + rng() * (MONEY_TOSS_SPEED_MAX - MONEY_TOSS_SPEED_MIN);
       toss = { vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed };
     }
-    return new MoneyDrop(center.x - money.w / 2, center.y - money.h / 2, id, toss);
+    return new MoneyDrop(cx - money.w / 2, cy - money.h / 2, id, toss);
   });
 }

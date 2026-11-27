@@ -802,6 +802,7 @@ describe("New enemies", function () {
 
     it("walks its route in a loop and ignores the player", function () {
       const block = make("Blockette", 96, 96);
+      block.patrolPath = [{ dx: 4, dy: 0 }, { dx: 4, dy: 3 }, { dx: 0, dy: 3 }, { dx: 0, dy: 0 }];
       block.spawnTimer = 0;
       placePlayerRightOf(block, player, 20);
       player.pos.set(96 + 20, 96);
@@ -810,12 +811,13 @@ describe("New enemies", function () {
         block.update(new Player(560, 340), room);
         visited.add(block.patrolIndex);
       }
-      expect(visited.size).toBe(ENEMY_TYPES.Blockette.patrol.length);
+      expect(visited.size).toBe(block.patrolPath.length);
       expect(block.getBounds().x).toBeGreaterThanOrEqual(16);
     });
 
     it("faces the way it walks", function () {
       const block = make("Blockette", 96, 96);
+      block.patrolPath = [{ dx: 4, dy: 0 }, { dx: 4, dy: 3 }, { dx: 0, dy: 3 }, { dx: 0, dy: 0 }];
       for (let frame = 0; frame < 60; frame++) {
         block.update(new Player(560, 340), room);
       }
@@ -848,7 +850,7 @@ describe("New enemies", function () {
     it("purple fires a bolt along the nearest of the four sides", function () {
       const wiz = make("ShadowWizardPurple", 300, 200);
       placePlayerRightOf(wiz, player, 100);
-      player.pos.y -= 20; // above the line, nearest side is still right
+      player.pos.y -= 6; // a little above the line, still inside the bolt's path
       wiz.attackTimer = 0;
       const shots = tryAttackThroughWindup(wiz, player, room);
       expect(shots.length).toBe(1);

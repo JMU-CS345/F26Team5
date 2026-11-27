@@ -602,7 +602,7 @@ class Enemy {
     if (this.state !== "attack" || this.swingHit || this.damageCooldown > 0) {
       return false;
     }
-    if (!rectsOverlap(this.getSwingBox(attack.reach, attack.thickness), player.getBounds())) {
+    if (!rectsOverlap(this.getSwingBox(attack.reach, attack.thickness, attack.sideRaise), player.getBounds())) {
       return false;
     }
     player.takeDamage(attack.damage, this.directionTo(player));
@@ -614,14 +614,15 @@ class Enemy {
 
   // The box the sword (or bolt) covers, on the side the enemy faces. It reaches `reach` pixels
   // from the enemy's center and is `thickness` wide, which is `reach` for a sword, so a sword
-  // covers a square. Matches the four way swing art.
-  getSwingBox(reach, thickness = reach) {
+  // covers a square. Matches the four way swing art. `raise` lifts a box that points left or right
+  // that many pixels, for an enemy whose hands are above its middle.
+  getSwingBox(reach, thickness = reach, raise = 0) {
     const c = this.getCenter();
     if (this.facingDir === "left") {
-      return { x: c.x - reach, y: c.y - thickness / 2, w: reach, h: thickness };
+      return { x: c.x - reach, y: c.y - thickness / 2 - raise, w: reach, h: thickness };
     }
     if (this.facingDir === "right") {
-      return { x: c.x, y: c.y - thickness / 2, w: reach, h: thickness };
+      return { x: c.x, y: c.y - thickness / 2 - raise, w: reach, h: thickness };
     }
     if (this.facingDir === "up") {
       return { x: c.x - thickness / 2, y: c.y - reach, w: thickness, h: reach };

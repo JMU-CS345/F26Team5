@@ -20,9 +20,13 @@
 //                  front matters (a shield) or that walks about without chasing.
 //   blocksFront    optional, true for an enemy that shrugs off any hit coming at its front (a hit
 //                  that lands on its back or its sides still hurts). It needs facing "travel".
-//   patrol         only for move "patrol": a list of { dx, dy } tile offsets from where the enemy
-//                  spawned. It walks to each in turn, along the tiles, and loops forever. A leg it
-//                  cannot reach is skipped. An enemy can have its own route (enemy.patrolPath).
+//   patrol         only for move "patrol": either "follow" or a list of { dx, dy } tile offsets
+//                  from where the enemy spawned. "follow" walks with the wall, a pit or an obstacle
+//                  on its right hand: straight on until something is in the way, then round the
+//                  edge of it, forever. A list is a route: it walks to each stop in turn, along the
+//                  tiles, and loops forever (a leg it cannot reach is skipped). An enemy can have
+//                  its own route (enemy.patrolPath), and a room template can give one to each
+//                  patroller it draws (see "patrols" in room-templates.js). A route wins over type.patrol.
 //   flies          optional, true for an enemy that crosses pits and never falls into one.
 //                  Other enemies keep out of pits, and die if a shove carries them over one
 //                  (bosses are too big to fall).
@@ -36,8 +40,11 @@
 //                  windup (frames of shaking before the shot, aim locked at the start),
 //                  lead (0 to 1, how far ahead of a walking player to aim), aimSteps (the aim
 //                  snaps to this many evenly spaced directions, 8 for the four cardinals and
-//                  four diagonals) and stare (frames the player must stay in sight before the
-//                  enemy shoots; losing sight starts the count again).
+//                  four diagonals), inLine (true: with aimSteps, only shoot when the player is
+//                  standing in the path the snapped shot would fly along, so it never misses
+//                  by shooting along a side while the player is off at an angle) and stare
+//                  (frames the player must stay in sight before the enemy shoots; losing sight
+//                  starts the count again).
 //                  Every shoot may also have recover (frames standing still after the shot, for
 //                  the art) and volleys: a list of { count, spread } that it fires in turn, over
 //                  and over, instead of count and spread.
@@ -48,6 +55,8 @@
 //                  thickness (pixels, default reach) and active (frames the bolt can hurt, default
 //                  10). It turns to the nearest of the four sides toward the player and hurts
 //                  whoever is in the bolt. The detectionRange is how close the player must be.
+//                  sideRaise (pixels, default 0) lifts the bolt, its picture and the box that
+//                  hurts, when it points left or right, so it leaves the hands of a tall sprite.
 //                  strike calls lightning down on the spot where the player stands once windup
 //                  frames are over. The bolt only marks the spot for delay frames, then hurts
 //                  anyone there for active frames. It may have size (pixels, default 16) and
@@ -242,13 +251,9 @@ const ENEMY_TYPES = Object.freeze({
     detectionRange: 0, // it never notices the player: it just walks its route
     contactDamage: 1,
     move: "patrol",
-    // Walks a rectangle: 4 tiles right, 3 down, back left, back up.
-    patrol: [
-      { dx: 4, dy: 0 },
-      { dx: 4, dy: 3 },
-      { dx: 0, dy: 3 },
-      { dx: 0, dy: 0 }
-    ],
+    // Walks with a wall, pit or obstacle on its right hand, so it goes round the edge of the room
+    // and round anything standing in it. A room template can give it a route instead.
+    patrol: "follow",
     facing: "travel", // its shield is on the side it walks toward
     blocksFront: true,
     attack: null,
@@ -268,9 +273,10 @@ const ENEMY_TYPES = Object.freeze({
     contactDamage: 1,
     move: "wander",
     facing: "travel",
-    // A magic bolt along whichever of the four directions the player is nearest to.
+    // A magic bolt along whichever of the four directions the player is nearest to, but only once the
+    // player is standing in that line (inLine), so it never fires and misses.
     attack: { kind: "shoot", cooldown: 110, damage: 1, speed: 2.4, windup: 20, recover: 12, aimSteps: 4,
-      color: [150, 110, 255] },
+      inLine: true, color: [150, 110, 255] },
     boss: false,
     weakTo: ["Fire"],
     resists: ["Mind"],
@@ -287,7 +293,9 @@ const ENEMY_TYPES = Object.freeze({
     facing: "travel",
     // Short range lightning toward the nearest of the four sides. It reaches 40 pixels from the
     // wizard's middle, which is 32 pixels past its hitbox, the length of the lightning art.
-    attack: { kind: "zap", cooldown: 90, damage: 1, reach: 40, thickness: 16, windup: 24, active: 10, recover: 14 },
+    // sideRaise lifts it 4 pixels when it points left or right, to come out of his hands.
+    attack: { kind: "zap", cooldown: 90, damage: 1, reach: 40, thickness: 16, windup: 24, active: 10, recover: 14,
+      sideRaise: 4 },
     boss: false,
     weakTo: ["Ice"],
     resists: ["Fire"],
@@ -371,6 +379,9 @@ function checkEnemyAttack(attackTable, bad) {
       bad("attack.recover must be at least 0");
     }
   }
+  if (attack.sideRaise !== undefined && (attack.kind !== "zap" || !isNumberAtLeast(attack.sideRaise, 0))) {
+    bad("attack.sideRaise must be a number of at least 0, and only a zap has one");
+  }
   if (attack.kind === "shoot") {
     if (attack.windup !== undefined && !isNumberAtLeast(attack.windup, 0)) {
       bad("attack.windup must be at least 0");
@@ -392,6 +403,9 @@ function checkEnemyAttack(attackTable, bad) {
     }
     if (attack.aimSteps !== undefined && !(Number.isInteger(attack.aimSteps) && attack.aimSteps >= 2)) {
       bad("attack.aimSteps must be a whole number of at least 2");
+    }
+    if (attack.inLine !== undefined && (typeof attack.inLine !== "boolean" || attack.aimSteps === undefined)) {
+      bad("attack.inLine must be true or false, and needs aimSteps");
     }
     if (attack.stare !== undefined && !isNumberAtLeast(attack.stare, 1)) {
       bad("attack.stare must be a number of at least 1");
@@ -434,9 +448,11 @@ function checkEnemyPhases(phases, bad) {
   }
 }
 
-// True for a list of at least one { dx, dy } whole-number tile offset where some offset is not 0, 0.
+// True for "follow", or for a list of at least one { dx, dy } whole-number tile offset where some
+// offset is not 0, 0.
 function isPatrolPath(path) {
   return (
+    path === "follow" ||
     Array.isArray(path) &&
     path.length > 0 &&
     path.every((p) => p && Number.isInteger(p.dx) && Number.isInteger(p.dy)) &&
@@ -518,7 +534,7 @@ function validateEnemyTypes(types = ENEMY_TYPES) {
       bad("noKnockback must be true or false");
     }
     if (type.move === "patrol" && !isPatrolPath(type.patrol)) {
-      bad("patrol needs a patrol list of { dx, dy } tile offsets, not all zero");
+      bad('patrol needs "follow" or a patrol list of { dx, dy } tile offsets, not all zero');
     }
     if (type.move === "keepDistance" && !isNumberAtLeast(type.keepRange, 1)) {
       bad("keepDistance needs keepRange above 0");

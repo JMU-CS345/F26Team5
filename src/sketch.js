@@ -15,6 +15,7 @@ let inventorySelection = null;
 let inventoryInfoLines = [];
 let resumeInputBlocked = false;
 let activeDialogue;
+const debugMenu = new DebugMenu(); // F4 or ` (controller/debug-menu.js)
 let setupDone = false; // draw() waits for this, because setup() loads art with await
 //temp
 const ROOM_WIDTH = 640;
@@ -91,6 +92,7 @@ function startRun() {
   run = new Run(null, game.selectedClass, game.selectedModel, game.appearance, overworlds, makeDungeon, finalRoom);
   updateCamera();
   debugTools.reset();
+  debugMenu.close();
   clearDyingEnemies();
   inventoryDrag = null;
   inventorySelection = null;
@@ -222,17 +224,28 @@ function draw() {
   if (resumeInputBlocked && !heldInputBlocked) {
     resumeInputBlocked = false;
   }
+  if (debugMenu.open && !game.isPlaying()) {
+    debugMenu.close();
+  }
+  // With the debug menu open the player stands still, but the room keeps running.
+  const inputBlocked = heldInputBlocked || debugMenu.open;
   const none = new p5.Vector(0, 0);
   const dead = run.update({
-    move: heldInputBlocked ? none : getMoveDirection(keyIsDown),
-    fire: heldInputBlocked ? none : getFireDirection(keyIsDown),
-    frozen: activeDialogue.isActive()
+    move: inputBlocked ? none : getMoveDirection(keyIsDown),
+    fire: inputBlocked ? none : getFireDirection(keyIsDown),
+    frozen: activeDialogue.isActive() || debugMenu.open
   });
+  if (debugTools.invincible && !run.player.isDead()) {
+    run.player.health = run.player.maxHealth;
+  }
   for (const enemy of dead) {
     startEnemyDeath(enemy); // the model has already removed it from the room
   }
   updateCamera();
   drawRunScene(run);
+  if (debugMenu.open) {
+    drawDebugMenu(debugMenu);
+  }
   if (run.player.showDeathScreen()) {
     activeDialogue.close();
     game.playerDied();
@@ -349,6 +362,19 @@ function keyPressed() {
     debugTools.overlay = !debugTools.overlay;
     return false;
   }
+  if (game.isPlaying() && isDebugMenuToggleKey(key, keyCode)) {
+    debugMenu.toggle();
+    resumeInputBlocked = !debugMenu.open; // keys still held when it closes do not move the player
+    return false;
+  }
+  if (debugMenu.open) {
+    if (!game.isPlaying()) {
+      debugMenu.close();
+    } else {
+      handleDebugMenuKey(key, keyCode);
+      return false; // the game ignores every key while the menu is open
+    }
+  }
   if (game.isModelSelect() || game.isMenu()) {
     if (handleMenuKey(key)) {
       return false; // Space would scroll the page
@@ -441,7 +467,28 @@ function keyPressed() {
   }
 }
 
+// A key while the debug menu is open: pick an entry or category, do the entry, or close.
+function handleDebugMenuKey(key, keyCode) {
+  const action = getDebugMenuAction(key, keyCode);
+  if (action === null) {
+    return;
+  }
+  if (action.type === "row") {
+    debugMenu.moveRow(action.step);
+  } else if (action.type === "tab") {
+    debugMenu.moveTab(action.step);
+  } else if (action.type === "activate") {
+    debugMenu.activate({ run, dialogue: activeDialogue });
+  } else {
+    debugMenu.close();
+    resumeInputBlocked = true;
+  }
+}
+
 function mousePressed() {
+  if (debugMenu.open) {
+    return false; // the menu is keyboard only; keep clicks off the HUD behind it
+  }
   const pointer = canvasPointer();
   if ((game.isPlaying() || game.isInventory())
       && inventoryHudButtonAt(pointer.x, pointer.y)) {

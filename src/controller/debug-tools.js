@@ -1,8 +1,10 @@
 // Testing aids for the sketch, kept out of the game code: press E to spawn enemies, N to put a
-// test NPC in the room, F3 to toggle the enemy debug overlay. Load this after enemy-types.js.
+// test NPC in the room, F3 to toggle the enemy debug overlay. F4 or ` opens the debug menu (see
+// debug-menu.js). Load this after enemy-types.js.
 
 const debugTools = {
   overlay: false, // F3: hitboxes and detection circles for enemies
+  invincible: false, // set from the debug menu: the sketch refills the player's health every frame
   nextSpawnIndex: 0,
 
   // Called when a run starts. The first spawn is the boss, so it is easy to test.

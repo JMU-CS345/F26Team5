@@ -112,11 +112,15 @@ function drawEnemyZap(enemy) {
   const frame = frames[Math.floor(frameCount / art.zap.frameTime) % frames.length];
   const turns = { down: 0, left: HALF_PI, up: PI, right: -HALF_PI };
   const center = enemy.getCenter();
+  // Pointing left or right, the bolt comes out of the hands, which sit sideRaise pixels above the
+  // middle (the same lift the damage box has). Across the turned art, that is sideways.
+  const raise = (enemy.getAttack() && enemy.getAttack().sideRaise) || 0;
+  const lift = enemy.facingDir === "right" ? raise : enemy.facingDir === "left" ? -raise : 0;
   push();
   translate(center.x, center.y);
   rotate(turns[enemy.facingDir]);
   noTint();
-  image(enemySheets[frame.sheet], -frame.w / 2, enemy.width / 2, frame.w, frame.h, frame.x, frame.y, frame.w, frame.h);
+  image(enemySheets[frame.sheet], -frame.w / 2 + lift, enemy.width / 2, frame.w, frame.h, frame.x, frame.y, frame.w, frame.h);
   pop();
 }
 

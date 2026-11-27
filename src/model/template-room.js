@@ -96,7 +96,8 @@ function doorTiles(cols, rows, side, start) {
 // Reads one template into the shape the generator and TemplateRoom use:
 //   { name, role, text, cols, rows, grid, spawns, player, doors, overworldExit }
 //   grid    tile types, row by row (doors are walls until opened)
-//   spawns  [{ type, col, row }] one per enemy letter
+//   spawns  [{ type, col, row }] one per enemy letter. An enemy the template gives a route (see
+//           template.patrols) also has patrol: a list of { dx, dy } tile offsets from its own tile
 //   player  { col, row } where @ is, or null
 //   doors   [{ index, side, start, tiles: [{col, row}, ...] }] one per drawn door
 //   overworldExit  { side, start, tiles, inside } for the = way out (tiles in the wall, inside the two
@@ -133,6 +134,13 @@ function parseRoomTemplate(template) {
       }
     }
     parsed.grid.push(tiles);
+  }
+  // A route starts on the tile of the enemy that walks it. Its stops become offsets from that tile.
+  for (const route of template.patrols || []) {
+    const spawn = parsed.spawns.find((s) => s.col === route[0].col && s.row === route[0].row);
+    if (spawn) {
+      spawn.patrol = route.map((stop) => ({ dx: stop.col - route[0].col, dy: stop.row - route[0].row }));
+    }
   }
   findDoorRuns(text).forEach((run, index) => {
     parsed.doors.push({
@@ -219,6 +227,45 @@ function validateRoomTemplates(templates = ROOM_TEMPLATES) {
     if (unknown.size > 0) {
       bad("unknown character " + [...unknown].map((c) => '"' + c + '"').join(" "));
       return;
+    }
+
+    // Patrol routes: each is a list of { col, row } stops that starts on the tile of a patrolling
+    // enemy (a Blockette, L) and stays on floor. The enemy walks them in turn, then back to the start.
+    if (t.patrols !== undefined) {
+      if (!Array.isArray(t.patrols)) {
+        bad("patrols must be a list of routes");
+      } else {
+        const startTiles = new Set();
+        t.patrols.forEach((route, n) => {
+          const where = "patrol route #" + (n + 1);
+          const goodStops = Array.isArray(route) && route.length >= 2
+            && route.every((p) => p && Number.isInteger(p.col) && Number.isInteger(p.row));
+          if (!goodStops) {
+            bad(where + " must be a list of at least 2 { col, row } stops");
+            return;
+          }
+          for (const p of route) {
+            const onMap = p.col >= 0 && p.row >= 0 && p.col < cols && p.row < rows;
+            if (!onMap || !isWalkableChar(t.rows[p.row][p.col])) {
+              bad(where + " has a stop at column " + p.col + ", row " + p.row + " that is not on floor");
+            }
+          }
+          if (route.some((p, i) => i > 0 && p.col === route[i - 1].col && p.row === route[i - 1].row)) {
+            bad(where + " has two stops in a row on the same tile");
+          }
+          const first = route[0];
+          const startChar = first.row >= 0 && first.row < rows ? t.rows[first.row][first.col] : undefined;
+          const startType = ENEMY_TYPES[ENEMY_CHARS[startChar]];
+          if (!startType || startType.move !== "patrol") {
+            bad(where + " must start on the tile of a patrolling enemy (a Blockette, L)");
+          }
+          const key = first.col + "," + first.row;
+          if (startTiles.has(key)) {
+            bad("two patrol routes start on the same tile, column " + first.col + ", row " + first.row);
+          }
+          startTiles.add(key);
+        });
+      }
     }
 
     if (role === "start" && starts !== 1) {
@@ -421,6 +468,9 @@ class TemplateRoom extends Room {
       const centerY = this.y + (spawn.row + 0.5) * this.tileSize;
       const enemy = createEnemy(spawn.type, centerX - type.length / 2, centerY - type.width / 2);
       // Later dungeons are tougher: their enemies start with more health.
+      if (spawn.patrol) {
+        enemy.patrolPath = spawn.patrol.map((stop) => ({ ...stop })); // its own route, from the drawing
+      }
       enemy.maxHealth = Math.max(1, Math.round(type.maxHealth * this.healthScale));
       enemy.health = enemy.maxHealth;
       this.enemies.push(enemy);

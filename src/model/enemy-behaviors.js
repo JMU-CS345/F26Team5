@@ -58,13 +58,20 @@ const ENEMY_MOVES = Object.freeze({
     }
   },
 
-  // Walks its patrol route, a loop of tile offsets from where it spawned (type.patrol, or the
-  // enemy's own patrolPath). It follows the tiles, faces the way it walks, and ignores the
-  // player. A stop it cannot reach is skipped, so it never gets stuck on one.
+  // Walks its patrol: the enemy's own route (patrolPath, which a room template can give it), or
+  // else type.patrol. A route is a loop of tile offsets from where it spawned. It follows the
+  // tiles, faces the way it walks, and ignores the player. A stop it cannot reach is skipped, so
+  // it never gets stuck on one. type.patrol "follow" has no route: it walks with the wall, a pit
+  // or an obstacle on its right hand (see followWallsStep).
   patrol: {
     roams: true,
     run: function (enemy, player, room) {
-      patrolStep(enemy, room);
+      const path = enemy.patrolPath || enemy.type.patrol;
+      if (path === "follow") {
+        followWallsStep(enemy, room);
+      } else {
+        patrolStep(enemy, room);
+      }
     }
   },
 
@@ -198,6 +205,80 @@ function patrolStep(enemy, room) {
     target = patrolStop(enemy, room, enemy.patrolIndex);
   }
   enemy.walkTileRoute(target, room, speed);
+}
+
+// The four headings, clockwise from up. Turning right is one step on, turning left one step back.
+const FOLLOW_HEADINGS = Object.freeze([
+  { dx: 0, dy: -1, name: "up" },
+  { dx: 1, dy: 0, name: "right" },
+  { dx: 0, dy: 1, name: "down" },
+  { dx: -1, dy: 0, name: "left" }
+]);
+
+// What a wall follower remembers: its heading (an index into FOLLOW_HEADINGS), whether it has found
+// a wall to keep on its right yet, and the middle of the tile it is walking to.
+function followMemory(enemy) {
+  if (!enemy.memory.follow) {
+    const start = FOLLOW_HEADINGS.findIndex((h) => h.name === enemy.facingDir);
+    enemy.memory.follow = { heading: start === -1 ? 2 : start, touching: false, target: null };
+  }
+  return enemy.memory.follow;
+}
+
+// True when a one tile enemy can stand on the tile: not a wall, a shut door or a pit.
+function followTileFree(room, col, row) {
+  const ts = room.tileSize;
+  const px = room.x + (col + 0.5) * ts;
+  const py = room.y + (row + 0.5) * ts;
+  return !room.isWallAt(px, py) && !room.isPitAt(px, py);
+}
+
+// One frame of walking with a wall on the right hand, for an enemy one tile big. It goes tile by
+// tile and decides at the middle of each tile. Until it has met something it goes straight on and,
+// when blocked, turns left (so what blocked it is on its right). After that it turns right whenever
+// it can (the edge it was following ended, so it goes round the corner), else straight on, else
+// left, else back. Walls, shut doors, pits and obstacles all count, so it goes round the room's edge
+// and round anything standing in the room, and never walks a fixed shape.
+function followWallsStep(enemy, room) {
+  if (!room || typeof room.isWallAt !== "function") {
+    return;
+  }
+  const follow = followMemory(enemy);
+  const speed = enemy.getSpeed();
+  if (follow.target) {
+    const center = enemy.getCenter();
+    const dx = follow.target.x - center.x;
+    const dy = follow.target.y - center.y;
+    const distance = Math.hypot(dx, dy);
+    if (distance > speed) {
+      const before = enemy.pos.copy();
+      moveWithCollision(enemy, (dx / distance) * speed, (dy / distance) * speed, room);
+      if (enemy.pos.dist(before) < 0.000001) {
+        follow.target = null; // something is in the way: decide again next frame
+      }
+      return;
+    }
+    enemy.pos.set(follow.target.x - enemy.length / 2, follow.target.y - enemy.width / 2);
+    follow.target = null;
+  }
+  const ts = room.tileSize;
+  const center = enemy.getCenter();
+  const col = Math.floor((center.x - room.x) / ts);
+  const row = Math.floor((center.y - room.y) / ts);
+  const heading = (turns) => FOLLOW_HEADINGS[(follow.heading + turns + 4) % 4];
+  const free = (turns) => followTileFree(room, col + heading(turns).dx, row + heading(turns).dy);
+  const order = follow.touching ? [1, 0, -1, 2] : [0, -1, 1, 2]; // turns from the current heading
+  const turns = order.find(free);
+  if (turns === undefined) {
+    return; // boxed in
+  }
+  follow.heading = (follow.heading + turns + 4) % 4;
+  if (!follow.touching && !free(1)) {
+    follow.touching = true; // there is something on its right: it has a wall to follow
+  }
+  const next = FOLLOW_HEADINGS[follow.heading];
+  follow.target = new p5.Vector(room.x + (col + next.dx + 0.5) * ts, room.y + (row + next.dy + 0.5) * ts);
+  enemy.faceDirection(next.dx, next.dy);
 }
 
 // What a wandering enemy remembers: the way it is going and how long it keeps going that way.
@@ -363,6 +444,18 @@ function shootAim(enemy, player, attack) {
   return aim;
 }
 
+const ENEMY_LINE_MARGIN = 2; // pixels a player must be well inside the shot's path, not just brushing it
+
+// True when a shot flown from the enemy along aim would hit the player: the player's middle is
+// within the width of the shot and the player of the line the shot flies along. For attack.inLine.
+function playerInShotLine(enemy, player, aim) {
+  const toPlayer = player.getCenter().sub(enemy.getCenter());
+  const dir = aim.copy().normalize();
+  const across = Math.abs(toPlayer.x * dir.y - toPlayer.y * dir.x);
+  const lane = (player.getBounds().w + PROJECTILE_WIDTH) / 2 - ENEMY_LINE_MARGIN;
+  return across <= lane;
+}
+
 // The { count, spread } of the next volley. An attack with attack.volleys goes through the list
 // in turn and starts over at the end. Any other attack always fires attack.count and spread.
 function nextVolley(enemy, attack) {
@@ -459,6 +552,9 @@ const ENEMY_ATTACKS = Object.freeze({
       const aim = shootAim(enemy, player, attack);
       if (aim.magSq() === 0) {
         return []; // no direction to aim, and a zero vector would give NaN
+      }
+      if (attack.inLine && !playerInShotLine(enemy, player, aim)) {
+        return []; // not lined up yet: wait, and shoot the moment the player steps into the line
       }
       enemy.attackTimer = attack.cooldown;
       memory.stareFrames = 0;

@@ -10,7 +10,7 @@
 //   J  Jelly   Z  Ghoul   S  Skeleton   B  Bat   E  Peeper Jr. (an eye turret)
 //   D  Demon Knight (the boss, 64x64, on floor)
 //   K  Bouncer (a knight, 32x32)   T  Spark Bark (a tree, a stationary turret)
-//   L  Blockette (patrols a 4 by 3 tile loop and blocks hits from the front)
+//   L  Blockette (patrols and blocks hits from the front; see patrols below)
 //   P  purple Shadow Wizard   Y  yellow Shadow Wizard   G  green Shadow Wizard (32x32)
 //   @  where the player starts (start rooms only, exactly one)
 //
@@ -34,8 +34,15 @@
 //
 // role: "start" (the first room), "boss" (the last room) or "normal" (everything else).
 // Size: 8 to 40 tiles wide and 8 to 25 tall. Every room needs at least one door.
+// Patrols: a room can give its Blockettes a route. Add  patrols: [ [ { col, row }, ... ], ... ]  after
+// rows. Each route is a list of stops (the column and row of a floor tile, counting from 0 at the
+// top left corner of the drawing), starts on the tile of the L that walks it, and goes through the
+// stops in order, then back to the start, forever. It finds its own way between stops, round any
+// walls and obstacles. A Blockette with no route walks with a wall, pit or obstacle on its right hand
+// instead: round the edge of the room and round whatever stands in it.
+//
 // validateRoomTemplates() checks all of this, and the specs run it, so a mistake shows up as
-// a failing spec with the room's name. Keep a 5x5 area around a D, a 3x3 area around a K or a G, and the 5x4 loop of a L clear (the Demon Knight, the Bouncer and the green wizard are big, and the Blockette walks a loop).
+// a failing spec with the room's name. Keep a 5x5 area around a D and a 3x3 area around a K or a G clear (the Demon Knight, the Bouncer and the green wizard are big).
 const ROOM_TEMPLATES = [
   {
     name: "start-hall",
@@ -212,8 +219,9 @@ const ROOM_TEMPLATES = [
   {
     name: "shield-patrol",
     role: "normal",
-    // Two Blockettes patrol a loop each (4 tiles across, 3 down). Shoot them from behind or the
-    // side. A Ghoul waits in the middle of the room.
+    // Two Blockettes patrol down the room, one on each side of the middle: the left one goes across
+    // the top, down and back, and the right one the other way. Shoot them from behind or the side.
+    // A Ghoul waits in the middle of the room.
     rows: [
       "###########++###########",
       "#......................#",
@@ -228,6 +236,10 @@ const ROOM_TEMPLATES = [
       "#......................#",
       "#......................#",
       "###########++###########"
+    ],
+    patrols: [
+      [{ col: 3, row: 2 }, { col: 9, row: 2 }, { col: 9, row: 10 }, { col: 3, row: 10 }],
+      [{ col: 19, row: 2 }, { col: 13, row: 2 }, { col: 13, row: 10 }, { col: 19, row: 10 }]
     ]
   },
   {
@@ -877,7 +889,14 @@ const ROOM_TEMPLATES = [
   {
     name: "shield-maze",
     role: "normal",
-    // Maze room with Blockettes.
+    // Maze room with Blockettes. Each has its own route: the top middle chamber, the chamber on the
+    // right, and one each along the left and right of the bottom.
+    patrols: [
+      [{ col: 10, row: 3 }, { col: 16, row: 3 }, { col: 16, row: 7 }, { col: 4, row: 7 }, { col: 4, row: 4 }, { col: 10, row: 4 }],
+      [{ col: 25, row: 8 }, { col: 25, row: 2 }, { col: 21, row: 2 }, { col: 21, row: 4 }, { col: 25, row: 4 }],
+      [{ col: 4, row: 11 }, { col: 4, row: 13 }, { col: 12, row: 13 }, { col: 12, row: 10 }],
+      [{ col: 23, row: 11 }, { col: 23, row: 13 }, { col: 17, row: 13 }, { col: 17, row: 11 }]
+    ],
     rows: [
       "#############++#############",
       "######...........###.......#",
